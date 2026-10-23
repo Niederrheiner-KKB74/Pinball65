@@ -1,0 +1,135 @@
+/*
+ * hw.c – Hardwarezugriff fuer Pinball65
+ *
+ * Die VIC-IV-Einrichtung folgt dem FCM-Beispiel aus dem llvm-mos-SDK
+ * (examples/mega65/mandelbrot_fcm.cc), das auf dem MEGA65 erprobt ist.
+ */
+#include <mega65.h>
+#include "hw.h"
+
+/* Enhanced-DMA-Job: Optionen, Ende-Markierung, F018B-Liste (12 Byte) */
+struct dmajob {
+  uint8_t opt[7];
+  uint8_t end;
+  uint8_t cmd;
+  uint16_t count;
+  uint16_t src;
+  uint8_t src_bank;
+  uint16_t dst;
+  uint8_t dst_bank;
+  uint8_t cmd_msb;
+  uint16_t modulo;
+};
+_Static_assert(sizeof(struct dmajob) == 20, "DMA-Job muss 20 Byte haben");
+
+static struct dmajob job;
+
+static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count) {
+  job.opt[0] = 0x0B;                    /* F018B-Format */
+  job.opt[1] = 0x80; job.opt[2] = (uint8_t)(src >> 20);   /* Quell-MB */
+  job.opt[3] = 0x81; job.opt[4] = (uint8_t)(dst >> 20);   /* Ziel-MB */
+  job.opt[5] = 0x85; job.opt[6] = 1;    /* Ziel-Schrittweite 1 */
+  job.end = 0;
+  job.cmd = cmd;
+  job.count = count;
+  job.src = (uint16_t)src;
+  job.src_bank = (uint8_t)(src >> 16) & 0x0F;
+  job.dst = (uint16_t)dst;
+  job.dst_bank = (uint8_t)(dst >> 16) & 0x0F;
+  job.cmd_msb = 0;
+  job.modulo = 0;
+  asm volatile("" ::: "memory");
+  DMA.enable_f018b = 1;
+  DMA.addr_bank = 0;
+  DMA.addr_msb = (uint8_t)((uint16_t)&job >> 8);
+  DMA.trigger_enhanced = (uint8_t)((uint16_t)&job & 0xFF);  /* startet, CPU wartet */
+  asm volatile("" ::: "memory");
+}
+
+void dma_copy(uint32_t src, uint32_t dst, uint16_t count) { dma_run(0x00, src, dst, count); }
+void dma_fill(uint32_t dst, uint8_t value, uint16_t count) { dma_run(0x03, value, dst, count); }
+
+/* Paletten-Register erwarten vertauschte Nybbles */
+static uint8_t nyb_swap(uint8_t v) { return (uint8_t)((v << 4) | (v >> 4)); }
+void set_color(uint8_t i, uint8_t r, uint8_t g, uint8_t b) {
+  PALETTE.red[i] = nyb_swap(r);
+  PALETTE.green[i] = nyb_swap(g);
+  PALETTE.blue[i] = nyb_swap(b);
+}
+
+void show_buffer(uint8_t b) {
+  uint16_t a = b ? 0x1000 : 0x0800;
+  VICIV.scrnptr_lsb = (uint8_t)a;
+  VICIV.scrnptr_msb = (uint8_t)(a >> 8);
+  VICIV.scrnptr_bnk = 0;
+  VICIV.scrnptr_mb = 0;
+}
+
+uint16_t raster_line(void) {
+  uint8_t lo, hi;
+  do {                                  /* konsistent lesen */
+    hi = VICIV.ctrl1 & 0x80;
+    lo = VICIV.rasterline;
+  } while (hi != (VICIV.ctrl1 & 0x80));
+  return ((uint16_t)hi << 1) | lo;
+}
+
+/* Wartet auf den Beginn des unteren Rahmens (Zeile 251, PAL) */
+void wait_vblank(void) {
+  while (raster_line() >= 251) {}
+  while (raster_line() < 251) {}
+}
+
+uint8_t key_col(uint8_t col) {
+  CIA1.ddra = 0xFF;
+  CIA1.pra = (uint8_t)~(1u << col);
+  return (uint8_t)~CIA1.prb;
+}
+
+uint8_t joy2(void) {
+  CIA1.ddra = 0x00;
+  uint8_t v = (uint8_t)~CIA1.pra & 0x1F;
+  CIA1.ddra = 0xFF;
+  return v;
+}
+
+void hw_init(void) {
+  asm volatile("sei");
+
+  /* VIC-IV freischalten und VIC-II-"Hot-Register" abschalten */
+  VICIV.key = 0x47;
+  VICIV.key = 0x53;
+  VICIV.sdbdrwd_msb &= ~VIC4_HOTREG_MASK;
+
+  /* 40 MHz. Danach darf das KERNAL nicht mehr aufgerufen werden. */
+  CPU_PORTDDR = 65;
+
+  VICIV.ctrlb = (VICIV.ctrlb | VIC3_FAST_MASK | VIC3_ATTR_MASK) &
+                ~(VIC3_H640_MASK | VIC3_V400_MASK);
+  /* 16-Bit-Zeichennummern, Full Colour fuer Zeichen > $FF */
+  VICIV.ctrlc = (VICIV.ctrlc & ~VIC4_FCLRLO_MASK) | VIC4_CHR16_MASK | VIC4_FCLRHI_MASK;
+
+  VICIV.charptr_lsb = 0;
+  VICIV.charptr_msb = 0;
+  VICIV.charptr_bnk = 0;
+  VICIV.linestep = 80;                  /* 2 Byte pro Zeichen */
+  VICIV.chrcount = 40;
+  VICIV.disp_rows = 25;
+  VICIV.ctrl1 = (VICIV.ctrl1 & 0xC0) | 0x1B;
+  VICIV.ctrl2 = (VICIV.ctrl2 & 0xE0) | 0x08;
+  VICIV.bordercol = 0;
+  VICIV.screencol = 0;
+  VICIV.ctrla |= VIC3_PAL_MASK;
+
+  /* Farb-RAM neutral (keine Spiegelung, kein Alpha, kein NCM) */
+  dma_fill(COLRAM, 0, 4096);
+
+  /* Zwei Bildschirme, jeder zeigt auf seinen eigenen Satz von 1000 Zeichen */
+  for (uint16_t i = 0; i < 1000; i++) {
+    SCREEN_A[i] = 0x1000 + i;
+    SCREEN_B[i] = 0x1400 + i;
+  }
+
+  CIA1.ddra = 0xFF;
+  CIA1.ddrb = 0x00;
+}

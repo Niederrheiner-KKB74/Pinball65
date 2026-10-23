@@ -8,7 +8,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 |---|---|---|
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
-| 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | geplant |
+| 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bereit zum Test |
 | 2 | Scrollender Tisch, Raster-Split für das Display | geplant |
 | 3 | Bumper, Slingshots, Targets, Punkte, Sound | geplant |
 
@@ -62,6 +62,29 @@ Ergebnis: `build\pinball65.d81` mit dem Programm `PINBALL65`.
 
 In Xemu: `xmega65 -8 build\pinball65.d81`, danach ebenfalls `RUN "PINBALL65"`.
 
+### Meilenstein 1: Bedienung und Test
+
+Nach dem Start färbt sich der Rahmen kurz bunt, während der MEGA65 Kollisionsmaske und Hintergrund berechnet (ein bis zwei Sekunden). Danach erscheint der untere Teil des Tisches.
+
+| Taste | Funktion |
+|---|---|
+| Shift links oder A | linker Flipper |
+| Shift rechts oder L | rechter Flipper |
+| Leertaste halten | Plunger spannen, Loslassen schießt |
+| T | Testabschuss mit fester Stärke |
+| B | Ball zurück in die Abschussbahn |
+| Joystick Port 2 | links/rechts Flipper, Feuer oder unten Plunger |
+
+Steigt der Ball über den sichtbaren Ausschnitt, zeigt ein gelbes Dreieck am oberen Rand seine x-Position. Gescrollt wird erst in Meilenstein 2.
+
+Statuszeile:
+
+- `F` Bildzähler, `L` Auslastung in Rasterzeilen (312 entspricht einem vollen Bild bei 50 Hz)
+- `X`, `Y` Ballposition in Pixeln, `B` Bumper-Treffer, `S` Slingshot-Treffer
+- `TEST`: nach `T` zählt der Wert bis 120, danach stehen dort die exakten Festkomma-Koordinaten des Balls
+
+**Gleichheitstest Xemu und MEGA65:** Direkt nach dem Start ohne andere Taste `T` drücken und nichts weiter anfassen. Die beiden Zahlen hinter `TEST` müssen auf beiden Systemen identisch sein. Der PC-Test liefert `X:07652669 Y:30380675`.
+
 ### Meilenstein 0: was zu erwarten ist
 
 Das Programm schaltet auf 40 MHz, vergleicht 2000 Festkomma-Multiplikationen in Software mit dem Hardware-Multiplizierer und färbt den Rahmen grün (alles gleich) oder rot (Abweichungen). Zusätzlich wird `1.5 * -2.25` ausgegeben; erwartet ist `-221184`. Bitte das Ergebnis vom echten MEGA65 und aus Xemu notieren.
@@ -71,10 +94,15 @@ Das Programm schaltet auf 40 MHz, vergleicht 2000 Festkomma-Multiplikationen in 
 ```
 prototype/   Physik-Prototyp im Browser (HTML-Datei direkt öffnen)
 src/         C-Quellcode für den MEGA65
-tools/       Hilfsprogramme, z. B. mkd81.py zum Erzeugen des Diskettenimages
+tools/       Hilfsprogramme: mkd81.py (Diskettenimage), gen_tables.py (Sinus/atan)
+test/host/   PC-Test: derselbe C-Code mit simuliertem Speicher und DMA, schreibt Bilder
 build.bat    Build unter Windows
 Makefile     Build mit make
 ```
+
+## PC-Test
+
+Unter Linux oder in WSL: `make -C test/host run`. Das Programm führt Meilenstein 1 ohne MEGA65 aus, protokolliert die Ballbahn und schreibt Bilder (`.ppm`), die aus dem simulierten Zeichenspeicher so gelesen werden wie vom VIC-IV. Das Timing und die echten Register prüft nur die Hardware.
 
 ## Technische Eckpunkte
 
@@ -82,4 +110,6 @@ Makefile     Build mit make
 - **Substeps**: 8 Physik-Schritte pro Frame bei 50 Hz (PAL), damit der Ball nicht durch Wände tunnelt.
 - **Kollisionsmaske**: ein Byte pro Pixel mit Klassen für Wand, Slingshot, Tor und Targets. Normalen aus Randpunkten über eine 256er-Winkeltabelle.
 - **Flipper**: sich drehende Kapseln mit Oberflächengeschwindigkeit am Treffpunkt.
-- **Grafik (geplant)**: Full-Colour-Charakter-Modus, Tisch als Kachelkarte, vertikales Scrolling, Raster-Split für das Display.
+- **Grafik**: Full-Colour-Charakter-Modus (CHR16, 256 Farben pro Pixel), zwei Bildpuffer mit je 1000 Zeichen bei `$40000` und `$50000`, unveränderter Hintergrund bei `$10000`. Pro Bild werden nur die Zeichenzeilen mit Flippern und Ball neu gezeichnet.
+- **Speicher**: Die Kollisionsmaske (23 KB) liegt im Farb-RAM ab `$FF81000`; die CPU arbeitet mit einem Fenster von 128 Zeilen, das per DMA nachgeladen wird.
+- **Geplant**: Kachelkarte für den ganzen Tisch, vertikales Scrolling, Raster-Split für das Display.

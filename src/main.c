@@ -1,63 +1,59 @@
 /*
- * Pinball65 – Meilenstein 0: Toolchain- und Hardware-Test
+ * Pinball65 – Meilenstein 1: Ball und Flipper auf einem statischen Tisch
  *
- * Prueft, ob Compiler, D81-Erzeugung und Uebertragung funktionieren, und
- * vergleicht die Festkomma-Multiplikation in Software mit dem
- * Hardware-Multiplizierer. Das Ergebnis sollte auf echter Hardware und in
- * Xemu identisch sein: 0 Abweichungen.
+ * - Hardware wird komplett uebernommen (kein KERNAL nach dem Start)
+ * - Full-Colour-Charakter-Modus, zwei Bildpuffer (kein Flackern)
+ * - Physik aus dem Browser-Prototyp, 8 Substeps pro Bild, 50 Hz
+ * - Fester Ausschnitt: untere 192 Zeilen des Tisches
+ *
+ * Tasten: Shift links / A = linker Flipper, Shift rechts / L = rechter Flipper,
+ * Leertaste halten = Plunger, T = Testabschuss, B = Ball zurueck.
+ * Joystick Port 2: links/rechts = Flipper, Feuer oder unten = Plunger.
  */
 #include <mega65.h>
-#include <stdio.h>
-#include <stdint.h>
-#include "fixmath.h"
+#include "hw.h"
+#include "table.h"
+#include "physics.h"
+#include "render.h"
 
-#define TESTS 2000
-
-static uint32_t rng = 1981;
-static int32_t rnd32(void) {
-  rng = rng * 1103515245UL + 12345UL;
-  return (int32_t)rng;
+static void read_input(input_t *in) {
+  static uint8_t prev_t, prev_b;
+  uint8_t c1 = key_col(1), c2 = key_col(2), c3 = key_col(3);
+  uint8_t c5 = key_col(5), c6 = key_col(6), c7 = key_col(7);
+  uint8_t j = joy2();
+  in->left = (c1 & 0x80) || (c1 & 0x04) || (j & 0x04);      /* Shift links, A */
+  in->right = (c6 & 0x10) || (c5 & 0x04) || (j & 0x08);     /* Shift rechts, L */
+  in->plunger = (c7 & 0x10) || (j & 0x10) || (j & 0x02);    /* Leertaste */
+  uint8_t t = (c2 & 0x40) != 0, b = (c3 & 0x10) != 0;       /* T, B */
+  in->test = t && !prev_t;
+  in->reset = b && !prev_b;
+  prev_t = t; prev_b = b;
 }
 
 int main(void) {
-  /* Kein POKE 0,65: Im C65-Modus laeuft der MEGA65 bereits mit 40 MHz.
-   * Ein Schreibzugriff auf $00 aendert die Speicherkonfiguration und
-   * blendet das KERNAL aus (das war der Absturz in der ersten Version). */
+  hw_init();
+  table_build_palette();
+  dma_fill(FB_A, C_BG, 64000);          /* dunkler Bildschirm waehrend der Berechnung */
+  show_buffer(0);
 
-  printf("\n Pinball65 - Meilenstein 0 (v2)\n");
-  printf(" -----------------------------\n");
-  printf(" Toolchain OK, Programm laeuft.\n\n");
-  printf(" Test fmul Software vs. Hardware ...\n");
+  table_build_mask();
+  table_build_art(rowbuf);
+  render_init();
+  phys_init();
 
-  uint16_t errors = 0;
-  fix16 first_a = 0, first_b = 0, first_sw = 0, first_hw = 0;
-  for (uint16_t i = 0; i < TESTS; i++) {
-    /* Wertebereich wie in der Physik: Positionen bis ~±128 px, Faktoren bis ~±8 */
-    fix16 a = rnd32() >> 8;
-    fix16 b = rnd32() >> 12;
-    fix16 sw = fmul_sw(a, b);
-    fix16 hw = fmul_hw(a, b);
-    if (sw != hw) {
-      if (errors == 0) { first_a = a; first_b = b; first_sw = sw; first_hw = hw; }
-      errors++;
-    }
+  uint8_t front = 0;
+  uint16_t frame = 0, load = 0;
+  input_t in;
+  for (;;) {
+    wait_vblank();
+    show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */
+    frame++;
+    read_input(&in);
+    game_frame(&in);
+    uint8_t back = front ^ 1;
+    render_frame(back, frame, load);
+    front = back;
+    uint16_t l = raster_line();         /* Auslastung: Rasterzeilen seit Zeile 251 */
+    load = l >= 251 ? l - 251 : l + 312 - 251;
   }
-
-  printf(" %u Tests, %u Abweichungen\n", (unsigned)TESTS, (unsigned)errors);
-  if (errors) {
-    printf(" Erste: a=%ld b=%ld\n", (long)first_a, (long)first_b);
-    printf("        sw=%ld hw=%ld\n", (long)first_sw, (long)first_hw);
-    VICII.bordercolor = 2;    /* rot */
-  } else {
-    printf(" Ergebnis: OK\n");
-    VICII.bordercolor = 5;    /* gruen */
-  }
-
-  /* Bekannter Wert zum Vergleich mit Xemu: 1.5 * -2.25 = -3.375 */
-  fix16 k = fmul_hw(98304L, -147456L);
-  printf("\n 1.5 * -2.25 = %ld (erwartet -221184)\n", (long)k);
-  printf("\n Fertig. Zum Beenden Reset druecken.\n");
-
-  /* Nicht ins BASIC zurueckkehren: llvm-mos belegt dessen Zeropage. */
-  for (;;) {}
 }

@@ -1,2 +1,5 @@
 build/
 *.elf
+test/host/hosttest
+test/host/*.ppm
+test/host/*.png
