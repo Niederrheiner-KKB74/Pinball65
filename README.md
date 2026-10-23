@@ -7,7 +7,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Meilenstein | Inhalt | Status |
 |---|---|---|
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
-| 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bereit zum Test |
+| 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | geplant |
 | 2 | Scrollender Tisch, Raster-Split für das Display | geplant |
 | 3 | Bumper, Slingshots, Targets, Punkte, Sound | geplant |
@@ -19,6 +19,18 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 - MEGA65 mit Core **0.97 (20250422.09)**, ROM **920413**
 - Übertragung: D81-Image per **M65Connect**
 - Emulator für schnelle Zwischentests: **Xemu** (mit demselben ROM 920413)
+
+## Testergebnisse
+
+| Datum | Test | MEGA65 (Core 0.97) | Xemu |
+|---|---|---|---|
+| 23.10.2026 | Meilenstein 0 v1 | Absturz: `POKE 0,65` blendet KERNAL aus | Absturz |
+| 23.10.2026 | Meilenstein 0 v2: 2000 × fmul, `1.5 * -2.25` | grün, 0 Abweichungen, -221184 | grün, 0 Abweichungen, -221184 |
+
+Erkenntnisse:
+- Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
+- llvm-mos belegt die Zeropage von BASIC, daher kehrt das Programm nicht ins BASIC zurück.
+- Der Hardware-Multiplizierer liefert sofort korrekte Ergebnisse, ohne Warten.
 
 ## Einrichtung unter Windows 11
 
