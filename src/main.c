@@ -110,7 +110,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.1");
   dmd_render();
 
   table_build_mask();

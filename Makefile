@@ -1,7 +1,7 @@
 # Pinball65 – Build mit llvm-mos (Linux, macOS oder Windows mit make)
 CC      := mos-mega65-clang
 PYTHON  ?= python3
-CFLAGS  := -Os -Wall -Wextra
+CFLAGS  := -Oz -Wall -Wextra
 SRC     := $(wildcard src/*.c)
 HDR     := $(wildcard src/*.h)
 

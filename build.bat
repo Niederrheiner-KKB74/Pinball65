@@ -14,7 +14,7 @@ if not exist build mkdir build
 set SRC=
 for %%f in (src\*.c) do set SRC=!SRC! %%f
 
-mos-mega65-clang -Os -Wall -Wextra -o build\pinball65.prg !SRC! || goto :err
+mos-mega65-clang -Oz -Wall -Wextra -o build\pinball65.prg !SRC! || goto :err
 %PY% tools\mkd81.py build\pinball65.d81 PINBALL65 build\pinball65.prg || goto :err
 echo.
 echo Fertig: build\pinball65.d81

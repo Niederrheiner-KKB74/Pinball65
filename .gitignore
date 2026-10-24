@@ -3,3 +3,5 @@ build/
 test/host/hosttest
 test/host/*.ppm
 test/host/*.png
+test/sim/simtest
+test/sim/simtest.elf

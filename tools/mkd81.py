@@ -25,6 +25,22 @@ def petscii_name(name, length=16):
     return raw + b"\xa0" * (length - len(raw))
 
 
+def check_prg(path, data):
+    """Das geladene Programm muss unter $A000 enden.
+
+    Im C65-Modus liegt bei $A000-$BFFF beim Laden das BASIC-ROM. Meilenstein 2
+    (Version 2.0) reichte bis $B14E und stuerzte auf Xemu und MEGA65 ab.
+    Variablen (.bss) duerfen darueber liegen, sie werden erst beim Start angelegt.
+    """
+    if len(data) < 2:
+        return
+    load = data[0] | (data[1] << 8)
+    end = load + len(data) - 2
+    print(f"  {os.path.basename(path)}: ${load:04X}-${end - 1:04X}")
+    if load == 0x2001 and end > 0xA000:
+        raise SystemExit(f"FEHLER: Programm endet bei ${end:04X}, erlaubt ist hoechstens $A000.")
+
+
 def build(out_path, disk_name, prg_paths, disk_id=b"65"):
     img = bytearray(TRACKS * SECTORS * SECSIZE)
     used = {t: set() for t in range(1, TRACKS + 1)}
@@ -46,6 +62,7 @@ def build(out_path, disk_name, prg_paths, disk_id=b"65"):
     entries = []
     for path in prg_paths:
         data = open(path, "rb").read()
+        check_prg(path, data)
         chunks = [data[i:i + 254] for i in range(0, len(data), 254)] or [b""]
         secs = [next(alloc) for _ in chunks]
         for (t, s) in secs:

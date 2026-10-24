@@ -9,7 +9,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
-| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bereit zum Test |
+| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | v2.1 bereit zum Test |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
@@ -32,6 +32,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 24.10.2026 | Meilenstein 1: Testabschuss `T` | `X:07652669 Y:30380675`, L = 100 | identisch |
 | 24.10.2026 | Meilenstein 1.1: Testabschuss `T` | `X:13317277 Y:19434387`, L = 124 | identisch |
 | 24.10.2026 | Meilenstein 1.2: Testabschuss `T` | `X:17539107 Y:38809859`, L = 112 | identisch |
+| 24.10.2026 | Meilenstein 2.0 | Absturz | Absturz bei PC=$956E |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
@@ -41,6 +42,7 @@ Erkenntnisse:
 - Ein Bild braucht etwa 100 von 312 Rasterzeilen, also rund ein Drittel der verfügbaren Zeit.
 - v1.1 brauchte 124 Zeilen, weil die einstellbaren Werte in jedem Substep neu verrechnet wurden, darunter eine 32-Bit-Division in Software. Seit v1.2 werden abgeleitete Werte nur bei einer Änderung berechnet.
 - Im Einstellmodus ermittelt (24.10.2026): FLIPPER SPEED 1100 und WALL BOUNCE 80 fühlen sich gut an. Seit v1.2 sind das die Startwerte.
+- **Das geladene Programm muss unter $A000 enden.** Version 2.0 reichte bis $B14E und stürzte auf Xemu und MEGA65 ab; bei $A000–$BFFF liegt im C65-Modus beim Laden das BASIC-ROM. Seit 2.1 wird mit `-Oz` übersetzt (Programmende $9468), und `tools/mkd81.py` bricht den Build ab, wenn die Grenze überschritten wird. Variablen dürfen darüber liegen, sie werden erst beim Start angelegt.
 - Rückmeldung zum Spielgefühl: Flipper zu langsam, Ball prallt viel ab und kommt selten herunter. Ursachen: Ein Flipperschlag dauerte etwa 85 ms (echte Flipper 30 bis 50 ms); der Ball ist rund zwei Drittel der Zeit oberhalb des sichtbaren Ausschnitts; ein zu schwacher Abschuss ließ den Ball auf dem Plunger liegen, ohne dass er neu abgeschossen werden konnte (behoben in v1.1).
 
 ## Einrichtung unter Windows 11
@@ -152,6 +154,10 @@ Makefile     Build mit make
 ## PC-Test
 
 Unter Linux oder in WSL: `make -C test/host run`. Das Programm führt das Spiel ohne MEGA65 aus, protokolliert die Ballbahn und schreibt Bilder (`.ppm`), die aus dem simulierten Zeichenspeicher so gelesen werden wie vom VIC-IV. Das Timing und die echten Register prüft nur die Hardware.
+
+## Simulator-Test
+
+`make -C test/sim run` übersetzt Physik, Darstellung und Display mit dem echten llvm-mos-Compiler für den 6502-Simulator `mos-sim` aus dem SDK. Anders als im PC-Test ist `int` hier wie auf dem MEGA65 16 Bit breit. Jeder DMA-Auftrag, der in den CPU-Speicher schreibt, wird auf Ziel und Länge geprüft, ebenso jeder Pixel, der in eine Bildschirmspalte gezeichnet wird.
 
 ## Technische Eckpunkte
 

@@ -81,6 +81,9 @@ static void ball_init(void) {
 static int16_t cx0, ty0, ty1;
 
 static inline void col_px(int16_t x, int16_t y, uint8_t c) {
+#ifdef PB_CHECK
+  if (y < ty0 || y > ty1 || x < cx0 || x > cx0 + 7) sim_fail("col_px ausserhalb", (uint32_t)x, (uint32_t)y);
+#endif
   COLBUF[((uint16_t)(y - ty0) << 3) + (uint8_t)(x - cx0)] = c;
 }
 
