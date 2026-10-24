@@ -12,6 +12,7 @@
 #include "physics.h"
 #include "render.h"
 #include "dmd.h"
+#include "tables.h"
 
 extern uint8_t chip[], attic[];
 extern uint8_t pal[256][3];
@@ -41,6 +42,7 @@ static void dump_table(const char *name) {
 }
 
 int main(void) {
+  tables_init();
   hw_init();
   table_build_palette();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES);

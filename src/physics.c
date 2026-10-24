@@ -95,8 +95,22 @@ static uint8_t ball_hits_mask(void) {
   return 0;
 }
 
+/* Liegt in den 8x8-Feldern um den Ball irgendeine Wand? Wenn nicht, kann
+ * die Pruefung der 36 Randpunkte entfallen (Ergebnis waere ohnehin leer). */
+static uint8_t near_wall(int16_t cx, int16_t cy) {
+  if (cx < 6 || cx > TW - 7 || cy < 6 || cy > TH - 7) return 1;
+  uint8_t c0 = (uint8_t)((cx - 5) >> 3), c1 = (uint8_t)((cx + 5) >> 3);
+  uint8_t r0 = (uint8_t)((cy - 5) >> 3), r1 = (uint8_t)((cy + 5) >> 3);
+  for (uint8_t r = r0; r <= r1; r++) {
+    const uint8_t *g = &cls_grid[((uint16_t)r << 5) + ((uint16_t)r << 3)];
+    for (uint8_t c = c0; c <= c1; c++) if (g[c]) return 1;
+  }
+  return 0;
+}
+
 static void collide_mask(void) {
   int16_t cx = (int16_t)(ball.x >> 16), cy = (int16_t)(ball.y >> 16);
+  if (!near_wall(cx, cy)) return;
   int16_t sx = 0, sy = 0;
   uint8_t n = 0, kind = 0;
   for (uint8_t i = 0; i < npts; i++) {

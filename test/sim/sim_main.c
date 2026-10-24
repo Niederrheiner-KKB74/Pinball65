@@ -3,6 +3,7 @@
 #include <string.h>
 #include "hw.h"
 #include "table.h"
+#include "tables.h"
 #include "physics.h"
 #include "render.h"
 #include "dmd.h"
@@ -10,6 +11,7 @@
 extern unsigned long sim_jobs;
 
 int main(void) {
+  tables_init();
   printf("start\n");
   table_build_mask();
   printf("maske ok\n");

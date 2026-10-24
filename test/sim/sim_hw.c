@@ -31,9 +31,15 @@ static void check_cpu(uint32_t a, uint16_t n) {
 
 /* Farb-RAM-Bereich der Kollisionsmaske nachbilden (nur fuer den Aufbautest) */
 #ifdef SIM_COLRAM
-static uint8_t colram_mask[25600];
+#ifndef SIM_MASK_FROM
+#define SIM_MASK_FROM 0             /* erste nachgebildete Tischzeile */
+#endif
+static uint8_t colram_mask[25600 - SIM_MASK_FROM * 40];
+static uint8_t sim_dummy[2000];
 static uint8_t *far_ptr(uint32_t a, uint16_t n) {
-  if (a >= 0xFF81000UL && a + n <= 0xFF81000UL + sizeof colram_mask) return colram_mask + (uint16_t)(a - 0xFF81000UL);
+  const uint32_t base = 0xFF81000UL + SIM_MASK_FROM * 40UL;
+  if (a >= base && a + n <= base + sizeof colram_mask) return colram_mask + (uint16_t)(a - base);
+  if (a >= 0xFF81000UL && a < base && n <= sizeof sim_dummy) return sim_dummy;   /* oberer Teil: leer */
   return 0;
 }
 #else

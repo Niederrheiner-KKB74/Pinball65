@@ -9,7 +9,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
-| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | v2.3 bereit zum Test |
+| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | läuft (v2.3), v2.4 schneller, bereit zum Test |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
@@ -35,6 +35,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 24.10.2026 | Meilenstein 2.0 | Absturz | Absturz bei PC=$956E |
 | 24.10.2026 | Meilenstein 2.1 (`-Oz`) | – | hängt beim Aufbau, hellblauer Rahmen, PC um $8A4E (Software-Multiplikation) |
 | 24.10.2026 | Meilenstein 2.2 (Diagnose) | bleibt bei `GRAFIK 15/80` stehen, Prüfsumme ok | identisch |
+| 24.10.2026 | Meilenstein 2.3: Testabschuss `T` | `TEST X 07457637 Y 21572962`, L meist 160–200, Spitzen bis 307 | identisch |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
@@ -45,7 +46,8 @@ Erkenntnisse:
 - v1.1 brauchte 124 Zeilen, weil die einstellbaren Werte in jedem Substep neu verrechnet wurden, darunter eine 32-Bit-Division in Software. Seit v1.2 werden abgeleitete Werte nur bei einer Änderung berechnet.
 - Im Einstellmodus ermittelt (24.10.2026): FLIPPER SPEED 1100 und WALL BOUNCE 80 fühlen sich gut an. Seit v1.2 sind das die Startwerte.
 - **Übersetzt wird für den reinen 6502 (`-mcpu=mos6502`).** Mit den 45GS02-Erweiterungen erzeugte llvm-mos (Version cd91455) in `band_disc` einen `inw`-Befehl auf das falsche Register: Der Schleifenzähler blieb stehen, der Aufbau hing bei `GRAFIK 15/80` (Diagnoseversion 2.2). Der 6502-Simulator zeigte den Fehler nicht, weil er für den 6502 übersetzt. Mit `-mcpu=mos6502` prüft er jetzt denselben Befehlssatz, der auf dem MEGA65 läuft. Den 65C02-Befehlssatz meiden wir ebenfalls: Seine `(zp)`-Befehle bedeuten auf dem 45GS02 `(zp),Z` und funktionieren nur, solange Z = 0 ist.
-- **Das geladene Programm muss unter $A000 enden.** Version 2.0 reichte bis $B14E und stürzte auf Xemu und MEGA65 ab; bei $A000–$BFFF liegt im C65-Modus beim Laden das BASIC-ROM. Seit 2.1 wird mit `-Oz` übersetzt (Programmende $9468), und `tools/mkd81.py` bricht den Build ab, wenn die Grenze überschritten wird. Variablen dürfen darüber liegen, sie werden erst beim Start angelegt.
+- **Vorerst endet das geladene Programm unter $A000.** Version 2.0 reichte bis $B14E und stürzte ab; zuerst vermutet: Bei $A000–$BFFF liegt im C65-Modus beim Laden das BASIC-ROM. Der Absturz lässt sich aber ebenso durch den `inw`-Fehler erklären. Ob die Grenze echt ist, prüft das Testprogramm `LOADTEST` auf derselben Diskette (siehe unten). Bis dahin bricht `tools/mkd81.py` den Build ab, wenn das Spiel über $A000 hinausreicht.
+- **Laufzeit (v2.4):** Im 6502-Simulator gemessen kosteten die Flipper rund 830.000 Zyklen pro Bild (Randprüfung über Funktionsaufrufe für jeden Pixel), das Display alle 10 Bilder auf einmal rund 600.000. Jetzt: Innenbereich und Rand der Flipper vorberechnet, ruhende Flipper werden nicht neu gezeichnet, das Display zeichnet höchstens eine Zeichenzeile pro Bild, die Kollisionsprüfung entfällt, wenn um den Ball keine Wand liegt. Ergebnis im Simulator: von etwa 490.000 auf 208.000 Zyklen pro Bild (ohne Multiplikation und DMA), Bild und Physik unverändert.
 - Rückmeldung zum Spielgefühl: Flipper zu langsam, Ball prallt viel ab und kommt selten herunter. Ursachen: Ein Flipperschlag dauerte etwa 85 ms (echte Flipper 30 bis 50 ms); der Ball ist rund zwei Drittel der Zeit oberhalb des sichtbaren Ausschnitts; ein zu schwacher Abschuss ließ den Ball auf dem Plunger liegen, ohne dass er neu abgeschossen werden konnte (behoben in v1.1).
 
 ## Einrichtung unter Windows 11
@@ -157,6 +159,10 @@ Makefile     Build mit make
 ## PC-Test
 
 Unter Linux oder in WSL: `make -C test/host run`. Das Programm führt das Spiel ohne MEGA65 aus, protokolliert die Ballbahn und schreibt Bilder (`.ppm`), die aus dem simulierten Zeichenspeicher so gelesen werden wie vom VIC-IV. Das Timing und die echten Register prüft nur die Hardware.
+
+## LOADTEST
+
+Auf der Diskette liegt neben dem Spiel das Programm `LOADTEST` (`RUN "LOADTEST"`). Es reicht von $2001 bis $C648 und enthält ein 38.000 Byte großes Testmuster. Nach dem Laden prüft es jedes Byte und meldet, ob alles richtig angekommen ist, und wenn nicht, ab welcher Adresse und wie viele Bytes im Bereich $A000–$BFFF falsch sind.
 
 ## Simulator-Test
 

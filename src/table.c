@@ -10,6 +10,7 @@
 #include "hw.h"
 
 int16_t win_y0 = -1000;
+const uint8_t MASK_BIT[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 uint8_t cls_grid[(TH / 8) * 40];
 
 const int16_t BUMPERS[N_BUMPERS][3] = { {124, 140, 13}, {196, 140, 13}, {160, 188, 13} };
@@ -66,7 +67,7 @@ static int16_t band_y0, band_y1;
 static void set_px(int16_t x, int16_t y, uint8_t c) {
   if (x < 0 || x >= TW || y < band_y0 || y >= band_y1) return;
   uint16_t yy = (uint16_t)(y - band_y0);
-  MASKWIN[(yy << 5) + (yy << 3) + ((uint16_t)x >> 3)] |= (uint8_t)(0x80 >> (x & 7));
+  MASKWIN[(yy << 5) + (yy << 3) + ((uint16_t)x >> 3)] |= MASK_BIT[x & 7];
   uint16_t r = (uint16_t)y >> 3;
   uint8_t *g = &cls_grid[(r << 5) + (r << 3) + ((uint16_t)x >> 3)];
   if (c > *g) *g = c;
@@ -191,14 +192,17 @@ void table_build_palette(void) {
 
 /* ---------- Platzhaltergrafik ---------- */
 
-/* Abstand eines Punktes zur Gummikante eines Slingshots <= 2.5 Pixel? */
+/* Abstand eines Punktes zur Gummikante eines Slingshots <= 2.5 Pixel?
+ * Beide Kanten sind 28 x 62 Pixel lang (Laenge^2 = 4628). Bedingung
+ * cr^2 * 4 <= 4628 * 25 ist fuer ganze Zahlen gleichbedeutend mit |cr| <= 170;
+ * so passt alles in 16 Bit. */
 static uint8_t on_rubber(const int16_t *t, int16_t x, int16_t y) {
-  int32_t ex = t[4] - t[0], ey = t[5] - t[1];
-  int32_t px = x - t[0], py = y - t[1];
-  int32_t dot = px * ex + py * ey, len2 = ex * ex + ey * ey;
-  if (dot < 0 || dot > len2) return 0;
-  int32_t cr = px * ey - py * ex;
-  return cr * cr * 4 <= len2 * 25;
+  int16_t ex = t[4] - t[0], ey = t[5] - t[1];
+  int16_t px = x - t[0], py = y - t[1];
+  int16_t dot = px * ex + py * ey;
+  if (dot < 0 || dot > 4628) return 0;
+  int16_t cr = px * ey - py * ex;
+  return cr >= -170 && cr <= 170;
 }
 
 static uint8_t art_px(int16_t x, int16_t y) {

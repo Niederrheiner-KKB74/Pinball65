@@ -14,8 +14,12 @@ build/pinball65.prg: $(SRC) $(HDR)
 	@mkdir -p build
 	$(CC) $(CFLAGS) -o $@ $(SRC)
 
-build/pinball65.d81: build/pinball65.prg tools/mkd81.py
-	$(PYTHON) tools/mkd81.py $@ PINBALL65 $<
+build/loadtest.prg: test/loadtest/loadtest.c test/loadtest/pattern.c
+	@mkdir -p build
+	$(CC) -Os -mcpu=mos6502 -o $@ $^
+
+build/pinball65.d81: build/pinball65.prg build/loadtest.prg tools/mkd81.py
+	$(PYTHON) tools/mkd81.py $@ PINBALL65 build/pinball65.prg build/loadtest.prg
 
 clean:
 	rm -rf build

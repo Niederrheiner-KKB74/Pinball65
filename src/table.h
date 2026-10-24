@@ -77,10 +77,12 @@ void table_build_palette(void);
 /* Zeichnet die Tischgrafik spaltenweise ins Attic-RAM (ATTIC_BG) */
 void table_build_art(void);
 
+extern const uint8_t MASK_BIT[8];         /* 0x80 >> i, ohne variable Verschiebung */
+
 static inline uint8_t mask_solid(int16_t x, int16_t y) {
   uint16_t r = (uint16_t)(y - win_y0);
   if (r >= WIN_ROWS) { mask_load(y - WIN_ROWS / 2); r = (uint16_t)(y - win_y0); }
-  return MASKWIN[(r << 5) + (r << 3) + ((uint16_t)x >> 3)] & (uint8_t)(0x80 >> (x & 7));
+  return MASKWIN[(r << 5) + (r << 3) + ((uint16_t)x >> 3)] & MASK_BIT[x & 7];
 }
 static inline uint8_t mask_class(int16_t x, int16_t y) {
   uint16_t r = (uint16_t)y >> 3;

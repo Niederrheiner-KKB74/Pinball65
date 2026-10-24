@@ -18,6 +18,7 @@
 #include "physics.h"
 #include "render.h"
 #include "dmd.h"
+#include "tables.h"
 
 /* Taste mit Wiederholung: sofort, dann nach 15 Bildern alle 3 Bilder */
 static uint8_t repeat(uint8_t down, uint8_t *cnt) {
@@ -129,6 +130,7 @@ void build_progress(uint8_t phase, uint8_t step) {
 
 int main(void) {
   code_sum0 = code_sum();
+  tables_init();
   hw_init();
   table_build_palette();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES); /* Tischbereich dunkel */
@@ -142,7 +144,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.3");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.4");
   dmd_render();
   code_check("NACH ATTIC-TEST");
 

@@ -37,6 +37,8 @@ def check_prg(path, data):
     load = data[0] | (data[1] << 8)
     end = load + len(data) - 2
     print(f"  {os.path.basename(path)}: ${load:04X}-${end - 1:04X}")
+    if os.path.basename(path).lower().startswith("loadtest"):
+        return                      # Testprogramm, reicht absichtlich ueber $A000
     if load == 0x2001 and end > 0xA000:
         raise SystemExit(f"FEHLER: Programm endet bei ${end:04X}, erlaubt ist hoechstens $A000.")
 

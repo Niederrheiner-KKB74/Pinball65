@@ -20,6 +20,10 @@
 #define SROWS 48            /* dy = -24 .. 23 */
 #define EMPTY 127
 static int8_t span0[NPH][SROWS], span1[NPH][SROWS];
+/* Innenbereich je Zeile (alles dazwischen ist Flipperflaeche, der Rest Rand);
+ * in0 > in1 = kein Innenbereich. Vorberechnet, damit beim Zeichnen keine
+ * Nachbarzeilen geprueft werden muessen. */
+static int8_t in0[NPH][SROWS], in1[NPH][SROWS];
 static int8_t ph_row0[NPH], ph_row1[NPH];
 
 static void spans_init(void) {
@@ -47,6 +51,20 @@ static void spans_init(void) {
         if ((int8_t)j > ph_row1[p]) ph_row1[p] = (int8_t)j;
       }
     }
+    /* Innenbereich: innerhalb der eigenen Spanne ohne die Enden und
+     * innerhalb der Spannen der Zeilen darueber und darunter */
+    for (uint8_t j = 0; j < SROWS; j++) {
+      int8_t a = EMPTY, b = -128;
+      if (span0[p][j] != EMPTY && j > 0 && j < SROWS - 1 &&
+          span0[p][j - 1] != EMPTY && span0[p][j + 1] != EMPTY) {
+        a = span0[p][j] + 1; b = span1[p][j] - 1;
+        if (span0[p][j - 1] > a) a = span0[p][j - 1];
+        if (span0[p][j + 1] > a) a = span0[p][j + 1];
+        if (span1[p][j - 1] < b) b = span1[p][j - 1];
+        if (span1[p][j + 1] < b) b = span1[p][j + 1];
+      }
+      in0[p][j] = a; in1[p][j] = b;
+    }
   }
 }
 
@@ -54,11 +72,6 @@ static uint8_t phase_of(const flipper_t *f) {
   int16_t v = (f->ang - F_UP * 256 + 256) >> 9;
   if (v < 0) v = 0; else if (v >= NPH) v = NPH - 1;
   return (uint8_t)v;
-}
-
-static uint8_t in_span(uint8_t p, int8_t j, int8_t xr) {
-  if (j < 0 || j >= SROWS) return 0;
-  return span0[p][j] != EMPTY && xr >= span0[p][j] && xr <= span1[p][j];
 }
 
 /* ---------- Ball ---------- */
@@ -80,48 +93,54 @@ static void ball_init(void) {
 /* Aktuelle Spalte: x-Bereich cx0..cx0+7, Tischzeilen ty0..ty1 in COLBUF */
 static int16_t cx0, ty0, ty1;
 
-static inline void col_px(int16_t x, int16_t y, uint8_t c) {
-#ifdef PB_CHECK
-  if (y < ty0 || y > ty1 || x < cx0 || x > cx0 + 7) sim_fail("col_px ausserhalb", (uint32_t)x, (uint32_t)y);
-#endif
-  COLBUF[((uint16_t)(y - ty0) << 3) + (uint8_t)(x - cx0)] = c;
-}
-
 static void draw_flipper_col(const flipper_t *f) {
   uint8_t p = phase_of(f);
   int16_t yb = f->py - 24;
   int16_t ya = yb + ph_row0[p], ye = yb + ph_row1[p];
   if (ya < ty0) ya = ty0;
   if (ye > ty1) ye = ty1;
-  for (int16_t y = ya; y <= ye; y++) {
-    int8_t j = (int8_t)(y - yb);
-    if (span0[p][j] == EMPTY) continue;
-    int8_t a = span0[p][j], b = span1[p][j];
-    /* x-Bereich der Spanne, auf die Spalte beschnitten */
-    int16_t xa = f->side > 0 ? f->px + a : f->px - b;
-    int16_t xe = f->side > 0 ? f->px + b : f->px - a;
-    if (xa < cx0) xa = cx0;
-    if (xe > cx0 + 7) xe = cx0 + 7;
-    for (int16_t x = xa; x <= xe; x++) {
-      int8_t xr = (int8_t)(f->side > 0 ? x - f->px : f->px - x);
-      uint8_t edge = xr == a || xr == b || !in_span(p, j - 1, xr) || !in_span(p, j + 1, xr);
-      uint8_t c = edge ? C_FLIP_EDGE : C_FLIP;
-      int16_t ddx = x - f->px, ddy = y - f->py;
-      if (ddx >= -1 && ddx <= 1 && ddy >= -1 && ddy <= 1) c = C_CHROME_MID;
-      col_px(x, y, c);
+  if (ya > ye) return;
+  /* x-Bereich der Spalte relativ zum Drehpunkt (in Flipperrichtung gemessen) */
+  int16_t c0 = cx0 - f->px, c7 = c0 + 7;
+  const int8_t *s0 = span0[p], *s1 = span1[p], *i0 = in0[p], *i1 = in1[p];
+  uint8_t *row = COLBUF + ((uint16_t)(ya - ty0) << 3);
+  for (int16_t y = ya; y <= ye; y++, row += 8) {
+    uint8_t j = (uint8_t)(y - yb);
+    int8_t a = s0[j];
+    if (a == EMPTY) continue;
+    int8_t b = s1[j], ia = i0[j], ib = i1[j];
+    if (f->side > 0) {                       /* linker Flipper: x = px + xr */
+      int16_t lo = a > c0 ? a : c0, hi = b < c7 ? b : c7;
+      for (int16_t xr = lo; xr <= hi; xr++)
+        row[(uint8_t)(xr - c0)] = (xr >= ia && xr <= ib) ? C_FLIP : C_FLIP_EDGE;
+    } else {                                 /* rechter Flipper: x = px - xr */
+      int16_t lo = a > -c7 ? a : -c7, hi = b < -c0 ? b : -c0;
+      for (int16_t xr = lo; xr <= hi; xr++)
+        row[(uint8_t)(-xr - c0)] = (xr >= ia && xr <= ib) ? C_FLIP : C_FLIP_EDGE;
     }
+    /* Drehpunkt: 3 x 3 Pixel */
+    if (y >= f->py - 1 && y <= f->py + 1)
+      for (int8_t dx = -1; dx <= 1; dx++) {
+        int16_t lx = f->px + dx - cx0;
+        if (lx >= 0 && lx <= 7) row[(uint8_t)lx] = C_CHROME_MID;
+      }
   }
 }
 
 static void draw_ball_col(int16_t bx, int16_t by) {
-  for (int8_t j = 0; j < 11; j++) {
-    int16_t y = by - 5 + j;
-    if (y < ty0 || y > ty1) continue;
-    for (int8_t i = 0; i < 11; i++) {
-      int16_t x = bx - 5 + i;
-      if (x < cx0 || x > cx0 + 7) continue;
-      uint8_t c = ball_img[j][i];
-      if (c) col_px(x, y, c);
+  int16_t ya = by - 5, ye = by + 5;
+  if (ya < ty0) ya = ty0;
+  if (ye > ty1) ye = ty1;
+  int16_t xa = bx - 5, xe = bx + 5;
+  if (xa < cx0) xa = cx0;
+  if (xe > cx0 + 7) xe = cx0 + 7;
+  if (ya > ye || xa > xe) return;
+  uint8_t *row = COLBUF + ((uint16_t)(ya - ty0) << 3);
+  for (int16_t y = ya; y <= ye; y++, row += 8) {
+    const uint8_t *img = ball_img[y - (by - 5)];
+    for (int16_t x = xa; x <= xe; x++) {
+      uint8_t c = img[x - (bx - 5)];
+      if (c) row[(uint8_t)(x - cx0)] = c;
     }
   }
 }
@@ -129,8 +148,16 @@ static void draw_ball_col(int16_t bx, int16_t by) {
 /* ---------- Bild zusammensetzen ---------- */
 #define NONE 0xFF
 static int16_t buf_cam[2];
-static uint8_t dirty_r0[2][40], dirty_r1[2][40];   /* Zeichenzeilen 0..20, r0 = NONE: leer */
 static uint8_t need_r0[40], need_r1[40];
+/* Was steht in welchem Puffer? Damit muessen ruhende Flipper nicht in jedem
+ * Bild neu gezeichnet werden. */
+static uint8_t drawn_phase[2][2];          /* gezeichnete Flipperphase, NONE = keine */
+static uint8_t drawn_ball_on[2];
+static int16_t drawn_ball[2][4];           /* x0, y0, x1, y1 in Tischkoordinaten */
+
+static void need_clear(void) {
+  for (uint8_t c = 0; c < 40; c++) need_r0[c] = need_r1[c] = NONE;
+}
 
 /* Rechteck (Tischkoordinaten) als benoetigte Zeichenzeilen je Spalte vormerken */
 static void need_rect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t cam) {
@@ -147,11 +174,19 @@ static void need_rect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t ca
   }
 }
 
+/* Umgebendes Rechteck eines Flippers ueber alle Phasen */
+static int16_t fb_x0(const flipper_t *f) { return f->side > 0 ? f->px - 8 : f->px - 44; }
+
+static uint8_t overlaps(const int16_t *r, const flipper_t *f) {
+  int16_t x0 = fb_x0(f), y0 = f->py - 24;
+  return r[2] >= x0 && r[0] <= x0 + 52 && r[3] >= y0 && r[1] <= y0 + 47;
+}
+
 void render_init(void) {
   spans_init();
   ball_init();
   buf_cam[0] = buf_cam[1] = -1;
-  for (uint8_t c = 0; c < 40; c++) dirty_r0[0][c] = dirty_r0[1][c] = NONE;
+  drawn_ball_on[0] = drawn_ball_on[1] = 0;
 }
 
 int16_t camera_update(void) {
@@ -168,39 +203,51 @@ int16_t camera_update(void) {
 void render_frame(uint8_t b, int16_t cam) {
   uint32_t fb = b ? FB_B : FB_A;
   uint32_t bg = ATTIC_BG + (uint32_t)(uint16_t)cam * 8;
+  uint8_t full = cam != buf_cam[b];
 
-  /* 1. Hintergrund */
-  if (cam != buf_cam[b]) {
+  int16_t bx = (int16_t)(ball.x >> 16), by = (int16_t)(ball.y >> 16);
+  uint8_t ball_on = state != ST_DRAIN;
+  int16_t nb[4] = { bx - 5, by - 5, bx + 5, by + 5 };
+  uint8_t redraw[2], phase[2];
+  for (uint8_t i = 0; i < 2; i++) {
+    phase[i] = phase_of(&flip[i]);
+    redraw[i] = full || phase[i] != drawn_phase[b][i] ||
+                (drawn_ball_on[b] && overlaps(drawn_ball[b], &flip[i])) ||
+                (ball_on && overlaps(nb, &flip[i]));
+  }
+
+  /* 1. Hintergrund: ganz (Kamera bewegt) oder nur die Stellen, die neu
+   *    gezeichnet werden (alter Ball, Flipper, die sich geaendert haben) */
+  if (full) {
     for (uint8_t c = 0; c < 40; c++)
       dma_copy(bg + c * STRIP_BYTES, fb + (uint32_t)c * COL_BYTES, COL_BYTES);
     buf_cam[b] = cam;
   } else {
+    need_clear();
+    if (drawn_ball_on[b])
+      need_rect(drawn_ball[b][0], drawn_ball[b][1], drawn_ball[b][2], drawn_ball[b][3], cam);
+    for (uint8_t i = 0; i < 2; i++)
+      if (redraw[i]) { int16_t x0 = fb_x0(&flip[i]), y0 = flip[i].py - 24; need_rect(x0, y0, x0 + 52, y0 + 47, cam); }
     for (uint8_t c = 0; c < 40; c++) {
-      uint8_t r0 = dirty_r0[b][c];
+      uint8_t r0 = need_r0[c];
       if (r0 == NONE) continue;
-      uint16_t off = (uint16_t)r0 * 64, len = (uint16_t)(dirty_r1[b][c] - r0 + 1) * 64;
+      uint16_t off = (uint16_t)r0 * 64, len = (uint16_t)(need_r1[c] - r0 + 1) * 64;
       dma_copy(bg + c * STRIP_BYTES + off, fb + (uint32_t)c * COL_BYTES + off, len);
     }
   }
 
   /* 2. Was muss gezeichnet werden? */
-  for (uint8_t c = 0; c < 40; c++) need_r0[c] = need_r1[c] = NONE;
+  need_clear();
   for (uint8_t i = 0; i < 2; i++) {
-    const flipper_t *f = &flip[i];
-    uint8_t p = phase_of(f);
-    int16_t yb = f->py - 24;
-    int16_t xa = f->side > 0 ? f->px - 8 : f->px - 44;
-    need_rect(xa, yb + ph_row0[p], xa + 52, yb + ph_row1[p], cam);
+    if (!redraw[i]) continue;
+    int16_t yb = flip[i].py - 24, xa = fb_x0(&flip[i]);
+    need_rect(xa, yb + ph_row0[phase[i]], xa + 52, yb + ph_row1[phase[i]], cam);
   }
-  int16_t bx = (int16_t)(ball.x >> 16), by = (int16_t)(ball.y >> 16);
-  uint8_t ball_on = state != ST_DRAIN;
-  if (ball_on) need_rect(bx - 5, by - 5, bx + 5, by + 5, cam);
+  if (ball_on) need_rect(nb[0], nb[1], nb[2], nb[3], cam);
 
   /* 3. Spaltenweise holen, bemalen, zurueckschreiben */
   for (uint8_t c = 0; c < 40; c++) {
     uint8_t r0 = need_r0[c], r1 = need_r1[c];
-    dirty_r0[b][c] = r0;
-    dirty_r1[b][c] = r1;
     if (r0 == NONE) continue;
     uint16_t off = (uint16_t)r0 * 64, len = (uint16_t)(r1 - r0 + 1) * 64;
     uint32_t addr = fb + (uint32_t)c * COL_BYTES + off;
@@ -208,9 +255,14 @@ void render_frame(uint8_t b, int16_t cam) {
     cx0 = (int16_t)c * 8;
     ty0 = cam + (int16_t)r0 * 8;
     ty1 = cam + (int16_t)r1 * 8 + 7;
-    draw_flipper_col(&flip[0]);
-    draw_flipper_col(&flip[1]);
+    if (redraw[0]) draw_flipper_col(&flip[0]);
+    if (redraw[1]) draw_flipper_col(&flip[1]);
     if (ball_on) draw_ball_col(bx, by);
     dma_copy(CPUADDR(COLBUF), addr, len);
   }
+
+  /* 4. Merken, was jetzt in diesem Puffer steht */
+  for (uint8_t i = 0; i < 2; i++) drawn_phase[b][i] = phase[i];
+  drawn_ball_on[b] = ball_on;
+  for (uint8_t k = 0; k < 4; k++) drawn_ball[b][k] = nb[k];
 }
