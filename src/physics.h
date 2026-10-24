@@ -10,19 +10,21 @@
 /*
  * Einstellbare Werte (pro Substep bei 8 Substeps). Sie lassen sich im
  * laufenden Spiel mit F1/F3/F5/F7 aendern, siehe tune_* unten.
- * Startwerte nach dem ersten Hardwaretest: Flipper doppelt so schnell
- * (etwa 40 ms pro Schlag), Waende etwas weniger federnd.
+ * Startwerte aus dem Hardwaretest vom 24.10.2026: FLIPPER SPEED 1100,
+ * WALL BOUNCE 80.
  */
 #define SUBSTEPS     8
 enum { T_GRAVITY, T_FLIP_SPEED, T_WALL_BOUNCE, T_FLIP_BOUNCE, T_BUMPER_KICK, T_SLING_KICK, T_COUNT };
 extern int32_t tune[T_COUNT];
-#define GRAVITY      tune[T_GRAVITY]
-#define FLIP_SPEED   ((int16_t)tune[T_FLIP_SPEED])
-#define FLIP_DOWN    ((int16_t)(tune[T_FLIP_SPEED] * 3 / 5))
-#define WALL_BOUNCE  tune[T_WALL_BOUNCE]
-#define FLIP_BOUNCE  tune[T_FLIP_BOUNCE]
-#define BUMPER_KICK  tune[T_BUMPER_KICK]
-#define SLING_KICK   tune[T_SLING_KICK]
+/* Abgeleitete Werte, nur bei Aenderung neu berechnet (tune_apply) */
+extern int32_t p_gravity, p_rest_v, p_wall_imp, p_flip_imp, p_bumper_kick, p_sling_kick;
+extern int16_t p_flip_up, p_flip_down;
+#define GRAVITY      p_gravity
+#define REST_V       p_rest_v
+#define FLIP_SPEED   p_flip_up
+#define FLIP_DOWN    p_flip_down
+#define BUMPER_KICK  p_bumper_kick
+#define SLING_KICK   p_sling_kick
 
 typedef struct {
   const char *name;
@@ -39,9 +41,6 @@ void tune_reset(void);
 #endif
 #ifndef LAUNCH_MAX
 #define LAUNCH_MAX   190054L
-#endif
-#ifndef REST_V
-#define REST_V       (GRAVITY * 5)
 #endif
 #ifndef PULL_MAX
 #define PULL_MAX     40

@@ -17,14 +17,29 @@ uint8_t tune_on, tune_sel;
 int32_t tune[T_COUNT];
 const tune_info_t TUNE_INFO[T_COUNT] = {
   { "GRAVITY",      340,   100,    800,   10 },
-  { "FLIPPER SPEED", 720,  200,   1400,   20 },
-  { "WALL BOUNCE",   100,    0,    230,    4 },
+  { "FLIPPER SPEED", 1100, 200,   1400,   20 },
+  { "WALL BOUNCE",    80,    0,    230,    4 },
   { "FLIPPER BOUNCE", 72,    0,    200,    4 },
   { "BUMPER KICK", 90000, 20000, 160000, 2000 },
   { "SLING KICK",  70000,     0, 140000, 2000 },
 };
+int32_t p_gravity, p_rest_v, p_wall_imp, p_flip_imp, p_bumper_kick, p_sling_kick;
+int16_t p_flip_up, p_flip_down;
+
+static void tune_apply(void) {
+  p_gravity = tune[T_GRAVITY];
+  p_rest_v = p_gravity * 5;
+  p_flip_up = (int16_t)tune[T_FLIP_SPEED];
+  p_flip_down = (int16_t)(tune[T_FLIP_SPEED] * 3 / 5);
+  p_wall_imp = FIX_ONE + tune[T_WALL_BOUNCE] * 256;      /* Faktor (1 + e) */
+  p_flip_imp = FIX_ONE + tune[T_FLIP_BOUNCE] * 256;
+  p_bumper_kick = tune[T_BUMPER_KICK];
+  p_sling_kick = tune[T_SLING_KICK];
+}
+
 void tune_reset(void) {
   for (uint8_t i = 0; i < T_COUNT; i++) tune[i] = TUNE_INFO[i].def;
+  tune_apply();
 }
 
 static void tune_input(const input_t *in) {
@@ -35,7 +50,7 @@ static void tune_input(const input_t *in) {
   int32_t v = tune[tune_sel];
   if (in->tune_down) { v -= t->step; if (v < t->min) v = t->min; }
   if (in->tune_up)   { v += t->step; if (v > t->max) v = t->max; }
-  tune[tune_sel] = v;
+  if (v != tune[tune_sel]) { tune[tune_sel] = v; tune_apply(); }
 }
 
 static uint8_t sling_cool[2];
@@ -99,8 +114,7 @@ static void collide_mask(void) {
   for (uint8_t k = 0; k < 16 && ball_hits_mask(); k++) { ball.x += nx >> 1; ball.y += ny >> 1; }
   fix16 vn = fmul(ball.vx, nx) + fmul(ball.vy, ny);
   if (vn >= 0) return;
-  int32_t e = (-vn < REST_V) ? 0 : WALL_BOUNCE;
-  fix16 imp = fmul(vn, FIX_ONE + e * 256);
+  fix16 imp = (-vn < REST_V) ? vn : fmul(vn, p_wall_imp);
   ball.vx -= fmul(imp, nx);
   ball.vy -= fmul(imp, ny);
   if (kind == M_SLING_L || kind == M_SLING_R) {
@@ -177,8 +191,7 @@ static void collide_flipper(const flipper_t *f) {
   fix16 rvx = ball.vx - vsx, rvy = ball.vy - vsy;
   fix16 vn = fmul(rvx, nx) + fmul(rvy, ny);
   if (vn >= 0) return;
-  int32_t e = (-vn < REST_V && omega == 0) ? 0 : FLIP_BOUNCE;
-  fix16 imp = fmul(vn, FIX_ONE + e * 256);
+  fix16 imp = (-vn < REST_V && omega == 0) ? vn : fmul(vn, p_flip_imp);
   ball.vx -= fmul(imp, nx);
   ball.vy -= fmul(imp, ny);
 }

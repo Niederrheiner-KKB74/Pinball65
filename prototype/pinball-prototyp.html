@@ -185,9 +185,9 @@ function angle256(dx, dy) {
 /* ============================================================
    Einstellbare Werte (gelten für 8 Substeps, werden umgerechnet)
    ============================================================ */
-const DEF = { SUBSTEPS: 8, GRAVITY: 340, FLIP_SPEED: 720, WALL_BOUNCE: 100, FLIP_BOUNCE: 72, BUMPER_KICK: 90000, SLING_KICK: 70000 };
+const DEF = { SUBSTEPS: 8, GRAVITY: 340, FLIP_SPEED: 1100, WALL_BOUNCE: 80, FLIP_BOUNCE: 72, BUMPER_KICK: 90000, SLING_KICK: 70000 };
 let T = { ...DEF };
-try { const s = JSON.parse(localStorage.getItem('rcp-tune2') || 'null'); if (s) T = { ...DEF, ...s }; } catch (e) {}
+try { const s = JSON.parse(localStorage.getItem('rcp-tune3') || 'null'); if (s) T = { ...DEF, ...s }; } catch (e) {}
 
 const SLIDERS = [
   { k: 'SUBSTEPS', label: 'Substeps pro Frame', min: 1, max: 16, step: 1, hint: v => `${v * 50} Physik-Schritte pro Sekunde` },
@@ -879,12 +879,12 @@ function buildSliders() {
 function setTune(k, v, show) {
   if (k === 'SUBSTEPS') { const f = T.SUBSTEPS / v; ball.vx = Math.round(ball.vx * f); ball.vy = Math.round(ball.vy * f); }
   T[k] = v; derive(); show && show(); writeCode();
-  try { localStorage.setItem('rcp-tune2', JSON.stringify(T)); } catch (e) {}
+  try { localStorage.setItem('rcp-tune3', JSON.stringify(T)); } catch (e) {}
 }
 document.getElementById('resetTune').addEventListener('click', () => {
   const f = T.SUBSTEPS / DEF.SUBSTEPS; ball.vx = Math.round(ball.vx * f); ball.vy = Math.round(ball.vy * f);
   T = { ...DEF }; derive(); buildSliders(); writeCode();
-  try { localStorage.removeItem('rcp-tune2'); } catch (e) {}
+  try { localStorage.removeItem('rcp-tune3'); } catch (e) {}
 });
 const codeEl = document.getElementById('code');
 function writeCode() {

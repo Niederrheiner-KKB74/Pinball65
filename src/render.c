@@ -150,7 +150,7 @@ static void hud_num(uint32_t v, uint8_t digits, uint8_t col) {
 static void draw_hud(uint16_t frame, uint16_t load) {
   for (uint16_t i = 0; i < ROW_BYTES; i++) rowbuf[i] = C_HUD_BG;
   hud_x = 4;
-  hud_str("M1.1 ", C_HUD_DIM);  /* Meilenstein und Version */
+  hud_str("M1.2 ", C_HUD_DIM);  /* Meilenstein und Version */
   hud_str("F", C_HUD_DIM); hud_num(frame, 5, C_HUD_TXT);
   hud_str(" L", C_HUD_DIM); hud_num(load, 3, C_HUD_TXT);
   hud_str(" X", C_HUD_DIM); hud_num((uint32_t)(ball.x >> 16) & 0x3FF, 3, C_HUD_TXT);

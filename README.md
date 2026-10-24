@@ -8,7 +8,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 |---|---|---|
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
-| 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026); v1.1 mit Einstellmodus bereit zum Test |
+| 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
 | 2 | Scrollender Tisch, Raster-Split für das Display | geplant |
 | 3 | Bumper, Slingshots, Targets, Punkte, Sound | geplant |
 
@@ -27,6 +27,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 23.10.2026 | Meilenstein 0 v1 | Absturz: `POKE 0,65` blendet KERNAL aus | Absturz |
 | 23.10.2026 | Meilenstein 0 v2: 2000 × fmul, `1.5 * -2.25` | grün, 0 Abweichungen, -221184 | grün, 0 Abweichungen, -221184 |
 | 24.10.2026 | Meilenstein 1: Testabschuss `T` | `X:07652669 Y:30380675`, L = 100 | identisch |
+| 24.10.2026 | Meilenstein 1.1: Testabschuss `T` | `X:13317277 Y:19434387`, L = 124 | identisch |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
@@ -34,6 +35,8 @@ Erkenntnisse:
 - Der Hardware-Multiplizierer liefert sofort korrekte Ergebnisse, ohne Warten.
 - Die Physik rechnet auf MEGA65, Xemu und PC bitgleich. Damit lassen sich Physikänderungen im PC-Test vorab prüfen.
 - Ein Bild braucht etwa 100 von 312 Rasterzeilen, also rund ein Drittel der verfügbaren Zeit.
+- v1.1 brauchte 124 Zeilen, weil die einstellbaren Werte in jedem Substep neu verrechnet wurden, darunter eine 32-Bit-Division in Software. Seit v1.2 werden abgeleitete Werte nur bei einer Änderung berechnet.
+- Im Einstellmodus ermittelt (24.10.2026): FLIPPER SPEED 1100 und WALL BOUNCE 80 fühlen sich gut an. Seit v1.2 sind das die Startwerte.
 - Rückmeldung zum Spielgefühl: Flipper zu langsam, Ball prallt viel ab und kommt selten herunter. Ursachen: Ein Flipperschlag dauerte etwa 85 ms (echte Flipper 30 bis 50 ms); der Ball ist rund zwei Drittel der Zeit oberhalb des sichtbaren Ausschnitts; ein zu schwacher Abschuss ließ den Ball auf dem Plunger liegen, ohne dass er neu abgeschossen werden konnte (behoben in v1.1).
 
 ## Einrichtung unter Windows 11
@@ -95,13 +98,13 @@ Im Einstellmodus zeigt die Statuszeile rechts den gewählten Wert. Die Änderung
 | Wert | Start | Bereich | Bedeutung |
 |---|---|---|---|
 | GRAVITY | 340 | 100–800 | Schwerkraft |
-| FLIPPER SPEED | 720 | 200–1400 | Schlaggeschwindigkeit; Rückweg 60 % davon. 720 ≈ 40 ms pro Schlag |
-| WALL BOUNCE | 100 | 0–230 | Abprall an Wänden, geteilt durch 256 (100 ≈ 0,39) |
+| FLIPPER SPEED | 1100 | 200–1400 | Schlaggeschwindigkeit; Rückweg 60 % davon. 1100 ≈ 25 ms pro Schlag |
+| WALL BOUNCE | 80 | 0–230 | Abprall an Wänden, geteilt durch 256 (80 ≈ 0,31) |
 | FLIPPER BOUNCE | 72 | 0–200 | Abprall am ruhenden Flipper, geteilt durch 256 |
 | BUMPER KICK | 90000 | 20000–160000 | Stoß der Bumper (in Meilenstein 1 noch unsichtbar, oben im Tisch) |
 | SLING KICK | 70000 | 0–140000 | Stoß der Slingshots |
 
-**Gleichheitstest Xemu und MEGA65:** Direkt nach dem Start ohne andere Taste `T` drücken und nichts weiter anfassen. Die beiden Zahlen hinter `TEST` müssen auf beiden Systemen identisch sein. Mit den Startwerten von v1.1 liefert der PC-Test `X:13317277 Y:19434387` (v1.0: `X:07652669 Y:30380675`). Nach einer Änderung im Einstellmodus ergeben sich natürlich andere Zahlen.
+**Gleichheitstest Xemu und MEGA65:** Direkt nach dem Start ohne andere Taste `T` drücken und nichts weiter anfassen. Die beiden Zahlen hinter `TEST` müssen auf beiden Systemen identisch sein. Mit den Startwerten von v1.2 liefert der PC-Test `X:17539107 Y:38809859` (v1.1: `X:13317277 Y:19434387`, v1.0: `X:07652669 Y:30380675`). Nach einer Änderung im Einstellmodus ergeben sich natürlich andere Zahlen.
 
 ### Meilenstein 0: was zu erwarten ist
 
