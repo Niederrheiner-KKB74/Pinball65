@@ -142,7 +142,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.2");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.3");
   dmd_render();
   code_check("NACH ATTIC-TEST");
 

@@ -9,7 +9,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
-| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | Fehlersuche, v2.2 mit Diagnose |
+| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | v2.3 bereit zum Test |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
@@ -34,6 +34,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 24.10.2026 | Meilenstein 1.2: Testabschuss `T` | `X:17539107 Y:38809859`, L = 112 | identisch |
 | 24.10.2026 | Meilenstein 2.0 | Absturz | Absturz bei PC=$956E |
 | 24.10.2026 | Meilenstein 2.1 (`-Oz`) | – | hängt beim Aufbau, hellblauer Rahmen, PC um $8A4E (Software-Multiplikation) |
+| 24.10.2026 | Meilenstein 2.2 (Diagnose) | bleibt bei `GRAFIK 15/80` stehen, Prüfsumme ok | identisch |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
@@ -43,6 +44,7 @@ Erkenntnisse:
 - Ein Bild braucht etwa 100 von 312 Rasterzeilen, also rund ein Drittel der verfügbaren Zeit.
 - v1.1 brauchte 124 Zeilen, weil die einstellbaren Werte in jedem Substep neu verrechnet wurden, darunter eine 32-Bit-Division in Software. Seit v1.2 werden abgeleitete Werte nur bei einer Änderung berechnet.
 - Im Einstellmodus ermittelt (24.10.2026): FLIPPER SPEED 1100 und WALL BOUNCE 80 fühlen sich gut an. Seit v1.2 sind das die Startwerte.
+- **Übersetzt wird für den reinen 6502 (`-mcpu=mos6502`).** Mit den 45GS02-Erweiterungen erzeugte llvm-mos (Version cd91455) in `band_disc` einen `inw`-Befehl auf das falsche Register: Der Schleifenzähler blieb stehen, der Aufbau hing bei `GRAFIK 15/80` (Diagnoseversion 2.2). Der 6502-Simulator zeigte den Fehler nicht, weil er für den 6502 übersetzt. Mit `-mcpu=mos6502` prüft er jetzt denselben Befehlssatz, der auf dem MEGA65 läuft. Den 65C02-Befehlssatz meiden wir ebenfalls: Seine `(zp)`-Befehle bedeuten auf dem 45GS02 `(zp),Z` und funktionieren nur, solange Z = 0 ist.
 - **Das geladene Programm muss unter $A000 enden.** Version 2.0 reichte bis $B14E und stürzte auf Xemu und MEGA65 ab; bei $A000–$BFFF liegt im C65-Modus beim Laden das BASIC-ROM. Seit 2.1 wird mit `-Oz` übersetzt (Programmende $9468), und `tools/mkd81.py` bricht den Build ab, wenn die Grenze überschritten wird. Variablen dürfen darüber liegen, sie werden erst beim Start angelegt.
 - Rückmeldung zum Spielgefühl: Flipper zu langsam, Ball prallt viel ab und kommt selten herunter. Ursachen: Ein Flipperschlag dauerte etwa 85 ms (echte Flipper 30 bis 50 ms); der Ball ist rund zwei Drittel der Zeit oberhalb des sichtbaren Ausschnitts; ein zu schwacher Abschuss ließ den Ball auf dem Plunger liegen, ohne dass er neu abgeschossen werden konnte (behoben in v1.1).
 
@@ -78,7 +80,7 @@ In Xemu: `xmega65 -8 build\pinball65.d81`, danach ebenfalls `RUN "PINBALL65"`.
 
 ### Meilenstein 2: Bedienung und Test
 
-Nach dem Start zeigt das Display `SEARCHING FOR *` / `LOADING`, während der MEGA65 Kollisionsmaske und Tischgrafik berechnet. Der Rahmen flackert dabei bunt, das dauert einige Sekunden. Danach erscheint der Tisch, das Bild folgt dem Ball pixelgenau.
+Nach dem Start zeigt das Display `SEARCHING FOR *` und den Fortschritt (`MASKE nn/14`, dann `GRAFIK nn/80`), während der MEGA65 Kollisionsmaske und Tischgrafik berechnet. Das dauert einige Sekunden. Eine Prüfsumme über den Programmcode wird nach jedem Schritt und im Spiel alle 5 Sekunden kontrolliert; ändert sich der Code, hält das Programm mit `?CODE CHANGED  ERROR` und rotem Rahmen. Danach erscheint der Tisch, das Bild folgt dem Ball pixelgenau.
 
 Fehlt das Attic-RAM oder antwortet es falsch, zeigt das Display `?ATTIC RAM  ERROR` und der Rahmen wird rot.
 
