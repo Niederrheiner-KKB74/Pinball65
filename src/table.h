@@ -69,6 +69,9 @@ void mask_load(int16_t y0);
 /* Klasse je 8x8-Feld: 40 x 80 */
 extern uint8_t cls_grid[(TH / 8) * 40];
 
+/* Fortschrittsmeldung waehrend des Aufbaus (Phase 0 = Maske, 1 = Grafik) */
+void build_progress(uint8_t phase, uint8_t step);
+
 void table_build_mask(void);
 void table_build_palette(void);
 /* Zeichnet die Tischgrafik spaltenweise ins Attic-RAM (ATTIC_BG) */

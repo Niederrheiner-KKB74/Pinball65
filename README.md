@@ -9,7 +9,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
-| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | v2.1 bereit zum Test |
+| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | Fehlersuche, v2.2 mit Diagnose |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
@@ -33,6 +33,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 24.10.2026 | Meilenstein 1.1: Testabschuss `T` | `X:13317277 Y:19434387`, L = 124 | identisch |
 | 24.10.2026 | Meilenstein 1.2: Testabschuss `T` | `X:17539107 Y:38809859`, L = 112 | identisch |
 | 24.10.2026 | Meilenstein 2.0 | Absturz | Absturz bei PC=$956E |
+| 24.10.2026 | Meilenstein 2.1 (`-Oz`) | – | hängt beim Aufbau, hellblauer Rahmen, PC um $8A4E (Software-Multiplikation) |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.

@@ -84,3 +84,4 @@ int main(void) {
   }
   return 0;
 }
+void build_progress(uint8_t phase, uint8_t step) { (void)phase; (void)step; }

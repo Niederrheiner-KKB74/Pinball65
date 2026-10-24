@@ -96,7 +96,39 @@ static void update_display(uint16_t load, int16_t cam) {
   dmd_render();
 }
 
+/* ---------- Diagnose: Pruefsumme ueber Programmcode und Konstanten ---------- */
+extern char __data_start[];   /* Ende von Code und Konstanten; .data aendert sich im Spiel */
+static uint16_t code_sum0;
+
+static uint16_t code_sum(void) {
+  uint16_t sum = 0;
+  for (const uint8_t *p = (const uint8_t *)0x2001; p < (const uint8_t *)__data_start; p++)
+    sum = (uint16_t)((sum << 1) | (sum >> 15)) ^ *p;
+  return sum;
+}
+
+/* Haelt das Programm an, wenn der Code veraendert wurde */
+static void code_check(const char *where) {
+  if (code_sum() == code_sum0) return;
+  VICIV.bordercol = 2;
+  dmd_text("?CODE CHANGED  ERROR", where);
+  dmd_render();
+  for (;;) {}
+}
+
+void build_progress(uint8_t phase, uint8_t step) {
+  char l2[DMD_COLS + 1], *p;
+  p = dmd_put(l2, phase ? "GRAFIK " : "MASKE ");
+  p = dmd_num(p, step + 1, 2);
+  dmd_put(p, phase ? "/80" : "/14");
+  dmd_text("SEARCHING FOR *", l2);
+  dmd_render();
+  VICIV.bordercol = (uint8_t)(phase ? 3 : 4);   /* Rahmen: Chromfarben waehrend des Aufbaus */
+  code_check(l2);
+}
+
 int main(void) {
+  code_sum0 = code_sum();
   hw_init();
   table_build_palette();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES); /* Tischbereich dunkel */
@@ -110,15 +142,19 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.1");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.2");
   dmd_render();
+  code_check("NACH ATTIC-TEST");
 
   table_build_mask();
   table_build_art();
   render_init();
   phys_init();
+  VICIV.bordercol = 0;
+  code_check("NACH AUFBAU");
 
   uint8_t front = 0;
+  uint8_t check_tick = 0;
   uint16_t load = 0;
   input_t in;
   for (;;) {
@@ -130,6 +166,7 @@ int main(void) {
     uint8_t back = front ^ 1;
     render_frame(back, cam);
     update_display(load, cam);
+    if (++check_tick == 250) { check_tick = 0; code_check("IM SPIEL"); }   /* alle 5 s */
     front = back;
     uint16_t l = raster_line();         /* Auslastung: Rasterzeilen seit Zeile 251 */
     load = l >= 251 ? l - 251 : l + 312 - 251;

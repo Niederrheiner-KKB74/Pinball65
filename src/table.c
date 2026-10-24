@@ -148,7 +148,7 @@ void table_build_mask(void) {
     build_band();
     dma_copy(CPUADDR(MASKWIN), MASK_FAR + (uint32_t)(uint16_t)band_y0 * 40,
              (uint16_t)(band_y1 - band_y0) * 40);
-    VICIV.bordercol++;                  /* Fortschritt */
+    build_progress(0, (uint8_t)(band_y0 / WIN_ROWS));
   }
   win_y0 = -1000;                       /* Fenster ungueltig, naechster Zugriff laedt neu */
 }
@@ -344,7 +344,7 @@ void table_build_art(void) {
     uint32_t dst = ATTIC_BG + (uint32_t)(uint16_t)band_y0 * 8;
     for (uint8_t c = 0; c < 40; c++, dst += STRIP_BYTES)
       dma_copy(CPUADDR(b + (uint16_t)c * 64), dst, 64);
-    VICIV.bordercol = (uint8_t)(band_y0 >> 3);
+    build_progress(1, (uint8_t)(band_y0 >> 3));
   }
   VICIV.bordercol = 0;
   win_y0 = -1000;

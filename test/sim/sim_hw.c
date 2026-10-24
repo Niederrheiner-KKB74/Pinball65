@@ -29,8 +29,22 @@ static void check_cpu(uint32_t a, uint16_t n) {
   sim_fail("DMA ausserhalb der CPU-Puffer", a, n);
 }
 
+/* Farb-RAM-Bereich der Kollisionsmaske nachbilden (nur fuer den Aufbautest) */
+#ifdef SIM_COLRAM
+static uint8_t colram_mask[25600];
+static uint8_t *far_ptr(uint32_t a, uint16_t n) {
+  if (a >= 0xFF81000UL && a + n <= 0xFF81000UL + sizeof colram_mask) return colram_mask + (uint16_t)(a - 0xFF81000UL);
+  return 0;
+}
+#else
+static uint8_t *far_ptr(uint32_t a, uint16_t n) { (void)a; (void)n; return 0; }
+#endif
+
 void dma_copy(uint32_t s, uint32_t d, uint16_t n) {
   sim_jobs++;
+  uint8_t *fs = far_ptr(s, n), *fd = far_ptr(d, n);
+  if (fd && s < 0x10000UL) { memcpy(fd, (void *)(uint16_t)s, n); return; }
+  if (fs && d < 0x10000UL) { check_cpu(d, n); memcpy((void *)(uint16_t)d, fs, n); return; }
   check_cpu(d, n);
   if (s < 0x10000UL) check_cpu(s, n);
   if (d < 0x10000UL && s < 0x10000UL) memmove((void *)(uint16_t)d, (void *)(uint16_t)s, n);
@@ -52,3 +66,4 @@ uint8_t joy2(void) { return 0; }
 
 fix16 fmul(fix16 a, fix16 b) { return fmul_sw(a, b); }
 int32_t mul32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a * (uint32_t)b); }
+void build_progress(uint8_t phase, uint8_t step) { (void)phase; (void)step; }
