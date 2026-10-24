@@ -58,11 +58,21 @@ void set_color(uint8_t i, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void show_buffer(uint8_t b) {
-  uint16_t a = b ? 0x1000 : 0x0800;
+  uint32_t a = b ? MAP_B : MAP_A;
   VICIV.scrnptr_lsb = (uint8_t)a;
   VICIV.scrnptr_msb = (uint8_t)(a >> 8);
-  VICIV.scrnptr_bnk = 0;
+  VICIV.scrnptr_bnk = (uint8_t)(a >> 16);
   VICIV.scrnptr_mb = 0;
+}
+
+/* Attic-RAM pruefen: Muster hinschreiben, zuruecklesen, vergleichen */
+uint8_t attic_ok(void) {
+  uint8_t *a = COLBUF, *b = COLBUF + 256;
+  for (uint16_t i = 0; i < 256; i++) { a[i] = (uint8_t)(i * 7 + 3); b[i] = 0; }
+  dma_copy(CPUADDR(a), ATTIC_BG + 0x7F000UL, 256);
+  dma_copy(ATTIC_BG + 0x7F000UL, CPUADDR(b), 256);
+  for (uint16_t i = 0; i < 256; i++) if (a[i] != b[i]) return 0;
+  return 1;
 }
 
 uint16_t raster_line(void) {
@@ -124,10 +134,16 @@ void hw_init(void) {
   /* Farb-RAM neutral (keine Spiegelung, kein Alpha, kein NCM) */
   dma_fill(COLRAM, 0, 4096);
 
-  /* Zwei Bildschirme, jeder zeigt auf seinen eigenen Satz von 1000 Zeichen */
-  for (uint16_t i = 0; i < 1000; i++) {
-    SCREEN_A[i] = 0x1000 + i;
-    SCREEN_B[i] = 0x1400 + i;
+  /* Zwei Bildschirmkarten im Chip-RAM: Display oben gemeinsam, darunter
+   * die spaltenweise nummerierten Zeichen des jeweiligen Bildpuffers */
+  uint16_t *m = (uint16_t *)ROWBUF;
+  for (uint8_t buf = 0; buf < 2; buf++) {
+    uint16_t base = buf ? FB_B_CHAR : FB_A_CHAR;
+    for (uint8_t r = 0; r < 25; r++)
+      for (uint8_t c = 0; c < 40; c++)
+        m[r * 40 + c] = r < DISP_ROWS ? (uint16_t)(DISP_CHAR + r * 40 + c)
+                                      : (uint16_t)(base + c * VIEW_ROWS + (r - DISP_ROWS));
+    dma_copy(CPUADDR(ROWBUF), buf ? MAP_B : MAP_A, 2000);
   }
 
   CIA1.ddra = 0xFF;

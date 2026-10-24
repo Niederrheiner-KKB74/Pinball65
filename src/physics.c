@@ -57,7 +57,6 @@ static uint8_t sling_cool[2];
 static int16_t plunger_top;      /* Pixel: Ballmittelpunkt darf nicht tiefer */
 static uint8_t drain_timer;
 
-static const int16_t BUMPERS[3][3] = { {112, 150, 13}, {188, 150, 13}, {150, 196, 13} };
 
 /* Pruefpunkte auf dem Ballrand */
 static int8_t pts_x[40], pts_y[40];
@@ -85,6 +84,7 @@ static uint8_t sample(int16_t x, int16_t y) {
   if (!mask_solid(x, y)) return M_EMPTY;
   uint8_t c = mask_class(x, y);
   if (c == M_GATE && in_lane) return M_EMPTY;
+  if (c == M_GATE_UP && ball.vy < 0) return M_EMPTY;
   return c;
 }
 
@@ -130,7 +130,7 @@ static void collide_mask(void) {
 
 /* ---------- Bumper ---------- */
 static void collide_bumpers(void) {
-  for (uint8_t i = 0; i < 3; i++) {
+  for (uint8_t i = 0; i < N_BUMPERS; i++) {
     fix16 bx = (fix16)BUMPERS[i][0] << 16, by = (fix16)BUMPERS[i][1] << 16;
     int16_t rr = BALL_R + BUMPERS[i][2];
     fix16 dx = ball.x - bx, dy = ball.y - by;

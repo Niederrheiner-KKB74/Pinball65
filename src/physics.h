@@ -1,5 +1,5 @@
 /*
- * physics.h – Ballphysik, Flipper und einfacher Spielablauf (Meilenstein 1)
+ * physics.h – Ballphysik, Flipper und einfacher Spielablauf
  */
 #ifndef PHYSICS_H
 #define PHYSICS_H

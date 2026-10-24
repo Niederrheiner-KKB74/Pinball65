@@ -3,23 +3,48 @@
  *
  * Nach hw_init() wird das KERNAL nicht mehr aufgerufen. Interrupts bleiben
  * gesperrt, das Timing laeuft ueber Abfrage der Rasterzeile.
+ *
+ * Bildschirmaufbau (Meilenstein 2): 40 x 25 Zeichen im Full-Colour-Modus.
+ *   Zeilen 0-3  : Dot-Matrix-Display (gemeinsame Zeichen fuer beide Puffer)
+ *   Zeilen 4-24 : Tischausschnitt, 21 Zeichenzeilen = 168 Pixel
+ * Die Zeichen des Tischausschnitts sind SPALTENWEISE nummeriert: die 21
+ * Zeichen einer Spalte liegen hintereinander im Speicher. Damit ist eine
+ * Bildschirmspalte (1344 Byte) ein zusammenhaengender Block, den eine einzige
+ * DMA-Kopie aus dem Hintergrund im Attic-RAM fuellt - auf jede Pixelzeile
+ * genau. So scrollt der Tisch pixelgenau ohne Feinscroll-Register.
  */
 #ifndef HW_H
 #define HW_H
 
 #include <stdint.h>
 
-/* Speicheraufteilung (Chip-RAM) */
-#define FB_A        0x40000UL   /* Bildpuffer A: 1000 FCM-Zeichen, Zeichen $1000.. */
-#define FB_B        0x50000UL   /* Bildpuffer B: 1000 FCM-Zeichen, Zeichen $1400.. */
-#define BG_ADDR     0x10000UL   /* unveraenderter Hintergrund, 24 Zeichenzeilen */
-#define COLRAM      0xFF80000UL
-#define SCREEN_A    ((volatile uint16_t *)0x0800)
-#define SCREEN_B    ((volatile uint16_t *)0x1000)
+/* ---------- Speicheraufteilung ---------- */
+#define VIEW_ROWS   21          /* Tischausschnitt in Zeichenzeilen */
+#define VIEW_H      (VIEW_ROWS * 8)
+#define DISP_ROWS   4           /* Display oben */
+#define COL_BYTES   (VIEW_ROWS * 64u)   /* eine Bildschirmspalte: 1344 Byte */
 
+#define FB_A        0x40000UL   /* Bildpuffer A: 40 Spalten x 1344 Byte */
+#define FB_B        0x4D200UL   /* Bildpuffer B */
+#define DISP_ADDR   0x5A400UL   /* Display: 4 x 40 Zeichen, zeilenweise */
+#define MAP_A       0x5CC00UL   /* Bildschirmkarte A (1000 x 2 Byte) */
+#define MAP_B       0x5D400UL   /* Bildschirmkarte B */
+#define FB_A_CHAR   0x1000u     /* = FB_A / 64 */
+#define FB_B_CHAR   0x1348u     /* = FB_B / 64 */
+#define DISP_CHAR   0x1690u     /* = DISP_ADDR / 64 */
+
+#define ATTIC_BG    0x8000000UL /* Tischgrafik, 40 Spalten-Streifen */
+#define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
+#define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */
-#define VIEW_ROWS   24          /* Tischausschnitt: 24 Zeichenzeilen = 192 Pixel */
-#define HUD_ROW     24          /* Zeile 25: Statuszeile */
+
+/* Feste CPU-Puffer im Bereich $0800-$1FFF (frei, seit die Bildschirm-
+ * karten im Chip-RAM liegen). Der PC-Test ersetzt sie durch Arrays. */
+#ifndef ROWBUF
+#define ROWBUF      ((uint8_t *)0x0800)  /* 2560 Byte: eine Zeichenzeile */
+#define COLBUF      ((uint8_t *)0x1200)  /* 1344 Byte: eine Bildschirmspalte */
+#define MASKWIN     ((uint8_t *)0x1740)  /* 1920 Byte: 48 Maskenzeilen */
+#endif
 
 /* 28-Bit-Adresse eines CPU-Puffers (Bank 0) fuer DMA-Auftraege */
 #ifndef CPUADDR
@@ -27,6 +52,7 @@
 #endif
 
 void hw_init(void);
+uint8_t attic_ok(void);
 void dma_copy(uint32_t src, uint32_t dst, uint16_t count);
 void dma_fill(uint32_t dst, uint8_t value, uint16_t count);
 void set_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b);

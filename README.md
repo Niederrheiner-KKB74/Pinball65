@@ -9,8 +9,11 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
-| 2 | Scrollender Tisch, Raster-Split für das Display | geplant |
-| 3 | Bumper, Slingshots, Targets, Punkte, Sound | geplant |
+| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bereit zum Test |
+| 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
+| 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
+| 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
+| 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
 
 ## Testumgebung
 
@@ -70,6 +73,29 @@ Ergebnis: `build\pinball65.d81` mit dem Programm `PINBALL65`.
 
 In Xemu: `xmega65 -8 build\pinball65.d81`, danach ebenfalls `RUN "PINBALL65"`.
 
+### Meilenstein 2: Bedienung und Test
+
+Nach dem Start zeigt das Display `SEARCHING FOR *` / `LOADING`, während der MEGA65 Kollisionsmaske und Tischgrafik berechnet. Der Rahmen flackert dabei bunt, das dauert einige Sekunden. Danach erscheint der Tisch, das Bild folgt dem Ball pixelgenau.
+
+Fehlt das Attic-RAM oder antwortet es falsch, zeigt das Display `?ATTIC RAM  ERROR` und der Rahmen wird rot.
+
+Die Tasten sind dieselben wie in Meilenstein 1 (Tabelle unten). Das Display zeigt:
+
+| Zustand | Zeile 1 | Zeile 2 |
+|---|---|---|
+| Ball in der Abschussbahn | `LOAD"*",8,1` | `L` Auslastung, `PRESS SPACE` |
+| Ball im Spiel | `READY.` und `L` Auslastung | `X` `Y` Ballposition, `C` Kamera, `B` Bumper-Treffer |
+| Ball verloren | `?BALL LOST  ERROR` | `READY.` |
+| Testabschuss läuft | `TEST` und Zähler bis 120 | `SEARCHING FOR *` |
+| Testabschuss fertig | `TEST X` und Wert | `TEST Y` und Wert |
+| Einstellmodus (F1) | Name des Werts | `=` Wert |
+
+Die Zahlen im Display werden fünfmal pro Sekunde aktualisiert. L wird in Rasterzeilen gemessen, 312 entsprechen einem vollen Bild.
+
+**Gleichheitstest:** Direkt nach dem Start `T` drücken und nichts weiter anfassen. Der PC-Test liefert für Meilenstein 2 `TEST X 07457637` und `TEST Y 21572962`. Der Wert hat sich geändert, weil der Tisch neu ist.
+
+**Was zu prüfen ist:** ob das Scrolling ruckelt oder flackert, wie hoch L beim Scrollen steigt (der Hintergrund kommt dann aus dem Attic-RAM), und ob Display und Tisch sauber getrennt bleiben.
+
 ### Meilenstein 1: Bedienung und Test
 
 Nach dem Start färbt sich der Rahmen kurz bunt, während der MEGA65 Kollisionsmaske und Hintergrund berechnet (ein bis zwei Sekunden). Danach erscheint der untere Teil des Tisches.
@@ -116,7 +142,8 @@ Das Programm schaltet auf 40 MHz, vergleicht 2000 Festkomma-Multiplikationen in 
 ```
 prototype/   Physik-Prototyp im Browser (HTML-Datei direkt öffnen)
 src/         C-Quellcode für den MEGA65
-tools/       Hilfsprogramme: mkd81.py (Diskettenimage), gen_tables.py (Sinus/atan)
+tools/       Hilfsprogramme: mkd81.py (Diskettenimage), gen_tables.py (Sinus/atan),
+             gen_font.py (5x7-Schrift fürs Display)
 test/host/   PC-Test: derselbe C-Code mit simuliertem Speicher und DMA, schreibt Bilder
 build.bat    Build unter Windows
 Makefile     Build mit make
@@ -124,7 +151,7 @@ Makefile     Build mit make
 
 ## PC-Test
 
-Unter Linux oder in WSL: `make -C test/host run`. Das Programm führt Meilenstein 1 ohne MEGA65 aus, protokolliert die Ballbahn und schreibt Bilder (`.ppm`), die aus dem simulierten Zeichenspeicher so gelesen werden wie vom VIC-IV. Das Timing und die echten Register prüft nur die Hardware.
+Unter Linux oder in WSL: `make -C test/host run`. Das Programm führt das Spiel ohne MEGA65 aus, protokolliert die Ballbahn und schreibt Bilder (`.ppm`), die aus dem simulierten Zeichenspeicher so gelesen werden wie vom VIC-IV. Das Timing und die echten Register prüft nur die Hardware.
 
 ## Technische Eckpunkte
 
@@ -132,6 +159,8 @@ Unter Linux oder in WSL: `make -C test/host run`. Das Programm führt Meilenstei
 - **Substeps**: 8 Physik-Schritte pro Frame bei 50 Hz (PAL), damit der Ball nicht durch Wände tunnelt.
 - **Kollisionsmaske**: ein Byte pro Pixel mit Klassen für Wand, Slingshot, Tor und Targets. Normalen aus Randpunkten über eine 256er-Winkeltabelle.
 - **Flipper**: sich drehende Kapseln mit Oberflächengeschwindigkeit am Treffpunkt.
-- **Grafik**: Full-Colour-Charakter-Modus (CHR16, 256 Farben pro Pixel), zwei Bildpuffer mit je 1000 Zeichen bei `$40000` und `$50000`, unveränderter Hintergrund bei `$10000`. Pro Bild werden nur die Zeichenzeilen mit Flippern und Ball neu gezeichnet.
-- **Speicher**: Die Kollisionsmaske (23 KB) liegt im Farb-RAM ab `$FF81000`; die CPU arbeitet mit einem Fenster von 128 Zeilen, das per DMA nachgeladen wird.
-- **Geplant**: Kachelkarte für den ganzen Tisch, vertikales Scrolling, Raster-Split für das Display.
+- **Grafik**: Full-Colour-Charakter-Modus (CHR16, 256 Farben pro Pixel), 40 × 25 Zeichen. Zeilen 0–3 sind das Display, Zeilen 4–24 der Tischausschnitt (168 Pixel).
+- **Scrolling**: Die Zeichen des Tischausschnitts sind spaltenweise nummeriert, eine Bildschirmspalte ist ein zusammenhängender Block von 1344 Byte. Die Tischgrafik liegt als 40 Spaltenstreifen (640 × 8 Byte) im Attic-RAM ab `$8000000`. Bewegt sich die Kamera, füllt je ein DMA-Auftrag pro Spalte den Bildpuffer, auf jede Pixelzeile genau. Steht sie still, werden nur die Stellen erneuert, an denen Flipper und Ball waren.
+- **Speicher (Chip-RAM)**: Bildpuffer A `$40000`, B `$4D200`, Display `$5A400`, Bildschirmkarten `$5CC00` und `$5D400`. CPU-Puffer fest bei `$0800` (Zeichenzeile), `$1200` (Bildschirmspalte), `$1740` (Maskenfenster, 48 Zeilen).
+- **Tischdesign-Regel aus dem PC-Test**: Die Schwerkraft wirkt senkrecht, deshalb ist jede waagerechte Fläche und jede Lücke in Ballbreite ein möglicher Ruheplatz. Targetreihen sind deshalb schräg und lückenlos. Ein Einwegtor oben im linken Orbit lenkt von oben kommende Bälle aufs Spielfeld, sonst liefen abgeschossene Bälle direkt in die linke Outlane.
+- **Kollisionsmaske**: 25 KB im Farb-RAM ab `$FF81000`; die CPU arbeitet mit einem Fenster von 48 Zeilen, das per DMA nachgeladen wird.
