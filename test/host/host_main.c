@@ -43,6 +43,8 @@ int main(void) {
     if (frame > 400 && frame < 420) in.left = in.right = 1;
     if (frame > 600 && (frame % 40) < 8) in.left = 1;
     if (frame > 600 && (frame % 40) >= 20 && (frame % 40) < 28) in.right = 1;
+    if (frame == 405) in.tune_toggle = 1;
+    if (frame == 406) in.tune_next = 1;
     game_frame(&in);
     uint8_t back = front ^ 1;
     unsigned long j0 = dma_jobs, b0 = dma_bytes;

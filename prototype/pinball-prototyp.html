@@ -185,14 +185,14 @@ function angle256(dx, dy) {
 /* ============================================================
    Einstellbare Werte (gelten für 8 Substeps, werden umgerechnet)
    ============================================================ */
-const DEF = { SUBSTEPS: 8, GRAVITY: 340, FLIP_SPEED: 360, WALL_BOUNCE: 128, FLIP_BOUNCE: 72, BUMPER_KICK: 90000, SLING_KICK: 70000 };
+const DEF = { SUBSTEPS: 8, GRAVITY: 340, FLIP_SPEED: 720, WALL_BOUNCE: 100, FLIP_BOUNCE: 72, BUMPER_KICK: 90000, SLING_KICK: 70000 };
 let T = { ...DEF };
-try { const s = JSON.parse(localStorage.getItem('rcp-tune') || 'null'); if (s) T = { ...DEF, ...s }; } catch (e) {}
+try { const s = JSON.parse(localStorage.getItem('rcp-tune2') || 'null'); if (s) T = { ...DEF, ...s }; } catch (e) {}
 
 const SLIDERS = [
   { k: 'SUBSTEPS', label: 'Substeps pro Frame', min: 1, max: 16, step: 1, hint: v => `${v * 50} Physik-Schritte pro Sekunde` },
   { k: 'GRAVITY', label: 'Schwerkraft', min: 100, max: 800, step: 10, hint: v => `≈ ${Math.round(v / 65536 * 160000)} px/s²` },
-  { k: 'FLIP_SPEED', label: 'Flipper-Tempo', min: 120, max: 640, step: 10, hint: v => `≈ ${(v / 256 * 360 / 256 * 8).toFixed(1)}° pro Frame` },
+  { k: 'FLIP_SPEED', label: 'Flipper-Tempo', min: 200, max: 1400, step: 20, hint: v => `≈ ${(v / 256 * 360 / 256 * 8).toFixed(1)}° pro Frame` },
   { k: 'WALL_BOUNCE', label: 'Abprall Wände', min: 0, max: 230, step: 2, hint: v => `Faktor ${(v / 256).toFixed(2)}` },
   { k: 'FLIP_BOUNCE', label: 'Abprall Flipper', min: 0, max: 200, step: 2, hint: v => `Faktor ${(v / 256).toFixed(2)}` },
   { k: 'BUMPER_KICK', label: 'Bumper-Kick', min: 20000, max: 160000, step: 2000, hint: v => `≈ ${Math.round(v / 65536 * 400)} px/s` },
@@ -816,6 +816,9 @@ function tick() {
   colFrame = colCount;
   ball.vx -= ball.vx >> 10; ball.vy -= ball.vy >> 10;
 
+  // Zu schwacher Abschuss: Ball liegt wieder auf dem Plunger -> neu abschießen
+  if (G.state === 'play' && G.inLane && (ball.x >> 16) > 292 && ball.vy === 0 &&
+      ball.y >= (PLUNGER_Y + Math.round(G.pull * 14) - R) * ONE) G.state = 'plunger';
   if (G.state === 'play' && ball.y > (H + 14) * ONE) drain();
   if (G.state === 'drain' && --G.timer <= 0) afterDrain();
   if (G.state === 'over') G.attract++;
@@ -876,12 +879,12 @@ function buildSliders() {
 function setTune(k, v, show) {
   if (k === 'SUBSTEPS') { const f = T.SUBSTEPS / v; ball.vx = Math.round(ball.vx * f); ball.vy = Math.round(ball.vy * f); }
   T[k] = v; derive(); show && show(); writeCode();
-  try { localStorage.setItem('rcp-tune', JSON.stringify(T)); } catch (e) {}
+  try { localStorage.setItem('rcp-tune2', JSON.stringify(T)); } catch (e) {}
 }
 document.getElementById('resetTune').addEventListener('click', () => {
   const f = T.SUBSTEPS / DEF.SUBSTEPS; ball.vx = Math.round(ball.vx * f); ball.vy = Math.round(ball.vy * f);
   T = { ...DEF }; derive(); buildSliders(); writeCode();
-  try { localStorage.removeItem('rcp-tune'); } catch (e) {}
+  try { localStorage.removeItem('rcp-tune2'); } catch (e) {}
 });
 const codeEl = document.getElementById('code');
 function writeCode() {

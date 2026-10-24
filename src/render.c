@@ -116,13 +116,17 @@ static void draw_indicator(int16_t bx) {
 }
 
 /* ---------- Statuszeile: 3x5-Schrift ---------- */
-static const char GLYPH_CHARS[] = "0123456789BEFLMSTXY:-";
+static const char GLYPH_CHARS[] = "0123456789ABCDEFGHIKLMNOPRSTUVWXY:->/.";
 static const uint8_t GLYPHS[][5] = {
   {7, 5, 5, 5, 7}, {2, 6, 2, 2, 7}, {7, 1, 7, 4, 7}, {7, 1, 7, 1, 7}, {5, 5, 7, 1, 1},
   {7, 4, 7, 1, 7}, {7, 4, 7, 5, 7}, {7, 1, 1, 2, 2}, {7, 5, 7, 5, 7}, {7, 5, 7, 1, 7},
-  {6, 5, 6, 5, 6}, {7, 4, 6, 4, 7}, {7, 4, 6, 4, 4}, {4, 4, 4, 4, 7}, {5, 7, 5, 5, 5},
-  {7, 4, 7, 1, 7}, {7, 2, 2, 2, 2}, {5, 5, 2, 5, 5}, {5, 5, 2, 2, 2}, {0, 2, 0, 2, 0},
-  {0, 0, 7, 0, 0},
+  {2, 5, 7, 5, 5}, {6, 5, 6, 5, 6}, {3, 4, 4, 4, 3}, {6, 5, 5, 5, 6}, {7, 4, 6, 4, 7},
+  {7, 4, 6, 4, 4}, {3, 4, 5, 5, 3}, {5, 5, 7, 5, 5}, {7, 2, 2, 2, 7}, {5, 5, 6, 5, 5},
+  {4, 4, 4, 4, 7}, {5, 7, 7, 5, 5}, {6, 5, 5, 5, 5}, {2, 5, 5, 5, 2}, {6, 5, 6, 4, 4},
+  {6, 5, 6, 5, 5}, {3, 4, 2, 1, 6}, {7, 2, 2, 2, 2}, {5, 5, 5, 5, 7}, {5, 5, 5, 5, 2},
+  {5, 5, 7, 7, 5}, {5, 5, 2, 5, 5}, {5, 5, 2, 2, 2}, {0, 2, 0, 2, 0}, {0, 0, 7, 0, 0},
+  {4, 2, 1, 2, 4}, {1, 1, 2, 4, 4},
+  {0, 0, 0, 0, 2},
 };
 
 static int16_t hud_x;
@@ -146,13 +150,20 @@ static void hud_num(uint32_t v, uint8_t digits, uint8_t col) {
 static void draw_hud(uint16_t frame, uint16_t load) {
   for (uint16_t i = 0; i < ROW_BYTES; i++) rowbuf[i] = C_HUD_BG;
   hud_x = 4;
-  hud_str("M1 ", C_HUD_DIM);
+  hud_str("M1.1 ", C_HUD_DIM);  /* Meilenstein und Version */
   hud_str("F", C_HUD_DIM); hud_num(frame, 5, C_HUD_TXT);
   hud_str(" L", C_HUD_DIM); hud_num(load, 3, C_HUD_TXT);
   hud_str(" X", C_HUD_DIM); hud_num((uint32_t)(ball.x >> 16) & 0x3FF, 3, C_HUD_TXT);
   hud_str(" Y", C_HUD_DIM); hud_num((uint32_t)(ball.y >> 16) & 0x3FF, 3, C_HUD_TXT);
   hud_str(" B", C_HUD_DIM); hud_num(bumper_hits, 3, C_HUD_TXT);
   hud_str(" S", C_HUD_DIM); hud_num(sling_hits, 3, C_HUD_TXT);
+  if (tune_on) {
+    hud_str("  >", C_IND);
+    hud_str(TUNE_INFO[tune_sel].name, C_HUD_TXT);
+    hud_str(" ", C_HUD_DIM);
+    hud_num((uint32_t)tune[tune_sel], 6, C_IND);
+    return;
+  }
   hud_str("  TEST", C_HUD_DIM);
   if (test_active) { hud_str(" ", C_HUD_DIM); hud_num(test_count, 3, C_HUD_TXT); }
   else if (snap_valid) {

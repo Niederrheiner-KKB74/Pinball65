@@ -13,6 +13,31 @@ uint16_t test_count;
 uint8_t snap_valid;
 fix16 snap_x, snap_y;
 
+uint8_t tune_on, tune_sel;
+int32_t tune[T_COUNT];
+const tune_info_t TUNE_INFO[T_COUNT] = {
+  { "GRAVITY",      340,   100,    800,   10 },
+  { "FLIPPER SPEED", 720,  200,   1400,   20 },
+  { "WALL BOUNCE",   100,    0,    230,    4 },
+  { "FLIPPER BOUNCE", 72,    0,    200,    4 },
+  { "BUMPER KICK", 90000, 20000, 160000, 2000 },
+  { "SLING KICK",  70000,     0, 140000, 2000 },
+};
+void tune_reset(void) {
+  for (uint8_t i = 0; i < T_COUNT; i++) tune[i] = TUNE_INFO[i].def;
+}
+
+static void tune_input(const input_t *in) {
+  if (in->tune_toggle) tune_on ^= 1;
+  if (!tune_on) return;
+  if (in->tune_next) tune_sel = (uint8_t)((tune_sel + 1) % T_COUNT);
+  const tune_info_t *t = &TUNE_INFO[tune_sel];
+  int32_t v = tune[tune_sel];
+  if (in->tune_down) { v -= t->step; if (v < t->min) v = t->min; }
+  if (in->tune_up)   { v += t->step; if (v > t->max) v = t->max; }
+  tune[tune_sel] = v;
+}
+
 static uint8_t sling_cool[2];
 static int16_t plunger_top;      /* Pixel: Ballmittelpunkt darf nicht tiefer */
 static uint8_t drain_timer;
@@ -214,6 +239,7 @@ void phys_init(void) {
       if (!dup) { pts_x[npts] = ox; pts_y[npts] = oy; npts++; }
     }
   }
+  tune_reset();
   flip[0] = (flipper_t){ FLIP_L_X, FLIP_Y, 1, F_REST * 256, 0, 0 };
   flip[1] = (flipper_t){ FLIP_R_X, FLIP_Y, -1, F_REST * 256, 0, 0 };
   new_ball();
@@ -223,6 +249,7 @@ void game_frame(const input_t *in) {
   flip[0].pressed = in->left;
   flip[1].pressed = in->right;
 
+  tune_input(in);
   if (in->reset) { new_ball(); test_active = 0; }
   if (state == ST_PLUNGER) {
     if (in->test && !test_active) {
@@ -240,6 +267,11 @@ void game_frame(const input_t *in) {
   for (uint8_t i = 0; i < SUBSTEPS; i++) substep();
   ball.vx -= ball.vx >> 10;
   ball.vy -= ball.vy >> 10;
+
+  /* Zu schwacher Abschuss: Ball liegt wieder auf dem Plunger -> neu abschiessen */
+  if (state == ST_PLAY && in_lane && (ball.x >> 16) > 292 &&
+      ball.y >= ((fix16)plunger_top << 16) && ball.vy == 0)
+    state = ST_PLUNGER;
 
   if (test_active && ++test_count == TEST_FRAMES) {
     snap_x = ball.x; snap_y = ball.y; snap_valid = 1; test_active = 0;
