@@ -67,38 +67,49 @@ asm(".pushsection .init.005,\"ax\",@progbits\n"
 static const uint8_t STUB[] = {
   0xA2, 0x02, 0xBD, 0x00, 0x00, 0x95, 0x00, 0xE8, 0xD0, 0xF8, /*  0 Zeropage $02-$FF aus zp_save */
   0xA9, 0x00, 0x8D, 0x03, 0xD7,                         /* 10 $D703 = 0: DMA im F018A-Format */
-  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /* 15 SETBNK: Daten Bank 0, Name Bank 0 */
-  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /* 22 SETLFS: Datei 0, Geraet 8, Adresse aus Datei */
-  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0x20, 0xBD, 0xFF, /* 31 SETNAM: Laenge, Adresse (wird eingesetzt) */
-  0xA9, 0x3F, 0x85, 0x01,                               /* 40 $01 = $3F wie unter BASIC */
-  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /* 44 $D030 = $64: ROM bei $C000 wie unter BASIC */
-  0xA9, C_TARGET_6510, 0x8D, 0x20, 0xD0,                /* 49 Rahmen gruen (Farbe aus unserer Palette) */
-  0xA9, 0x00, 0x58, 0x20, 0xD5, 0xFF, 0x78,             /* 54 LOAD (A = 0), mit Interrupts */
-  0xB0, 0x03,                                           /* 61 BCS Fehler */
-  0x4C, 0x00, 0x00,                                     /* 63 JMP Spiel (wird eingesetzt) */
-  0xEE, 0x20, 0xD0, 0x4C, 0x00, 0x00,                   /* 66 Fehler: INC $D020, JMP 66 */
+  0xA3, 0x00,                                           /* 15 LDZ #0: KERNAL erwartet Z = 0 */
+  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /* 17 SETBNK: Daten Bank 0, Name Bank 0 */
+  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /* 24 SETLFS: Datei 0, Geraet 8, Adresse aus Datei */
+  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0x20, 0xBD, 0xFF, /* 33 SETNAM: Laenge, Adresse (wird eingesetzt) */
+  0xA9, 0x3F, 0x85, 0x01,                               /* 42 $01 = $3F wie unter BASIC */
+  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /* 46 $D030 = $64: ROM bei $C000 wie unter BASIC */
+  0xA9, C_TARGET_6510, 0x8D, 0x20, 0xD0,                /* 51 Rahmen gruen (Farbe aus unserer Palette) */
+  0xA9, 0x00, 0x58, 0x20, 0xD5, 0xFF, 0x78,             /* 56 LOAD (A = 0), mit Interrupts */
+  0xB0, 0x03,                                           /* 63 BCS Fehler */
+  0x4C, 0x00, 0x00,                                     /* 65 JMP Spiel (wird eingesetzt) */
+  0xEE, 0x20, 0xD0, 0x4C, 0x00, 0x00,                   /* 68 Fehler: INC $D020, JMP 68 */
 };
 #define STUB_NAME (sizeof STUB)
-_Static_assert(sizeof STUB == 72, "Sprungziele im Lade-Programm pruefen");
+_Static_assert(sizeof STUB == 74, "Sprungziele im Lade-Programm pruefen");
+
+/* $0800-$1FFF: Bildschirm des C65-Modus und Arbeitsspeicher des KERNAL
+ * ($1000-$15FF, Hinweis aus dem Vyper-Projekt). Der Lader braucht den Bereich
+ * fuer seine Puffer, deshalb wird er beim Start gesichert und vor dem LOAD
+ * zurueckgeschrieben (v3.3 hing sonst weiter im KERNAL). */
+#define LOWRAM_SAVE (ATTIC_SIG + 0x1000UL)
+#define LOWRAM_FROM 0x0800u
+#define LOWRAM_LEN  0x1800u
 
 static void start_game(void) {
+  dma_copy(LOWRAM_SAVE, LOWRAM_FROM, LOWRAM_LEN);
   uint8_t *s = (uint8_t *)STUB_ADDR;
   for (uint8_t i = 0; i < sizeof STUB; i++) s[i] = STUB[i];
   for (uint8_t i = 0; i < sizeof GAME_NAME - 1; i++) s[STUB_NAME + i] = (uint8_t)GAME_NAME[i];
-  uint16_t name = STUB_ADDR + STUB_NAME, err = STUB_ADDR + 66, save = (uint16_t)zp_save;
+  uint16_t name = STUB_ADDR + STUB_NAME, err = STUB_ADDR + 68, save = (uint16_t)zp_save;
   s[3] = (uint8_t)save;
   s[4] = (uint8_t)(save >> 8);
-  s[32] = (uint8_t)(sizeof GAME_NAME - 1);
-  s[34] = (uint8_t)name;
-  s[36] = (uint8_t)(name >> 8);
-  s[64] = (uint8_t)GAME_ENTRY;
-  s[65] = (uint8_t)(GAME_ENTRY >> 8);
-  s[70] = (uint8_t)err;
-  s[71] = (uint8_t)(err >> 8);
+  s[34] = (uint8_t)(sizeof GAME_NAME - 1);
+  s[36] = (uint8_t)name;
+  s[38] = (uint8_t)(name >> 8);
+  s[66] = (uint8_t)GAME_ENTRY;
+  s[67] = (uint8_t)(GAME_ENTRY >> 8);
+  s[72] = (uint8_t)err;
+  s[73] = (uint8_t)(err >> 8);
   asm volatile("jmp $0E00" ::: "memory");
 }
 
 int main(void) {
+  dma_copy(LOWRAM_FROM, LOWRAM_SAVE, LOWRAM_LEN);   /* vor jeder Benutzung der Puffer */
   tables_init();
   asm volatile("sei");
   hw_video_init();
@@ -110,7 +121,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING  V3.3");
+  dmd_text("SEARCHING FOR *", "BUILDING  V3.4");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
