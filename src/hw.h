@@ -62,9 +62,6 @@ uint16_t raster_line(void);
 /* Rasterzeilen von a bis b (innerhalb eines Bildes, mit Ueberlauf bei 312) */
 uint16_t raster_diff(uint16_t a, uint16_t b);
 void wait_vblank(void);
-/* Ueberlauf-Erkennung: Raster-Vergleichsflag bei Zeile 251 */
-void frame_mark(void);          /* direkt nach wait_vblank aufrufen */
-uint8_t frame_overran(void);    /* 1 = Zeile 251 wurde seitdem erneut erreicht */
 
 /* Tastaturmatrix (C64-Belegung): Spalte 0..7, liefert gedrueckte Zeilen als Bits */
 uint8_t key_col(uint8_t col);

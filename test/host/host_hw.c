@@ -88,6 +88,4 @@ uint8_t joy2(void) { return 0; }
 
 fix16 fmul(fix16 a, fix16 b) { return (fix16)(((int64_t)a * b) / 65536); }
 int32_t mul32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a * (uint32_t)b); }
-void frame_mark(void) {}
-uint8_t frame_overran(void) { return 0; }
 uint16_t raster_diff(uint16_t a, uint16_t b) { return b >= a ? b - a : b + 312 - a; }

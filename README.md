@@ -9,7 +9,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
-| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | läuft; v2.6 mit schnellerem Display |
+| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | läuft; v2.8 mit korrigierter Messung |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
@@ -40,6 +40,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 2.4 | Testabschuss richtig; Display: untere Textzeile wird nicht erneuert, L gelegentlich über 300 | identisch |
 | 25.10.2026 | Meilenstein 2.5 | Ball ruht: L 91, MAX 95/171/218; im Spiel L meist 90–150, kurze Spitzen bis 306 | – |
 | 25.10.2026 | Meilenstein 2.6 | Abschussbahn L 111, MAX 130; Spiel MAX 622, SCROLL MAX 59 | Abschussbahn L 109, MAX 129; Spiel MAX 312, SCROLL MAX 71 |
+| 25.10.2026 | Meilenstein 2.7 | L 499, MAX 452, UEB 49; P 9, S 59, Z 15, D 57 – Überlauf-Meldung falsch, echte Last höchstens etwa 190 Zeilen | – |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
@@ -51,6 +52,7 @@ Erkenntnisse:
 - Im Einstellmodus ermittelt (24.10.2026): FLIPPER SPEED 1100 und WALL BOUNCE 80 fühlen sich gut an. Seit v1.2 sind das die Startwerte.
 - **Übersetzt wird für den reinen 6502 (`-mcpu=mos6502`).** Mit den 45GS02-Erweiterungen erzeugte llvm-mos (Version cd91455) in `band_disc` einen `inw`-Befehl auf das falsche Register: Der Schleifenzähler blieb stehen, der Aufbau hing bei `GRAFIK 15/80` (Diagnoseversion 2.2). Der 6502-Simulator zeigte den Fehler nicht, weil er für den 6502 übersetzt. Mit `-mcpu=mos6502` prüft er jetzt denselben Befehlssatz, der auf dem MEGA65 läuft. Den 65C02-Befehlssatz meiden wir ebenfalls: Seine `(zp)`-Befehle bedeuten auf dem 45GS02 `(zp),Z` und funktionieren nur, solange Z = 0 ist.
 - **Keine $A000-Grenze.** Die Vermutung, bei $A000–$BFFF liege beim Laden das BASIC-ROM, war falsch: `LOADTEST` lädt bis $C648 auf Xemu und MEGA65 fehlerfrei. Der Absturz von Version 2.0 kam vom `inw`-Fehler. Die eigentliche Grenze ist der Speicher bis $D000 (Code, Variablen, 1 KB Stack); mit `-Os` wäre das Programm 5,8 KB zu groß, deshalb bleibt es bei `-Oz`.
+- **Überlauf-Messung (v2.6/2.7) war falsch:** Das Raster-Vergleichsflag ($D019) löste auf dem VIC-IV nicht bei VIC-II-Zeile 251 aus, sondern offenbar mitten im Bild (vermutlich physische Zeile 251 von 576). Bilder, die länger als etwa 125 Zeilen dauerten, galten deshalb als übergelaufen (+312). Seit v2.8 ist L die Summe der einzeln gemessenen Abschnitte. Tatsächliche Höchstlast im Spiel: etwa 190 von 312 Zeilen.
 - **Spitzen im Ruhezustand (v2.5):** Eine Display-Zeichenzeile kostete rund 75 Rasterzeilen (640 Punkte einzeln), die Code-Prüfsumme alle 5 Sekunden prüfte 33 KB in einem Bild. Seit v2.6 kopiert DMA eine fertige leere Punktzeile, die CPU setzt nur die leuchtenden Punkte (im Simulator rund 29.000 statt 170.000 Zyklen pro Zeichenzeile, Ergebnis byte-identisch); die Prüfsumme läuft mit 512 Byte pro Bild. Bilder über 312 Zeilen erkennt das Programm am Raster-Vergleichsflag ($D019), vorher lief der Messwert dabei über und zeigte zu kleine Zahlen.
 - **Display:** Seit v2.4 wird pro Bild höchstens eine Zeichenzeile neu gezeichnet. In v2.4 wurde das Display aber nur alle 10 Bilder aufgerufen, und die obere Zeile (mit dem L-Wert) kam immer zuerst dran, so dass die untere Zeile verhungerte. Seit v2.5 läuft es in jedem Bild und reihum.
 - **Laufzeit (v2.4):** Im 6502-Simulator gemessen kosteten die Flipper rund 830.000 Zyklen pro Bild (Randprüfung über Funktionsaufrufe für jeden Pixel), das Display alle 10 Bilder auf einmal rund 600.000. Jetzt: Innenbereich und Rand der Flipper vorberechnet, ruhende Flipper werden nicht neu gezeichnet, das Display zeichnet höchstens eine Zeichenzeile pro Bild, die Kollisionsprüfung entfällt, wenn um den Ball keine Wand liegt. Ergebnis im Simulator: von etwa 490.000 auf 208.000 Zyklen pro Bild (ohne Multiplikation und DMA), Bild und Physik unverändert.
@@ -97,7 +99,7 @@ Die Tasten sind dieselben wie in Meilenstein 1 (Tabelle unten). Das Display zeig
 | Zustand | Zeile 1 | Zeile 2 |
 |---|---|---|
 | Ball in der Abschussbahn | `LOAD"*",8,1` | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde |
-| Ball im Spiel | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde, `UEB` übergelaufene Bilder in der letzten Sekunde | Höchstwerte der letzten Sekunde in Rasterzeilen: `P` Physik, `S` Hintergrund kopieren (Scrollen), `Z` Flipper und Ball zeichnen, `D` Display und Prüfsumme |
+| Ball im Spiel | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde | Höchstwerte der letzten Sekunde in Rasterzeilen: `P` Physik, `S` Hintergrund kopieren (Scrollen), `Z` Flipper und Ball zeichnen, `D` Display und Prüfsumme |
 | Ball verloren | `?BALL LOST  ERROR` | `READY.` |
 | Testabschuss läuft | `TEST` und Zähler bis 120 | `SEARCHING FOR *` |
 | Testabschuss fertig | `TEST X` und Wert | `TEST Y` und Wert |

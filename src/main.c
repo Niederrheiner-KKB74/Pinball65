@@ -54,7 +54,6 @@ static void read_input(input_t *in) {
 /* Messwerte: Hoechstwerte der letzten Sekunde je Abschnitt (Rasterzeilen) */
 enum { T_PHYS, T_SCROLL, T_DRAW, T_DMD, T_N };
 static uint16_t tmax[T_N], tmax_run[T_N];
-static uint8_t overruns, overruns_run;
 
 static void update_display(uint16_t load, uint16_t lmax) {
   static char l1[DMD_COLS + 1], l2[DMD_COLS + 1];
@@ -91,9 +90,7 @@ static void update_display(uint16_t load, uint16_t lmax) {
     p = dmd_put(l1, "L");
     p = dmd_num(p, load, 3);
     p = dmd_put(p, " MAX");
-    p = dmd_num(p, lmax, 3);
-    p = dmd_put(p, " UEB");
-    dmd_num(p, overruns, 0);
+    dmd_num(p, lmax, 3);
     p = dmd_put(l2, "P");
     p = dmd_num(p, tmax[T_PHYS], 3);
     p = dmd_put(p, " S");
@@ -170,7 +167,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.7");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.8");
   dmd_flush();
   code_check("NACH ATTIC-TEST");
 
@@ -187,7 +184,6 @@ int main(void) {
   input_t in;
   for (;;) {
     wait_vblank();
-    frame_mark();
     uint16_t t0 = raster_line();
     show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */
     read_input(&in);
@@ -210,14 +206,14 @@ int main(void) {
       for (uint8_t k = 0; k < T_N; k++) if (sect[k] > tmax_run[k]) tmax_run[k] = sect[k];
     }
     front = back;
-    uint16_t l = raster_line();         /* Auslastung: Rasterzeilen seit Zeile 251 */
-    load = l >= 251 ? l - 251 : l + 312 - 251;
-    if (frame_overran()) { load += 312; overruns_run++; }   /* Bild dauerte laenger als 312 Zeilen */
+    /* Auslastung: Summe der Abschnitte, jeder innerhalb eines Bildes gemessen.
+     * (v2.6/2.7 nutzten das Raster-Vergleichsflag; das loeste auf dem VIC-IV
+     * mitten im Bild aus und meldete Ueberlaeufe, die es nicht gab.) */
+    load = raster_diff(t0, t1) + raster_diff(t1, t2) + raster_diff(t2, t3) + raster_diff(t3, raster_line());
     /* Hoechstwerte der letzten Sekunde (50 Bilder) */
     if (load > lmax_run) lmax_run = load;
     if (++max_tick == 50) {
       max_tick = 0; lmax = lmax_run; lmax_run = 0;
-      overruns = overruns_run; overruns_run = 0;
       for (uint8_t k = 0; k < T_N; k++) { tmax[k] = tmax_run[k]; tmax_run[k] = 0; }
     }
   }
