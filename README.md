@@ -10,7 +10,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
 | 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bestanden (25.10.2026), v2.10 |
-| 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | läuft; v3.0 zum Test |
+| 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | bestanden (25.10.2026), v3.0 |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
 | 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
@@ -43,6 +43,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 2.8 | MAX meist darunter, bis 431 | – |
 | 25.10.2026 | Meilenstein 2.9 | Ball am Flipper: L 175, MAX 345; P 18, S 59, Z 243, D 25 – Zeichnen ist der Engpass | – |
 | 25.10.2026 | Meilenstein 2.10 | Abschussbahn L 103, MAX 126, `DMA`; Spiel L 236, MAX 243; P 71, S 60, Z 56, D 56; Bild in Ordnung | Abschussbahn L 104, MAX 127, `DMA`; Ball am Flipper L 232, MAX 208; P 52, S 101, Z 30, D 25; Bild in Ordnung |
+| 25.10.2026 | Meilenstein 3.0 | Effekte zu hören, Lampen richtig, dritter Flipper gut spielbar, MAX bis 258 | – |
 | 25.10.2026 | Meilenstein 2.7 | L 499, MAX 452, UEB 49; P 9, S 59, Z 15, D 57 – Überlauf-Meldung falsch, echte Last höchstens etwa 190 Zeilen | – |
 
 Erkenntnisse:
