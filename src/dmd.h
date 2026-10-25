@@ -16,8 +16,10 @@ extern const uint8_t FONT5X7[59][7];
 
 /* Setzt beide Zeilen (NULL = leer); Text wird zentriert */
 void dmd_text(const char *l1, const char *l2);
-/* Zeichnet das Display neu, falls sich der Text geaendert hat */
+/* Zeichnet hoechstens eine geaenderte Zeichenzeile (fuer jedes Bild) */
 void dmd_render(void);
+/* Zeichnet alle geaenderten Zeilen sofort (Start, Fehlermeldungen) */
+void dmd_flush(void);
 
 /* Hilfen zum Zusammensetzen von Text */
 char *dmd_put(char *p, const char *s);

@@ -200,7 +200,15 @@ int16_t camera_update(void) {
   return cam16 >> 4;
 }
 
+uint16_t render_bg_lines;
+
+static uint16_t lines_since(uint16_t r0) {
+  uint16_t r1 = raster_line();
+  return r1 >= r0 ? r1 - r0 : r1 + 312 - r0;
+}
+
 void render_frame(uint8_t b, int16_t cam) {
+  uint16_t t0 = raster_line();
   uint32_t fb = b ? FB_B : FB_A;
   uint32_t bg = ATTIC_BG + (uint32_t)(uint16_t)cam * 8;
   uint8_t full = cam != buf_cam[b];
@@ -235,6 +243,8 @@ void render_frame(uint8_t b, int16_t cam) {
       dma_copy(bg + c * STRIP_BYTES + off, fb + (uint32_t)c * COL_BYTES + off, len);
     }
   }
+
+  render_bg_lines = lines_since(t0);
 
   /* 2. Was muss gezeichnet werden? */
   need_clear();

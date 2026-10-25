@@ -26,11 +26,9 @@ def petscii_name(name, length=16):
 
 
 def check_prg(path, data):
-    """Das geladene Programm muss unter $A000 enden.
+    """Zeigt den Ladebereich und weist auf ungetestete Bereiche hin.
 
-    Im C65-Modus liegt bei $A000-$BFFF beim Laden das BASIC-ROM. Meilenstein 2
-    (Version 2.0) reichte bis $B14E und stuerzte auf Xemu und MEGA65 ab.
-    Variablen (.bss) duerfen darueber liegen, sie werden erst beim Start angelegt.
+    Eine vermutete Grenze bei $A000 (BASIC-ROM) hat LOADTEST widerlegt.
     """
     if len(data) < 2:
         return
@@ -39,8 +37,10 @@ def check_prg(path, data):
     print(f"  {os.path.basename(path)}: ${load:04X}-${end - 1:04X}")
     if os.path.basename(path).lower().startswith("loadtest"):
         return                      # Testprogramm, reicht absichtlich ueber $A000
-    if load == 0x2001 and end > 0xA000:
-        raise SystemExit(f"FEHLER: Programm endet bei ${end:04X}, erlaubt ist hoechstens $A000.")
+    # LOADTEST (25.10.2026) hat gezeigt: Programme bis $C648 laden auf Xemu und
+    # MEGA65 korrekt. Ob alles in den Speicher passt, prueft der Linker.
+    if load == 0x2001 and end > 0xC648:
+        print(f"  Hinweis: Programm endet bei ${end:04X}, getestet ist das Laden bis $C648.")
 
 
 def build(out_path, disk_name, prg_paths, disk_id=b"65"):

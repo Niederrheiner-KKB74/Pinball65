@@ -51,7 +51,7 @@ static void read_input(input_t *in) {
 }
 
 /* Display-Text je nach Spielzustand (Texte im C64-Stil, Debugwerte unten) */
-static void update_display(uint16_t load, int16_t cam) {
+static void update_display(uint16_t load, uint16_t lmax, uint16_t bgmax) {
   static char l1[DMD_COLS + 1], l2[DMD_COLS + 1];
   static uint8_t last_mode = 0xFF, tick;
   char *p;
@@ -77,24 +77,22 @@ static void update_display(uint16_t load, int16_t cam) {
     dmd_put(l1, "LOAD\"*\",8,1");
     p = dmd_put(l2, "L");
     p = dmd_num(p, load, 3);
-    p = dmd_put(p, "  PRESS SPACE");
+    p = dmd_put(p, " MAX");
+    dmd_num(p, lmax, 3);
   } else if (state == ST_DRAIN) {
     dmd_put(l1, "?BALL LOST  ERROR");
     dmd_put(l2, "READY.");
   } else {
-    p = dmd_put(l1, "READY.  L");
-    dmd_num(p, load, 3);
-    p = dmd_put(l2, "X");
-    p = dmd_num(p, (uint32_t)(ball.x >> 16) & 0x3FF, 3);
-    p = dmd_put(p, " Y");
-    p = dmd_num(p, (uint32_t)(ball.y >> 16) & 0x3FF, 3);
-    p = dmd_put(p, " C");
-    p = dmd_num(p, (uint32_t)cam, 3);
-    p = dmd_put(p, " B");
-    dmd_num(p, bumper_hits, 0);
+    p = dmd_put(l1, "L");
+    p = dmd_num(p, load, 3);
+    p = dmd_put(p, " MAX");
+    dmd_num(p, lmax, 3);
+    p = dmd_put(l2, "SCROLL MAX");
+    p = dmd_num(p, bgmax, 3);
+    p = dmd_put(p, "  Y");
+    dmd_num(p, (uint32_t)(ball.y >> 16) & 0x3FF, 3);
   }
   dmd_text(l1, l2);
-  dmd_render();
 }
 
 /* ---------- Diagnose: Pruefsumme ueber Programmcode und Konstanten ---------- */
@@ -113,7 +111,7 @@ static void code_check(const char *where) {
   if (code_sum() == code_sum0) return;
   VICIV.bordercol = 2;
   dmd_text("?CODE CHANGED  ERROR", where);
-  dmd_render();
+  dmd_flush();
   for (;;) {}
 }
 
@@ -123,7 +121,7 @@ void build_progress(uint8_t phase, uint8_t step) {
   p = dmd_num(p, step + 1, 2);
   dmd_put(p, phase ? "/80" : "/14");
   dmd_text("SEARCHING FOR *", l2);
-  dmd_render();
+  dmd_flush();
   VICIV.bordercol = (uint8_t)(phase ? 3 : 4);   /* Rahmen: Chromfarben waehrend des Aufbaus */
   code_check(l2);
 }
@@ -140,12 +138,12 @@ int main(void) {
 
   if (!attic_ok()) {                    /* Hintergrund braucht das Attic-RAM */
     dmd_text("?ATTIC RAM  ERROR", "READY.");
-    dmd_render();
+    dmd_flush();
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.4");
-  dmd_render();
+  dmd_text("SEARCHING FOR *", "LOADING  V2.5");
+  dmd_flush();
   code_check("NACH ATTIC-TEST");
 
   table_build_mask();
@@ -157,7 +155,8 @@ int main(void) {
 
   uint8_t front = 0;
   uint8_t check_tick = 0;
-  uint16_t load = 0;
+  uint16_t load = 0, lmax = 0, lmax_run = 0, bgmax = 0, bgmax_run = 0;
+  uint8_t max_tick = 0;
   input_t in;
   for (;;) {
     wait_vblank();
@@ -167,10 +166,15 @@ int main(void) {
     int16_t cam = camera_update();
     uint8_t back = front ^ 1;
     render_frame(back, cam);
-    update_display(load, cam);
+    update_display(load, lmax, bgmax);
+    dmd_render();                       /* jedes Bild hoechstens eine Zeichenzeile */
     if (++check_tick == 250) { check_tick = 0; code_check("IM SPIEL"); }   /* alle 5 s */
     front = back;
     uint16_t l = raster_line();         /* Auslastung: Rasterzeilen seit Zeile 251 */
     load = l >= 251 ? l - 251 : l + 312 - 251;
+    /* Hoechstwerte der letzten Sekunde (50 Bilder) */
+    if (load > lmax_run) lmax_run = load;
+    if (render_bg_lines > bgmax_run) bgmax_run = render_bg_lines;
+    if (++max_tick == 50) { max_tick = 0; lmax = lmax_run; bgmax = bgmax_run; lmax_run = bgmax_run = 0; }
   }
 }

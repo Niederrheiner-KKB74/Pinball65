@@ -41,12 +41,16 @@ char *dmd_num(char *p, uint32_t v, uint8_t digits) {
   return p;
 }
 
+void dmd_flush(void) { while (dirty) dmd_render(); }
+
 /* Zeichnet hoechstens EINE Zeichenzeile pro Aufruf (verteilt die Arbeit
  * auf mehrere Bilder; eine ganze Neuzeichnung dauert vier Bilder) */
 void dmd_render(void) {
+  static uint8_t next;                       /* reihum, damit keine Zeile verhungert */
   if (!dirty) return;
-  uint8_t cr = 0;
-  while (!(dirty & (1 << cr))) cr++;
+  uint8_t cr = next;
+  while (!(dirty & (1 << cr))) cr = (uint8_t)((cr + 1) & 3);
+  next = (uint8_t)((cr + 1) & 3);
   dirty &= (uint8_t)~(1 << cr);
   uint8_t *b = ROWBUF;
   uint8_t ln = cr >> 1;                       /* Zeichenzeilen 0-1: Zeile 1, 2-3: Zeile 2 */
