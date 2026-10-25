@@ -84,6 +84,8 @@ uint16_t raster_line(void) {
   return ((uint16_t)hi << 1) | lo;
 }
 
+uint16_t raster_diff(uint16_t a, uint16_t b) { return b >= a ? b - a : b + 312 - a; }
+
 /* Wartet auf den Beginn des unteren Rahmens (Zeile 251, PAL) */
 void wait_vblank(void) {
   while (raster_line() >= 251) {}

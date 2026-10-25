@@ -59,6 +59,8 @@ void dma_fill(uint32_t dst, uint8_t value, uint16_t count);
 void set_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void show_buffer(uint8_t b);
 uint16_t raster_line(void);
+/* Rasterzeilen von a bis b (innerhalb eines Bildes, mit Ueberlauf bei 312) */
+uint16_t raster_diff(uint16_t a, uint16_t b);
 void wait_vblank(void);
 /* Ueberlauf-Erkennung: Raster-Vergleichsflag bei Zeile 251 */
 void frame_mark(void);          /* direkt nach wait_vblank aufrufen */

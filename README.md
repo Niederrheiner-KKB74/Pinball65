@@ -39,6 +39,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | LOADTEST ($2001–$C648) | OK, alle Bytes richtig | OK, alle Bytes richtig |
 | 25.10.2026 | Meilenstein 2.4 | Testabschuss richtig; Display: untere Textzeile wird nicht erneuert, L gelegentlich über 300 | identisch |
 | 25.10.2026 | Meilenstein 2.5 | Ball ruht: L 91, MAX 95/171/218; im Spiel L meist 90–150, kurze Spitzen bis 306 | – |
+| 25.10.2026 | Meilenstein 2.6 | Abschussbahn L 111, MAX 130; Spiel MAX 622, SCROLL MAX 59 | Abschussbahn L 109, MAX 129; Spiel MAX 312, SCROLL MAX 71 |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
@@ -96,7 +97,7 @@ Die Tasten sind dieselben wie in Meilenstein 1 (Tabelle unten). Das Display zeig
 | Zustand | Zeile 1 | Zeile 2 |
 |---|---|---|
 | Ball in der Abschussbahn | `LOAD"*",8,1` | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde |
-| Ball im Spiel | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde | `SCROLL MAX` Rasterzeilen für das Kopieren des Hintergrunds (Höchstwert), `Y` Ballposition |
+| Ball im Spiel | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde, `UEB` übergelaufene Bilder in der letzten Sekunde | Höchstwerte der letzten Sekunde in Rasterzeilen: `P` Physik, `S` Hintergrund kopieren (Scrollen), `Z` Flipper und Ball zeichnen, `D` Display und Prüfsumme |
 | Ball verloren | `?BALL LOST  ERROR` | `READY.` |
 | Testabschuss läuft | `TEST` und Zähler bis 120 | `SEARCHING FOR *` |
 | Testabschuss fertig | `TEST X` und Wert | `TEST Y` und Wert |

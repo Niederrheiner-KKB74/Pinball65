@@ -75,3 +75,4 @@ int32_t mul32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a * (uint32_t)b
 void build_progress(uint8_t phase, uint8_t step) { (void)phase; (void)step; }
 void frame_mark(void) {}
 uint8_t frame_overran(void) { return 0; }
+uint16_t raster_diff(uint16_t a, uint16_t b) { return b >= a ? b - a : b + 312 - a; }

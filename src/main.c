@@ -51,7 +51,12 @@ static void read_input(input_t *in) {
 }
 
 /* Display-Text je nach Spielzustand (Texte im C64-Stil, Debugwerte unten) */
-static void update_display(uint16_t load, uint16_t lmax, uint16_t bgmax) {
+/* Messwerte: Hoechstwerte der letzten Sekunde je Abschnitt (Rasterzeilen) */
+enum { T_PHYS, T_SCROLL, T_DRAW, T_DMD, T_N };
+static uint16_t tmax[T_N], tmax_run[T_N];
+static uint8_t overruns, overruns_run;
+
+static void update_display(uint16_t load, uint16_t lmax) {
   static char l1[DMD_COLS + 1], l2[DMD_COLS + 1];
   static uint8_t last_mode = 0xFF, tick;
   char *p;
@@ -86,11 +91,17 @@ static void update_display(uint16_t load, uint16_t lmax, uint16_t bgmax) {
     p = dmd_put(l1, "L");
     p = dmd_num(p, load, 3);
     p = dmd_put(p, " MAX");
-    dmd_num(p, lmax, 3);
-    p = dmd_put(l2, "SCROLL MAX");
-    p = dmd_num(p, bgmax, 3);
-    p = dmd_put(p, "  Y");
-    dmd_num(p, (uint32_t)(ball.y >> 16) & 0x3FF, 3);
+    p = dmd_num(p, lmax, 3);
+    p = dmd_put(p, " UEB");
+    dmd_num(p, overruns, 0);
+    p = dmd_put(l2, "P");
+    p = dmd_num(p, tmax[T_PHYS], 3);
+    p = dmd_put(p, " S");
+    p = dmd_num(p, tmax[T_SCROLL], 3);
+    p = dmd_put(p, " Z");
+    p = dmd_num(p, tmax[T_DRAW], 3);
+    p = dmd_put(p, " D");
+    dmd_num(p, tmax[T_DMD], 3);
   }
   dmd_text(l1, l2);
 }
@@ -159,7 +170,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.6");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.7");
   dmd_flush();
   code_check("NACH ATTIC-TEST");
 
@@ -171,28 +182,43 @@ int main(void) {
   code_check("NACH AUFBAU");
 
   uint8_t front = 0;
-  uint16_t load = 0, lmax = 0, lmax_run = 0, bgmax = 0, bgmax_run = 0;
+  uint16_t load = 0, lmax = 0, lmax_run = 0;
   uint8_t max_tick = 0;
   input_t in;
   for (;;) {
     wait_vblank();
     frame_mark();
+    uint16_t t0 = raster_line();
     show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */
     read_input(&in);
     game_frame(&in);
     int16_t cam = camera_update();
+    uint16_t t1 = raster_line();
     uint8_t back = front ^ 1;
     render_frame(back, cam);
-    update_display(load, lmax, bgmax);
+    uint16_t t2 = raster_line();
+    update_display(load, lmax);
     dmd_render();                       /* jedes Bild hoechstens eine Zeichenzeile */
     code_check_step();
+    uint16_t t3 = raster_line();
+    {
+      uint16_t sect[T_N];
+      sect[T_PHYS] = raster_diff(t0, t1);
+      sect[T_SCROLL] = render_bg_lines;
+      sect[T_DRAW] = raster_diff(t1, t2) - render_bg_lines;
+      sect[T_DMD] = raster_diff(t2, t3);
+      for (uint8_t k = 0; k < T_N; k++) if (sect[k] > tmax_run[k]) tmax_run[k] = sect[k];
+    }
     front = back;
     uint16_t l = raster_line();         /* Auslastung: Rasterzeilen seit Zeile 251 */
     load = l >= 251 ? l - 251 : l + 312 - 251;
-    if (frame_overran()) load += 312;    /* Bild dauerte laenger als 312 Zeilen */
+    if (frame_overran()) { load += 312; overruns_run++; }   /* Bild dauerte laenger als 312 Zeilen */
     /* Hoechstwerte der letzten Sekunde (50 Bilder) */
     if (load > lmax_run) lmax_run = load;
-    if (render_bg_lines > bgmax_run) bgmax_run = render_bg_lines;
-    if (++max_tick == 50) { max_tick = 0; lmax = lmax_run; bgmax = bgmax_run; lmax_run = bgmax_run = 0; }
+    if (++max_tick == 50) {
+      max_tick = 0; lmax = lmax_run; lmax_run = 0;
+      overruns = overruns_run; overruns_run = 0;
+      for (uint8_t k = 0; k < T_N; k++) { tmax[k] = tmax_run[k]; tmax_run[k] = 0; }
+    }
   }
 }
