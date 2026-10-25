@@ -47,33 +47,38 @@ static void halt(const char *l1, const char *l2) {
 static const char GAME_NAME[] = "PB65GAME";
 
 /* Lade-Programm (6502):
+ *   DMA auf das alte F018A-Format zurueckstellen (das Diskettensystem des C65
+ *   benutzt es; mit F018B hing v3.1 im KERNAL bei $E65A) /
  *   SETBNK 0,0 / SETLFS 0,8,1 / SETNAM / ROMs wie unter BASIC einblenden /
- *   CLI, LOAD, SEI / bei Fehler Rahmen blinken lassen, sonst Spiel starten */
+ *   Rahmen gruen, CLI, LOAD, SEI / bei Fehler Rahmen blinken, sonst Spiel */
 static const uint8_t STUB[] = {
-  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /*  0 SETBNK: Daten Bank 0, Name Bank 0 */
-  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /*  7 SETLFS: Datei 0, Geraet 8, Adresse aus Datei */
-  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0x20, 0xBD, 0xFF, /* 16 SETNAM: Laenge, Adresse (wird eingesetzt) */
-  0xA9, 0x3F, 0x85, 0x01,                               /* 25 $01 = $3F wie unter BASIC */
-  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /* 29 $D030 = $64: ROM bei $C000 wie unter BASIC */
-  0xA9, 0x00, 0x58, 0x20, 0xD5, 0xFF, 0x78,             /* 34 LOAD (A = 0), mit Interrupts */
-  0xB0, 0x03,                                           /* 41 BCS Fehler */
-  0x4C, 0x00, 0x00,                                     /* 43 JMP Spiel (wird eingesetzt) */
-  0xEE, 0x20, 0xD0, 0x4C, 0x00, 0x00,                   /* 46 Fehler: INC $D020, JMP 46 */
+  0xA9, 0x00, 0x8D, 0x03, 0xD7,                         /*  0 $D703 = 0: DMA im F018A-Format */
+  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /*  5 SETBNK: Daten Bank 0, Name Bank 0 */
+  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /* 12 SETLFS: Datei 0, Geraet 8, Adresse aus Datei */
+  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0x20, 0xBD, 0xFF, /* 21 SETNAM: Laenge, Adresse (wird eingesetzt) */
+  0xA9, 0x3F, 0x85, 0x01,                               /* 30 $01 = $3F wie unter BASIC */
+  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /* 34 $D030 = $64: ROM bei $C000 wie unter BASIC */
+  0xA9, 0x05, 0x8D, 0x20, 0xD0,                         /* 39 Rahmen gruen: Laden laeuft */
+  0xA9, 0x00, 0x58, 0x20, 0xD5, 0xFF, 0x78,             /* 44 LOAD (A = 0), mit Interrupts */
+  0xB0, 0x03,                                           /* 51 BCS Fehler */
+  0x4C, 0x00, 0x00,                                     /* 53 JMP Spiel (wird eingesetzt) */
+  0xEE, 0x20, 0xD0, 0x4C, 0x00, 0x00,                   /* 56 Fehler: INC $D020, JMP 56 */
 };
 #define STUB_NAME (sizeof STUB)
+_Static_assert(sizeof STUB == 62, "Sprungziele im Lade-Programm pruefen");
 
 static void start_game(void) {
   uint8_t *s = (uint8_t *)STUB_ADDR;
   for (uint8_t i = 0; i < sizeof STUB; i++) s[i] = STUB[i];
   for (uint8_t i = 0; i < sizeof GAME_NAME - 1; i++) s[STUB_NAME + i] = (uint8_t)GAME_NAME[i];
-  uint16_t name = STUB_ADDR + STUB_NAME, err = STUB_ADDR + 46;
-  s[17] = (uint8_t)(sizeof GAME_NAME - 1);
-  s[19] = (uint8_t)name;
-  s[21] = (uint8_t)(name >> 8);
-  s[44] = (uint8_t)GAME_ENTRY;
-  s[45] = (uint8_t)(GAME_ENTRY >> 8);
-  s[50] = (uint8_t)err;
-  s[51] = (uint8_t)(err >> 8);
+  uint16_t name = STUB_ADDR + STUB_NAME, err = STUB_ADDR + 56;
+  s[22] = (uint8_t)(sizeof GAME_NAME - 1);
+  s[24] = (uint8_t)name;
+  s[26] = (uint8_t)(name >> 8);
+  s[54] = (uint8_t)GAME_ENTRY;
+  s[55] = (uint8_t)(GAME_ENTRY >> 8);
+  s[60] = (uint8_t)err;
+  s[61] = (uint8_t)(err >> 8);
   asm volatile("jmp $0E00" ::: "memory");
 }
 
@@ -89,7 +94,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING  V3.1");
+  dmd_text("SEARCHING FOR *", "BUILDING  V3.2");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
