@@ -178,7 +178,8 @@ static void ramp_shot(double v) {
   input_t in; memset(&in, 0, sizeof in);
   phys_init(); game_new();
   state = ST_PLAY; in_lane_reset();
-  ball.x = 51L << 16; ball.y = 440L << 16; ball.vx = 0; ball.vy = (fix16)(-v * 65536);
+  ball.x = 86L << 16; ball.y = 340L << 16;    /* unterhalb der schraegen Muendung */
+  ball.vx = (fix16)(-v * 0.358 * 65536); ball.vy = (fix16)(-v * 0.934 * 65536);
   int done = 0, back = 0, entered = 0; long f;
   int16_t xs = -1;
   for (f = 0; f < 600; f++) {
@@ -219,6 +220,57 @@ static void pose(const char *name, int x, int y, int ramp) {
   int16_t cam = y - 100; if (cam < 0) cam = 0; if (cam > TH - VIEW_H) cam = TH - VIEW_H;
   render_frame(0, cam); render_frame(0, cam);
   dump_screen(name, 0);
+}
+
+/* Vom rechten Flipper in die Rampe? Ball faellt an Stelle x auf den Flipper,
+ * Flipperknopf wird bei Hoehe yk gedrueckt. Zaehlt Treffer im Raster. */
+static int16_t cross_x[400]; static int cross_n;
+static void flipper_sweep(void) {
+  input_t in;
+  int hits = 0, tries = 0;
+  char line[64];
+  for (int x = 160; x <= 230; x += 5) {
+    int k = 0;
+    for (int yk = 520; yk <= 556; yk += 3) {
+      phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+      ball.x = (fix16)x << 16; ball.y = 470L << 16; ball.vx = 0; ball.vy = 0;
+      int got = 0, pressed = 0;
+      for (int f = 0; f < 250 && state == ST_PLAY; f++) {
+        memset(&in, 0, sizeof in);
+        if ((ball.y >> 16) >= yk && !pressed) pressed = 1;
+        if (pressed && pressed < 12) { in.right = 1; pressed++; }
+        fix16 py0 = ball.y;
+        game_frame(&in);
+        if (on_ramp) { got = 1; break; }
+        if (py0 >= (310L << 16) && ball.y < (310L << 16) && cross_n < 400) cross_x[cross_n++] = (int16_t)(ball.x >> 16);
+      }
+      tries++; hits += got;
+      line[k++] = got ? '#' : '.';
+    }
+    line[k] = 0;
+    printf("   x=%3d %s\n", x, line);
+  }
+  printf("   rechter Flipper -> Rampe: %d von %d\n", hits, tries);
+  { int hist[16] = {0}; for (int i = 0; i < cross_n; i++) { int b = cross_x[i] / 20; if (b >= 0 && b < 16) hist[b]++; }
+    printf("   Schuesse ueber y 310 nach x (je 20 px):"); for (int b = 0; b < 16; b++) printf(" %d", hist[b]); printf("\n"); }
+  for (int x = 70; x <= 140; x += 5) {
+    int k = 0;
+    for (int yk = 520; yk <= 556; yk += 3) {
+      phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+      ball.x = (fix16)x << 16; ball.y = 470L << 16; ball.vx = 0; ball.vy = 0;
+      int got = 0, pressed = 0;
+      for (int f = 0; f < 250 && state == ST_PLAY; f++) {
+        memset(&in, 0, sizeof in);
+        if ((ball.y >> 16) >= yk && !pressed) pressed = 1;
+        if (pressed && pressed < 12) { in.left = 1; pressed++; }
+        game_frame(&in);
+        if (on_ramp) { got = 1; break; }
+      }
+      line[k++] = got ? '#' : '.';
+    }
+    line[k] = 0;
+    printf("   links x=%3d %s\n", x, line);
+  }
 }
 
 extern int host_no_trans;
@@ -280,6 +332,7 @@ int main(void) {
   printf("--- Rampe ---\n");
   for (double v = 0.6; v <= 3.6; v += 0.4) ramp_shot(v);
   kick_test();
+  flipper_sweep();
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);

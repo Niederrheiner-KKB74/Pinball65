@@ -245,10 +245,8 @@ static void ramp_step(void) {
   ramp_s += ramp_v;
   if (ramp_s < 0) {                        /* zurueckgerollt: unten aus der Einfahrt */
     on_ramp = 0;
-    ball.x = (fix16)RAMP_X0 << 16;
-    ball.y = ((fix16)RAMP_Y0 + 1) << 16;
-    ball.vx = 0;
-    ball.vy = -ramp_v;
+    ramp_seg = 0;
+    ramp_place();                          /* Stelle knapp unterhalb des Starts, Tempo abwaerts */
     ev_ramp |= EV_RAMP_BACK;
   } else if (ramp_s >= RAMP_LEN) {         /* Ende unterhalb des dritten Flippers */
     on_ramp = 0;
@@ -297,7 +295,7 @@ static void substep(void) {
     on_ramp = 1;
     ramp_s = 0;
     ramp_seg = 0;
-    ramp_v = -ball.vy;
+    ramp_v = fmul(ball.vx, RAMP_SEGS[0].ux) + fmul(ball.vy, RAMP_SEGS[0].uy);   /* Tempo bergauf */
     ramp_place();
     return;
   }

@@ -6,8 +6,9 @@ Verlauf (Wunsch vom 25.10.2026): Einfahrt links etwa in der Mitte des Tisches,
 hinten als Bruecke um den Tisch herum, rechts herunter und Ende unterhalb des
 dritten Flippers, so dass der Ball zum linken Flipper rollt.
 
-  Gerade hoch   (51,352) -> (51,122)
-  Bogen r=40    nach rechts, Mittelpunkt (91,122)  -> (91,82)
+  Einfahrt      schraeg (21 Grad), Start (61,275), oeffnet nach rechts unten
+  Bogen r=40    auf senkrecht, dann Gerade hoch bei x 45 bis y 122
+  Bogen r=40    nach rechts -> (85,82)
   Gerade        (91,82)  -> (200,82)   Bruecke hinter den Bumpern
   Bogen r=40    nach unten, Mittelpunkt (200,122)  -> (240,122)
   Gerade runter (240,122) -> (240,300)
@@ -27,12 +28,43 @@ def arc(cx, cy, r, a0, a1, n):
         a = math.radians(a0 + (a1 - a0) * i / n)
         pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
 
-line(51, 352, 51, 122)
-arc(91, 122, 40, 180, 270, 16)        # von links (180) nach oben (270): Richtung von hoch nach rechts
+# Einfahrt (v4.1): schraeg, oeffnet sich nach rechts unten und zielt auf den rechten Flipper.
+# Achse 21 Grad gegen die Senkrechte (verlaengert trifft sie y 548 bei x 166), Rampenstart C = (61, 275).
+ANG = math.radians(21)
+UX, UY = -math.sin(ANG), -math.cos(ANG)          # Fahrtrichtung bergauf (nach links oben)
+CX, CY = 61.0, 275.0
+R = 40.0
+p1 = (CX + 15 * UX, CY + 15 * UY)                # 15 Pixel gerade, dann Bogen nach oben
+nx, ny = -UY, UX                                 # rechte Normale (Bildschirm: y nach unten)
+c1 = (p1[0] + R * nx, p1[1] + R * ny)
+line(CX, CY, *p1)
+a_start = math.degrees(math.atan2(p1[1] - c1[1], p1[0] - c1[0]))
+arc(c1[0], c1[1], R, a_start, 180, 6)            # Richtung dreht auf senkrecht nach oben
+xu = c1[0] - R                                   # senkrechte Gerade bei x = 45,2
+line(None, None, xu, 122)
+arc(xu + R, 122, R, 180, 270, 16)                # von hoch nach rechts
 line(None, None, 200, 82)
-arc(200, 122, 40, 270, 360, 16)       # von oben nach rechts: Richtung von rechts nach unten
+arc(200, 122, 40, 270, 360, 16)                  # von rechts nach unten
 line(None, None, 240, 300)
-arc(200, 300, 40, 0, 45, 8)           # von rechts nach rechts unten: Richtung nach links unten
+arc(200, 300, 40, 0, 45, 8)                      # nach links unten, Ende unter dem dritten Flipper
+
+# Waende der Einfahrt (fuer table.c): Muendung 40 Pixel unterhalb von C,
+# halbe Breite 13, oben 15 Pixel ueber C hinaus
+px, py = -UY, UX                                 # Querrichtung
+mouth = (CX - 40 * UX, CY - 40 * UY)
+top = (CX + 15 * UX, CY + 15 * UY)
+lw = (mouth[0] - 13 * px, mouth[1] - 13 * py, top[0] - 13 * px, top[1] - 13 * py)
+rw = (mouth[0] + 13 * px, mouth[1] + 13 * py, top[0] + 13 * px, top[1] + 13 * py)
+print("linke Wand  %.1f %.1f -> %.1f %.1f" % lw)
+print("rechte Wand %.1f %.1f -> %.1f %.1f" % rw)
+print("Muendung %.1f %.1f" % mouth)
+spin = (CX - 20 * UX, CY - 20 * UY)
+print("Spinner Mitte %.1f %.1f  fix %d %d  P %d %d  U %d %d" % (spin[0], spin[1], round(spin[0]*65536), round(spin[1]*65536),
+      round(px*65536), round(py*65536), round(UX*65536), round(UY*65536)))
+def wall_x(w, y):
+    t = (w[1] - y) / (w[1] - w[3]); return w[0] + t * (w[2] - w[0])
+print("Gasse bei y %d: %.1f .. %.1f, bei Spinner y %.0f: %.1f .. %.1f" % (CY, wall_x(lw, CY), wall_x(rw, CY),
+      spin[1], wall_x(lw, spin[1]), wall_x(rw, spin[1])))
 
 segs = []          # x0, y0, ux, uy, s0, len
 s = 0.0
@@ -56,7 +88,7 @@ with open(os.path.join(src, "ramp_path.h"), "w", newline="\n") as fh:
     fh.write(f"#define RAMP_LEN        {f(total)}L   /* {total:.1f} Pixel */\n")
     fh.write(f"#define RAMP_CLIMB_END  {f(climb_end)}L\n")
     fh.write(f"#define RAMP_DESC_START {f(desc_start)}L   /* {desc_start:.1f}: rechts abwaerts */\n")
-    fh.write(f"#define RAMP_X0         51\n#define RAMP_Y0         352\n")
+    fh.write(f"#define RAMP_X0         {int(CX)}\n#define RAMP_Y0         {int(CY)}   /* Einfahrt: Ball kreuzt diese Zeile nach oben */\n")
     fh.write(f"#define RAMP_EXIT_X     {f(ex)}L   /* {ex:.1f} */\n#define RAMP_EXIT_Y     {f(ey)}L   /* {ey:.1f} */\n")
     fh.write("extern const ramp_seg_t RAMP_SEGS[RAMP_NSEG];\n\n#endif\n")
 

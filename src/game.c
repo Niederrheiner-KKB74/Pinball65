@@ -205,7 +205,7 @@ void game_update(const input_t *in) {
       for (uint8_t i = 0; i < N_TARGETS; i++)
         if ((ev_target & ((uint16_t)1 << i)) && !tgt_cool[i]) { tgt_cool[i] = 15; target_hit(i); }
     /* Spinner: Ball kreuzt ihn in der Einfahrt, Drehung nach Tempo */
-    if ((prev_y < SPIN_Y) != (y < SPIN_Y) && x >= RAMP_LANE_X0 - 2 && x <= RAMP_LANE_X1 + 2) {
+    if ((prev_y < SPIN_Y) != (y < SPIN_Y) && x >= SPIN_X0 && x <= SPIN_X1) {
       int16_t d = y - prev_y;
       if (d < 0) d = -d;
       if (d > 40) d = 0;                     /* Sprung (neuer Ball, Rampe): kein Drehen */

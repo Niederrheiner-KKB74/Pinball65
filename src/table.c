@@ -90,8 +90,10 @@ static const int16_t SEGS[][5] = {
   {64, 462, 92, 524, M_SLING_L},
   {236, 462, 208, 524, M_SLING_R},
   {290, 90, 290, 138, M_GATE},            /* Einweg-Tor */
-  {66, 336, 66, 410, M_WALL},             /* Einfahrt der Rampe: rechte Schiene */
-  {38, 318, 66, 336, M_WALL},             /* oben schraeg zu (keine Ruheflaeche) */
+  {63, 317, 44, 266, M_WALL},             /* Einfahrt der Rampe (schraeg, 21 Grad, zielt auf den rechten Flipper): links */
+  {88, 308, 72, 268, M_WALL},             /* rechts */
+  {36, 258, 72, 268, M_WALL},             /* oben zu: setzt das Einwegtor des Orbits nach rechts unten fort,
+                                             sonst bildeten Tor und Deckel eine Mulde (Spielroboter) */
   {290, 314, 280, 326, M_WALL},           /* Dach ueber den SID-Targets: sonst blieb der Ball unter
                                              dem dritten Flipper auf dem obersten Target liegen */
   {12, 236, 34, 256, M_GATE_UP},          /* Einwegtor linker Orbit */
@@ -307,6 +309,22 @@ static void band_rect(uint8_t *buf, int16_t x0, int16_t y0, int16_t w, int16_t h
   }
 }
 
+/* Spinner: Strecke quer zur Einfahrt (Querrichtung P), 4 Streifen entlang
+ * der Fahrtrichtung U (21 Grad), Mitte (68,2 / 293,7); Werte aus gen_ramp.py */
+static void band_spinner(uint8_t *b) {
+  const fix16 PX = 61183L, PY = -23486L, UXS = -23486L, UYS = -61183L;
+  const fix16 CXF = 4467416L, CYF = 19246063L;
+  for (int8_t t2 = -22; t2 <= 22; t2++)
+    for (int8_t k2 = -3; k2 <= 3; k2++) {
+      fix16 t = (fix16)t2 << 15, k = (fix16)k2 << 15;
+      int16_t xx = (int16_t)((CXF + fmul(PX, t) + fmul(UXS, k)) >> 16);
+      int16_t yy = (int16_t)((CYF + fmul(PY, t) + fmul(UYS, k)) >> 16);
+      if (yy < band_y0 || yy >= band_y1) continue;
+      uint8_t stripe = (uint8_t)((k2 + 3) * 4 / 7);
+      b[((uint16_t)(xx >> 3) << 6) + ((yy - band_y0) << 3) + (xx & 7)] = (uint8_t)(C_SPIN0 + stripe);
+    }
+}
+
 static void band_overlays(uint8_t *b) {
   /* Pop-Bumper: roter Ring, Kappe im Einschaltbild-Blau mit Cursor */
   for (uint8_t i = 0; i < N_BUMPERS; i++) {
@@ -333,9 +351,8 @@ static void band_overlays(uint8_t *b) {
     band_disc(b, KICK_X, KICK_Y, 8, C_HOLE);
     band_text(b, KICK_X - 7, KICK_Y + 13, "1541", 1, C_LABEL);
   }
-  /* Spinner in der Einfahrt der Rampe: vier Streifen, deren Farben wandern */
-  if (band_y0 < SPIN_Y + 4 && band_y1 > SPIN_Y - 4)
-    for (uint8_t k = 0; k < 4; k++) band_rect(b, 40, SPIN_Y - 4 + 2 * k, 23, 2, (uint8_t)(C_SPIN0 + k));
+  /* Spinner quer in der schraegen Einfahrt: vier Streifen, deren Farben wandern */
+  if (band_y0 < SPIN_Y + 14 && band_y1 > SPIN_Y - 14) band_spinner(b);
   if (band_y0 < 290 && band_y1 > 280) band_text(b, 96, 282, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 318 && band_y1 > 308) band_text(b, 136, 310, "6510", 1, C_TARGET_6510);
   if (band_y0 < 420 && band_y1 > 408) band_text(b, 272, 410, "SID", 1, C_TARGET_SID);
