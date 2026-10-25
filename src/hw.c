@@ -7,9 +7,12 @@
 #include <mega65.h>
 #include "hw.h"
 
-/* Enhanced-DMA-Job: Optionen, Ende-Markierung, F018B-Liste (12 Byte) */
+/* Enhanced-DMA-Job: Optionen, Ende-Markierung, F018B-Liste (12 Byte).
+ * Optionen: $0B F018B-Format, $80/$81 Quell-/Ziel-MB, $85 Ziel-Schrittweite,
+ * $06/$07 Transparenz aus/an, $86 Transparenzwert (Bytes mit diesem Wert
+ * werden nicht geschrieben). Ob die Transparenz wirkt, prueft dma_trans_ok(). */
 struct dmajob {
-  uint8_t opt[7];
+  uint8_t opt[10];
   uint8_t end;
   uint8_t cmd;
   uint16_t count;
@@ -20,15 +23,17 @@ struct dmajob {
   uint8_t cmd_msb;
   uint16_t modulo;
 };
-_Static_assert(sizeof(struct dmajob) == 20, "DMA-Job muss 20 Byte haben");
+_Static_assert(sizeof(struct dmajob) == 23, "DMA-Job muss 23 Byte haben");
 
 static struct dmajob job;
 
-static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count) {
+static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count, uint8_t trans) {
   job.opt[0] = 0x0B;                    /* F018B-Format */
   job.opt[1] = 0x80; job.opt[2] = (uint8_t)(src >> 20);   /* Quell-MB */
   job.opt[3] = 0x81; job.opt[4] = (uint8_t)(dst >> 20);   /* Ziel-MB */
   job.opt[5] = 0x85; job.opt[6] = 1;    /* Ziel-Schrittweite 1 */
+  if (trans) { job.opt[7] = 0x07; job.opt[8] = 0x86; job.opt[9] = 0x00; }  /* 0 = durchsichtig */
+  else       { job.opt[7] = 0x06; job.opt[8] = 0x06; job.opt[9] = 0x06; }  /* Transparenz aus */
   job.end = 0;
   job.cmd = cmd;
   job.count = count;
@@ -46,8 +51,24 @@ static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count) {
   asm volatile("" ::: "memory");
 }
 
-void dma_copy(uint32_t src, uint32_t dst, uint16_t count) { dma_run(0x00, src, dst, count); }
-void dma_fill(uint32_t dst, uint8_t value, uint16_t count) { dma_run(0x03, value, dst, count); }
+void dma_copy(uint32_t src, uint32_t dst, uint16_t count) { dma_run(0x00, src, dst, count, 0); }
+void dma_copy_trans(uint32_t src, uint32_t dst, uint16_t count) { dma_run(0x00, src, dst, count, 1); }
+void dma_fill(uint32_t dst, uint8_t value, uint16_t count) { dma_run(0x03, value, dst, count, 0); }
+
+/* Selbsttest der Transparenz: Ziel mit $55 fuellen, Muster mit Nullen
+ * transparent darueberkopieren, zuruecklesen. Nullen duerfen nichts
+ * ueberschrieben haben. */
+uint8_t dma_trans_ok(void) {
+  uint8_t *a = COLBUF, *b = COLBUF + 64;
+  for (uint8_t i = 0; i < 64; i++) a[i] = (i & 1) ? (uint8_t)(i + 1) : 0;
+  dma_fill(TRANS_TEST, 0x55, 64);
+  dma_copy(CPUADDR(a), ATTIC_SPR, 64);                 /* Quelle wie im Spiel: Attic */
+  dma_copy_trans(ATTIC_SPR, TRANS_TEST, 64);
+  dma_copy(TRANS_TEST, CPUADDR(b), 64);
+  for (uint8_t i = 0; i < 64; i++)
+    if (b[i] != ((i & 1) ? (uint8_t)(i + 1) : 0x55)) return 0;
+  return 1;
+}
 
 /* Paletten-Register erwarten vertauschte Nybbles */
 static uint8_t nyb_swap(uint8_t v) { return (uint8_t)((v << 4) | (v >> 4)); }

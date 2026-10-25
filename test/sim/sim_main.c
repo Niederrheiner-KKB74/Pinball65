@@ -15,8 +15,8 @@ int main(void) {
   printf("start\n");
   table_build_mask();
   printf("maske ok\n");
-  render_init();
   phys_init();
+  render_init();
   input_t in;
   uint8_t front = 0;
   for (uint16_t frame = 1; frame <= 400; frame++) {

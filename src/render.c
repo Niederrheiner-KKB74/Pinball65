@@ -19,14 +19,26 @@
 #define NPH   25            /* Phasen im Abstand von 2 Winkeleinheiten */
 #define SROWS 48            /* dy = -24 .. 23 */
 #define EMPTY 127
-static int8_t span0[NPH][SROWS], span1[NPH][SROWS];
-/* Innenbereich je Zeile (alles dazwischen ist Flipperflaeche, der Rest Rand);
- * in0 > in1 = kein Innenbereich. Vorberechnet, damit beim Zeichnen keine
- * Nachbarzeilen geprueft werden muessen. */
-static int8_t in0[NPH][SROWS], in1[NPH][SROWS];
+/* Je Phase 192 Byte im Attic-RAM: Spanne x0[48], x1[48] und Innenbereich
+ * i0[48], i1[48] (alles dazwischen ist Flipperflaeche, der Rest Rand;
+ * i0 > i1 = kein Innenbereich). Zum Zeichnen wird die benoetigte Phase in
+ * einen von zwei kleinen Puffern geholt (je Flipper einer), das spart 4,4 KB. */
+#define SPAN_BYTES (4 * SROWS)
+#define SPAN_ADDR(p) (ATTIC_SPR + 0x38000UL + (uint16_t)(p) * SPAN_BYTES)
+static int8_t spb[2][SPAN_BYTES];
+static uint8_t spb_ph[2];
 static int8_t ph_row0[NPH], ph_row1[NPH];
 
+static const int8_t *span_get(uint8_t slot, uint8_t p) {
+  if (spb_ph[slot] != p) {
+    dma_copy(SPAN_ADDR(p), CPUADDR(spb[slot]), SPAN_BYTES);
+    spb_ph[slot] = p;
+  }
+  return spb[slot];
+}
+
 static void spans_init(void) {
+  int8_t *span0 = spb[0], *span1 = spb[0] + SROWS, *in0 = spb[0] + 2 * SROWS, *in1 = spb[0] + 3 * SROWS;
   for (uint8_t p = 0; p < NPH; p++) {
     uint8_t d = (uint8_t)(F_UP + p * 2);
     fix16 ux = cosA(d), uy = sinA(d);
@@ -45,7 +57,7 @@ static void spans_init(void) {
           if (dx > x1) x1 = dx;
         }
       }
-      span0[p][j] = x0; span1[p][j] = x1;
+      span0[j] = x0; span1[j] = x1;
       if (x0 != EMPTY) {
         if ((int8_t)j < ph_row0[p]) ph_row0[p] = (int8_t)j;
         if ((int8_t)j > ph_row1[p]) ph_row1[p] = (int8_t)j;
@@ -55,17 +67,19 @@ static void spans_init(void) {
      * innerhalb der Spannen der Zeilen darueber und darunter */
     for (uint8_t j = 0; j < SROWS; j++) {
       int8_t a = EMPTY, b = -128;
-      if (span0[p][j] != EMPTY && j > 0 && j < SROWS - 1 &&
-          span0[p][j - 1] != EMPTY && span0[p][j + 1] != EMPTY) {
-        a = span0[p][j] + 1; b = span1[p][j] - 1;
-        if (span0[p][j - 1] > a) a = span0[p][j - 1];
-        if (span0[p][j + 1] > a) a = span0[p][j + 1];
-        if (span1[p][j - 1] < b) b = span1[p][j - 1];
-        if (span1[p][j + 1] < b) b = span1[p][j + 1];
+      if (span0[j] != EMPTY && j > 0 && j < SROWS - 1 &&
+          span0[j - 1] != EMPTY && span0[j + 1] != EMPTY) {
+        a = span0[j] + 1; b = span1[j] - 1;
+        if (span0[j - 1] > a) a = span0[j - 1];
+        if (span0[j + 1] > a) a = span0[j + 1];
+        if (span1[j - 1] < b) b = span1[j - 1];
+        if (span1[j + 1] < b) b = span1[j + 1];
       }
-      in0[p][j] = a; in1[p][j] = b;
+      in0[j] = a; in1[j] = b;
     }
+    dma_copy(CPUADDR(spb[0]), SPAN_ADDR(p), SPAN_BYTES);
   }
+  spb_ph[0] = spb_ph[1] = 0xFF;
 }
 
 static uint8_t phase_of(const flipper_t *f) {
@@ -93,8 +107,7 @@ static void ball_init(void) {
 /* Aktuelle Spalte: x-Bereich cx0..cx0+7, Tischzeilen ty0..ty1 in COLBUF */
 static int16_t cx0, ty0, ty1;
 
-static void draw_flipper_col(const flipper_t *f) {
-  uint8_t p = phase_of(f);
+static void draw_flipper_ph(const flipper_t *f, uint8_t p) {
   int16_t yb = f->py - 24;
   int16_t ya = yb + ph_row0[p], ye = yb + ph_row1[p];
   if (ya < ty0) ya = ty0;
@@ -102,7 +115,7 @@ static void draw_flipper_col(const flipper_t *f) {
   if (ya > ye) return;
   /* x-Bereich der Spalte relativ zum Drehpunkt (in Flipperrichtung gemessen) */
   int16_t c0 = cx0 - f->px, c7 = c0 + 7;
-  const int8_t *s0 = span0[p], *s1 = span1[p], *i0 = in0[p], *i1 = in1[p];
+  const int8_t *s0 = span_get(f != &flip[0], p), *s1 = s0 + SROWS, *i0 = s0 + 2 * SROWS, *i1 = s0 + 3 * SROWS;
   uint8_t *row = COLBUF + ((uint16_t)(ya - ty0) << 3);
   for (int16_t y = ya; y <= ye; y++, row += 8) {
     uint8_t j = (uint8_t)(y - yb);
@@ -126,6 +139,8 @@ static void draw_flipper_col(const flipper_t *f) {
       }
   }
 }
+
+static void draw_flipper_col(const flipper_t *f) { draw_flipper_ph(f, phase_of(f)); }
 
 static void draw_ball_col(int16_t bx, int16_t by) {
   int16_t ya = by - 5, ye = by + 5;
@@ -182,9 +197,78 @@ static uint8_t overlaps(const int16_t *r, const flipper_t *f) {
   return r[2] >= x0 && r[0] <= x0 + 52 && r[3] >= y0 && r[1] <= y0 + 47;
 }
 
+/* ---------- Vorgezeichnete Bilder fuer den DMA-Weg ----------
+ * Flipper: je Flipper, Phase und Spalte (bis 8) ein Streifen von 48 Zeilen
+ * (384 Byte); Ball: 8 seitliche Verschiebungen x 3 Spalten x 11 Zeilen.
+ * Gezeichnet mit denselben Routinen wie der CPU-Weg, Wert 0 = durchsichtig. */
+#define FSPR_BYTES 384u
+#define BSPR_BASE  (ATTIC_SPR + 0x30000UL)
+static uint8_t use_dma;
+
+static uint32_t fspr(uint8_t i, uint8_t p, uint8_t k) {
+  return ATTIC_SPR + (uint32_t)(((uint16_t)(i * NPH + p) << 3) + k) * FSPR_BYTES;
+}
+
+static void sprites_build(void) {
+  for (uint8_t i = 0; i < 2; i++) {
+    const flipper_t *f = &flip[i];
+    int16_t xa = f->side > 0 ? f->px - 8 : f->px - 44;
+    for (uint8_t p = 0; p < NPH; p++)
+      for (uint8_t k = 0; k < 8; k++) {
+        for (uint16_t n = 0; n < FSPR_BYTES; n++) COLBUF[n] = 0;
+        cx0 = (int16_t)(((xa >> 3) + k) << 3);
+        ty0 = f->py - 24;
+        ty1 = ty0 + 47;
+        draw_flipper_ph(f, p);
+        dma_copy(CPUADDR(COLBUF), fspr(i, p, k), FSPR_BYTES);
+      }
+  }
+  for (uint8_t s = 0; s < 8; s++)
+    for (uint8_t k = 0; k < 3; k++) {
+      for (uint8_t n = 0; n < 88; n++) COLBUF[n] = 0;
+      cx0 = (int16_t)k * 8;
+      ty0 = 0;
+      ty1 = 10;
+      draw_ball_col(5 + s, 5);
+      dma_copy(CPUADDR(COLBUF), BSPR_BASE + (uint16_t)(s * 3 + k) * 88, 88);
+    }
+}
+
+static void blit_flipper(uint8_t i, uint8_t p, uint32_t fb, int16_t cam) {
+  const flipper_t *f = &flip[i];
+  int16_t xa = f->side > 0 ? f->px - 8 : f->px - 44;
+  int16_t yt = f->py - 24, s0 = yt, s1 = yt + 47;
+  if (s0 < cam) s0 = cam;
+  if (s1 > cam + VIEW_H - 1) s1 = cam + VIEW_H - 1;
+  if (s0 > s1) return;
+  uint16_t count = (uint16_t)(s1 - s0 + 1) * 8;
+  uint16_t soff = (uint16_t)(s0 - yt) * 8, doff = (uint16_t)(s0 - cam) * 8;
+  uint8_t c0 = (uint8_t)(xa >> 3);
+  for (uint8_t k = 0; k < 8 && c0 + k < 40; k++)
+    dma_copy_trans(fspr(i, p, k) + soff, fb + (uint32_t)(c0 + k) * COL_BYTES + doff, count);
+}
+
+static void blit_ball(int16_t bx, int16_t by, uint32_t fb, int16_t cam) {
+  int16_t x0 = bx - 5, yt = by - 5, s0 = yt, s1 = yt + 10;
+  if (x0 < 0) x0 = 0;
+  if (s0 < cam) s0 = cam;
+  if (s1 > cam + VIEW_H - 1) s1 = cam + VIEW_H - 1;
+  if (s0 > s1) return;
+  uint16_t count = (uint16_t)(s1 - s0 + 1) * 8;
+  uint16_t soff = (uint16_t)(s0 - yt) * 8, doff = (uint16_t)(s0 - cam) * 8;
+  uint8_t c0 = (uint8_t)(x0 >> 3), s = (uint8_t)(x0 & 7);
+  for (uint8_t k = 0; k < 3 && c0 + k < 40; k++)
+    dma_copy_trans(BSPR_BASE + (uint16_t)(s * 3 + k) * 88 + soff,
+                   fb + (uint32_t)(c0 + k) * COL_BYTES + doff, count);
+}
+
+uint8_t render_uses_dma(void) { return use_dma; }
+
 void render_init(void) {
   spans_init();
   ball_init();
+  use_dma = dma_trans_ok();
+  if (use_dma) sprites_build();
   buf_cam[0] = buf_cam[1] = -1;
   drawn_ball_on[0] = drawn_ball_on[1] = 0;
 }
@@ -246,6 +330,13 @@ void render_frame(uint8_t b, int16_t cam) {
 
   render_bg_lines = lines_since(t0);
 
+  /* 2./3. DMA-Weg: vorgezeichnete Bilder transparent einsetzen */
+  if (use_dma) {
+    if (redraw[0]) blit_flipper(0, phase[0], fb, cam);
+    if (redraw[1]) blit_flipper(1, phase[1], fb, cam);
+    if (ball_on) blit_ball(bx, by, fb, cam);
+  } else {
+
   /* 2. Was muss gezeichnet werden? */
   need_clear();
   for (uint8_t i = 0; i < 2; i++) {
@@ -269,6 +360,7 @@ void render_frame(uint8_t b, int16_t cam) {
     if (redraw[1]) draw_flipper_col(&flip[1]);
     if (ball_on) draw_ball_col(bx, by);
     dma_copy(CPUADDR(COLBUF), addr, len);
+  }
   }
 
   /* 4. Merken, was jetzt in diesem Puffer steht */

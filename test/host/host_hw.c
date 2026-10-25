@@ -13,7 +13,7 @@
 struct host_vic VICIV;
 uint8_t chip[0x60000];
 uint8_t colram[0x8000];
-uint8_t attic[0x40000];
+uint8_t attic[0x80000];
 uint8_t host_rowbuf[2560], host_colbuf[1344], host_maskwin[1920];
 uint8_t pal[256][3];
 uint8_t shown;
@@ -62,6 +62,13 @@ void dma_copy(uint32_t s, uint32_t d, uint16_t n) {
   uint32_t cnt = n ? n : 65536; dma_jobs++; dma_bytes += cnt;
   memmove(resolve(d, cnt), resolve(s, cnt), cnt);
 }
+int host_no_trans;   /* 1 = Transparenz-Selbsttest scheitern lassen (CPU-Weg) */
+void dma_copy_trans(uint32_t s, uint32_t d, uint16_t n) {
+  uint32_t cnt = n ? n : 65536; dma_jobs++; dma_bytes += cnt;
+  uint8_t *src = resolve(s, cnt), *dst = resolve(d, cnt);
+  for (uint32_t i = 0; i < cnt; i++) if (src[i] || host_no_trans) dst[i] = src[i];
+}
+uint8_t dma_trans_ok(void) { return !host_no_trans; }
 void dma_fill(uint32_t d, uint8_t v, uint16_t n) {
   uint32_t cnt = n ? n : 65536; dma_jobs++; dma_bytes += cnt;
   memset(resolve(d, cnt), v, cnt);

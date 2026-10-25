@@ -30,11 +30,13 @@
 #define MAP_A       0x5CC00UL   /* Bildschirmkarte A (1000 x 2 Byte) */
 #define MAP_B       0x5D400UL   /* Bildschirmkarte B */
 #define DMD_TPL     0x5DC00UL   /* Vorlage: eine Display-Zeichenzeile, alle Punkte aus */
+#define TRANS_TEST  0x5E600UL   /* 64 Byte fuer den Transparenz-Selbsttest */
 #define FB_A_CHAR   0x1000u     /* = FB_A / 64 */
 #define FB_B_CHAR   0x1348u     /* = FB_B / 64 */
 #define DISP_CHAR   0x1690u     /* = DISP_ADDR / 64 */
 
 #define ATTIC_BG    0x8000000UL /* Tischgrafik, 40 Spalten-Streifen */
+#define ATTIC_SPR   0x8040000UL /* vorgezeichnete Flipper und Ball (Spaltenstreifen) */
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */
@@ -56,6 +58,9 @@ void hw_init(void);
 uint8_t attic_ok(void);
 void dma_copy(uint32_t src, uint32_t dst, uint16_t count);
 void dma_fill(uint32_t dst, uint8_t value, uint16_t count);
+/* Kopie, bei der Quellbytes mit Wert 0 das Ziel nicht ueberschreiben */
+void dma_copy_trans(uint32_t src, uint32_t dst, uint16_t count);
+uint8_t dma_trans_ok(void);
 void set_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void show_buffer(uint8_t b);
 uint16_t raster_line(void);

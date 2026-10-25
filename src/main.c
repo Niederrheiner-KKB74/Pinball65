@@ -82,7 +82,8 @@ static void update_display(uint16_t load, uint16_t lmax) {
     p = dmd_put(l2, "L");
     p = dmd_num(p, load, 3);
     p = dmd_put(p, " MAX");
-    dmd_num(p, lmax, 3);
+    p = dmd_num(p, lmax, 3);
+    dmd_put(p, render_uses_dma() ? " DMA" : " CPU");
   } else if (state == ST_DRAIN) {
     dmd_put(l1, "?BALL LOST  ERROR");
     dmd_put(l2, "READY.");
@@ -167,14 +168,14 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.9");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.10");
   dmd_flush();
   code_check("NACH ATTIC-TEST");
 
   table_build_mask();
   table_build_art();
-  render_init();
   phys_init();
+  render_init();
   VICIV.bordercol = 0;
   code_check("NACH AUFBAU");
 

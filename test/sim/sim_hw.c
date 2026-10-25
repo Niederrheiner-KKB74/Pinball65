@@ -36,26 +36,39 @@ static void check_cpu(uint32_t a, uint16_t n) {
 #endif
 static uint8_t colram_mask[25600 - SIM_MASK_FROM * 40];
 static uint8_t sim_dummy[2000];
-static uint8_t *far_ptr(uint32_t a, uint16_t n) {
+static uint8_t *far_ptr_mask(uint32_t a, uint16_t n) {
   const uint32_t base = 0xFF81000UL + SIM_MASK_FROM * 40UL;
   if (a >= base && a + n <= base + sizeof colram_mask) return colram_mask + (uint16_t)(a - base);
   if (a >= 0xFF81000UL && a < base && n <= sizeof sim_dummy) return sim_dummy;   /* oberer Teil: leer */
   return 0;
 }
 #else
-static uint8_t *far_ptr(uint32_t a, uint16_t n) { (void)a; (void)n; return 0; }
+static uint8_t *far_ptr_mask(uint32_t a, uint16_t n) { (void)a; (void)n; return 0; }
 #endif
+/* Flipper-Spannen im Attic-RAM (render.c, 25 Phasen x 192 Byte) */
+static uint8_t span_mem[25 * 192];
+static uint8_t *span_ptr(uint32_t a, uint16_t n) {
+  const uint32_t base = ATTIC_SPR + 0x38000UL;
+  if (a >= base && a + n <= base + sizeof span_mem) return span_mem + (uint16_t)(a - base);
+  return 0;
+}
+static uint8_t *far_ptr(uint32_t a, uint16_t n) {
+  uint8_t *p = span_ptr(a, n);
+  return p ? p : far_ptr_mask(a, n);
+}
 
 void dma_copy(uint32_t s, uint32_t d, uint16_t n) {
   sim_jobs++;
   uint8_t *fs = far_ptr(s, n), *fd = far_ptr(d, n);
   if (fd && s < 0x10000UL) { memcpy(fd, (void *)(uint16_t)s, n); return; }
-  if (fs && d < 0x10000UL) { check_cpu(d, n); memcpy((void *)(uint16_t)d, fs, n); return; }
+  if (fs && d < 0x10000UL) { if (!span_ptr(s, n)) check_cpu(d, n); memcpy((void *)(uint16_t)d, fs, n); return; }
   check_cpu(d, n);
   if (s < 0x10000UL) check_cpu(s, n);
   if (d < 0x10000UL && s < 0x10000UL) memmove((void *)(uint16_t)d, (void *)(uint16_t)s, n);
   else if (d < 0x10000UL) memset((void *)(uint16_t)d, 0, n);   /* aus Fernspeicher: leer */
 }
+void dma_copy_trans(uint32_t s, uint32_t d, uint16_t n) { dma_copy(s, d, n); }
+uint8_t dma_trans_ok(void) { return 0; }   /* Simulator: CPU-Weg pruefen */
 void dma_fill(uint32_t d, uint8_t v, uint16_t n) {
   sim_jobs++;
   check_cpu(d, n);

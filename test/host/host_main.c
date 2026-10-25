@@ -41,7 +41,10 @@ static void dump_table(const char *name) {
   fclose(f);
 }
 
+extern int host_no_trans;
+#include <stdlib.h>
 int main(void) {
+  host_no_trans = getenv("NO_TRANS") != 0;
   tables_init();
   hw_init();
   table_build_palette();
@@ -52,8 +55,8 @@ int main(void) {
   dmd_render();
   table_build_mask();
   table_build_art();
-  render_init();
   phys_init();
+  render_init();
   dump_table("table_full.ppm");
 
   input_t in;

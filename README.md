@@ -9,7 +9,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | Prototyp | Physik im Browser, Festkomma 16.16, einstellbare Werte | fertig, siehe `prototype/` |
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
-| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | läuft; v2.8 mit korrigierter Messung |
+| 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | läuft; v2.10 zeichnet Flipper und Ball per DMA |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
@@ -41,6 +41,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 2.5 | Ball ruht: L 91, MAX 95/171/218; im Spiel L meist 90–150, kurze Spitzen bis 306 | – |
 | 25.10.2026 | Meilenstein 2.6 | Abschussbahn L 111, MAX 130; Spiel MAX 622, SCROLL MAX 59 | Abschussbahn L 109, MAX 129; Spiel MAX 312, SCROLL MAX 71 |
 | 25.10.2026 | Meilenstein 2.8 | MAX meist darunter, bis 431 | – |
+| 25.10.2026 | Meilenstein 2.9 | Ball am Flipper: L 175, MAX 345; P 18, S 59, Z 243, D 25 – Zeichnen ist der Engpass | – |
 | 25.10.2026 | Meilenstein 2.7 | L 499, MAX 452, UEB 49; P 9, S 59, Z 15, D 57 – Überlauf-Meldung falsch, echte Last höchstens etwa 190 Zeilen | – |
 
 Erkenntnisse:
@@ -57,6 +58,7 @@ Erkenntnisse:
 - **Spitzen im Ruhezustand (v2.5):** Eine Display-Zeichenzeile kostete rund 75 Rasterzeilen (640 Punkte einzeln), die Code-Prüfsumme alle 5 Sekunden prüfte 33 KB in einem Bild. Seit v2.6 kopiert DMA eine fertige leere Punktzeile, die CPU setzt nur die leuchtenden Punkte (im Simulator rund 29.000 statt 170.000 Zyklen pro Zeichenzeile, Ergebnis byte-identisch); die Prüfsumme läuft mit 512 Byte pro Bild. Bilder über 312 Zeilen erkennt das Programm am Raster-Vergleichsflag ($D019), vorher lief der Messwert dabei über und zeigte zu kleine Zahlen.
 - **Display:** Seit v2.4 wird pro Bild höchstens eine Zeichenzeile neu gezeichnet. In v2.4 wurde das Display aber nur alle 10 Bilder aufgerufen, und die obere Zeile (mit dem L-Wert) kam immer zuerst dran, so dass die untere Zeile verhungerte. Seit v2.5 läuft es in jedem Bild und reihum.
 - **Laufzeit (v2.4):** Im 6502-Simulator gemessen kosteten die Flipper rund 830.000 Zyklen pro Bild (Randprüfung über Funktionsaufrufe für jeden Pixel), das Display alle 10 Bilder auf einmal rund 600.000. Jetzt: Innenbereich und Rand der Flipper vorberechnet, ruhende Flipper werden nicht neu gezeichnet, das Display zeichnet höchstens eine Zeichenzeile pro Bild, die Kollisionsprüfung entfällt, wenn um den Ball keine Wand liegt. Ergebnis im Simulator: von etwa 490.000 auf 208.000 Zyklen pro Bild (ohne Multiplikation und DMA), Bild und Physik unverändert.
+- **Flipper und Ball per DMA (v2.10):** In v2.9 kostete das Zeichnen mit der CPU bis zu 243 Rasterzeilen, sobald der Ball an einem Flipper lag. Jetzt werden beim Start alle 25 Winkelstellungen beider Flipper und 8 seitlich verschobene Fassungen des Balls einmal gezeichnet und als Spaltenstreifen im Attic-RAM abgelegt. Im Spiel setzt ein DMA-Auftrag mit Transparenz (Wert 0 wird nicht geschrieben) einen Streifen in den Bildpuffer, ein Flipper braucht höchstens 8 Aufträge, der Ball 3. Ob die DMA-Transparenz funktioniert, prüft das Programm beim Start selbst; sonst zeichnet es wie bisher mit der CPU. Die Abschussbahn zeigt den aktiven Weg (`DMA` oder `CPU`). Die Flipperspannen liegen jetzt ebenfalls im Attic-RAM, das spart 4,4 KB im Hauptspeicher. Im PC-Test sind beide Wege pixelgleich mit v2.9.
 - Rückmeldung zum Spielgefühl: Flipper zu langsam, Ball prallt viel ab und kommt selten herunter. Ursachen: Ein Flipperschlag dauerte etwa 85 ms (echte Flipper 30 bis 50 ms); der Ball ist rund zwei Drittel der Zeit oberhalb des sichtbaren Ausschnitts; ein zu schwacher Abschuss ließ den Ball auf dem Plunger liegen, ohne dass er neu abgeschossen werden konnte (behoben in v1.1).
 
 ## Einrichtung unter Windows 11
@@ -99,7 +101,7 @@ Die Tasten sind dieselben wie in Meilenstein 1 (Tabelle unten). Das Display zeig
 
 | Zustand | Zeile 1 | Zeile 2 |
 |---|---|---|
-| Ball in der Abschussbahn | `LOAD"*",8,1` | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde |
+| Ball in der Abschussbahn | `LOAD"*",8,1` | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde, `DMA` oder `CPU`: Weg zum Zeichnen von Flipper und Ball |
 | Ball im Spiel | `L` Auslastung, `MAX` Höchstwert der letzten Sekunde | Aufteilung des langsamsten Bildes der letzten Sekunde in Rasterzeilen: `P` Physik, `S` Hintergrund kopieren (Scrollen), `Z` Flipper und Ball zeichnen, `D` Display und Prüfsumme |
 | Ball verloren | `?BALL LOST  ERROR` | `READY.` |
 | Testabschuss läuft | `TEST` und Zähler bis 120 | `SEARCHING FOR *` |

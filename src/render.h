@@ -13,5 +13,7 @@ int16_t camera_update(void);
 void render_frame(uint8_t b, int16_t cam);
 /* Messwert: Rasterzeilen fuer das Kopieren des Hintergrunds im letzten Bild */
 extern uint16_t render_bg_lines;
+/* 1 = Flipper und Ball per transparentem DMA, 0 = CPU-Zeichnen (Rueckfall) */
+uint8_t render_uses_dma(void);
 
 #endif
