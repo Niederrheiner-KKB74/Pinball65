@@ -51,7 +51,7 @@ static void read_input(input_t *in) {
 }
 
 /* Display-Text je nach Spielzustand (Texte im C64-Stil, Debugwerte unten) */
-/* Messwerte: Hoechstwerte der letzten Sekunde je Abschnitt (Rasterzeilen) */
+/* Messwerte: Aufteilung des langsamsten Bildes der letzten Sekunde (Rasterzeilen) */
 enum { T_PHYS, T_SCROLL, T_DRAW, T_DMD, T_N };
 static uint16_t tmax[T_N], tmax_run[T_N];
 
@@ -167,7 +167,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.8");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.9");
   dmd_flush();
   code_check("NACH ATTIC-TEST");
 
@@ -197,21 +197,21 @@ int main(void) {
     dmd_render();                       /* jedes Bild hoechstens eine Zeichenzeile */
     code_check_step();
     uint16_t t3 = raster_line();
-    {
-      uint16_t sect[T_N];
-      sect[T_PHYS] = raster_diff(t0, t1);
-      sect[T_SCROLL] = render_bg_lines;
-      sect[T_DRAW] = raster_diff(t1, t2) - render_bg_lines;
-      sect[T_DMD] = raster_diff(t2, t3);
-      for (uint8_t k = 0; k < T_N; k++) if (sect[k] > tmax_run[k]) tmax_run[k] = sect[k];
-    }
+    uint16_t sect[T_N];
+    sect[T_PHYS] = raster_diff(t0, t1);
+    sect[T_SCROLL] = render_bg_lines;
+    sect[T_DRAW] = raster_diff(t1, t2) - render_bg_lines;
+    sect[T_DMD] = raster_diff(t2, t3);
     front = back;
     /* Auslastung: Summe der Abschnitte, jeder innerhalb eines Bildes gemessen.
      * (v2.6/2.7 nutzten das Raster-Vergleichsflag; das loeste auf dem VIC-IV
      * mitten im Bild aus und meldete Ueberlaeufe, die es nicht gab.) */
     load = raster_diff(t0, t1) + raster_diff(t1, t2) + raster_diff(t2, t3) + raster_diff(t3, raster_line());
     /* Hoechstwerte der letzten Sekunde (50 Bilder) */
-    if (load > lmax_run) lmax_run = load;
+    if (load > lmax_run) {                /* neues langsamstes Bild: Aufteilung merken */
+      lmax_run = load;
+      for (uint8_t k = 0; k < T_N; k++) tmax_run[k] = sect[k];
+    }
     if (++max_tick == 50) {
       max_tick = 0; lmax = lmax_run; lmax_run = 0;
       for (uint8_t k = 0; k < T_N; k++) { tmax[k] = tmax_run[k]; tmax_run[k] = 0; }
