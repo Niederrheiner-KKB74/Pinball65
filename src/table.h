@@ -45,6 +45,13 @@
 #define FLIP3_X  282
 #define FLIP3_Y  300
 
+/* Kick-Out-Hole "1541" und Rampe (Meilenstein 4) */
+#define KICK_X    218
+#define KICK_Y    236
+#define RAMP_LANE_X0 40           /* Einfahrt: Gasse zwischen x 36 und x 66 */
+#define RAMP_LANE_X1 62
+#define SPIN_Y    392             /* Spinner in der Einfahrt */
+
 #define PLUNGER_Y 612
 #define LANE_X    300
 
@@ -67,7 +74,10 @@ enum {
   C_LOAD0 = C_TOP0 + 3,           /* 4 Lampen L O A D (Out- und Inlanes) */
   C_BUMP0 = C_LOAD0 + 4,          /* 3 Bumper-Ringe (Aufblitzen) */
   C_SLING0 = C_BUMP0 + 3,         /* 2 Slingshot-Gummis (Aufblitzen) */
-  C_LAMP_END = C_SLING0 + 2
+  C_LAMP_END = C_SLING0 + 2,
+  C_RAMP_RAIL = C_LAMP_END, C_RAMP_RAIL_DK, C_RAMP_FLOOR,
+  C_SPIN0,                        /* 4 Streifen des Spinners, Farben drehen sich */
+  C_SPIN_END = C_SPIN0 + 4
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 
@@ -105,6 +115,8 @@ void table_build_mask(void);
 void table_build_palette(void);
 /* Zeichnet die Tischgrafik spaltenweise ins Attic-RAM (ATTIC_BG) */
 void table_build_art(void);
+/* Deckbild der Rampe ins Attic-RAM (ATTIC_OVL) */
+void table_build_overlay(void);
 
 extern const uint8_t MASK_BIT[8];         /* 0x80 >> i, ohne variable Verschiebung */
 

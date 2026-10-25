@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 enum { SND_BUMPER, SND_SLING, SND_TARGET, SND_LANE, SND_FLIPPER, SND_DRAIN,
-       SND_COMPLETE, SND_START, SND_COUNT };
+       SND_COMPLETE, SND_START, SND_SPIN, SND_DRIVE, SND_RAMP, SND_COUNT };
 
 void snd_init(void);
 void snd_play(uint8_t fx);

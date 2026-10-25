@@ -29,9 +29,11 @@
 
 void build_progress(uint8_t phase, uint8_t step) {
   char l2[DMD_COLS + 1], *p;
-  p = dmd_put(l2, phase ? "GRAFIK " : "MASKE ");
+  static const char *const NAME[3] = { "MASKE ", "GRAFIK ", "RAMPE " };
+  static const char *const OF[3] = { "/14", "/80", "/38" };
+  p = dmd_put(l2, NAME[phase]);
   p = dmd_num(p, step + 1, 2);
-  dmd_put(p, phase ? "/80" : "/14");
+  dmd_put(p, OF[phase]);
   dmd_text("SEARCHING FOR *", l2);
   dmd_flush();
   VICIV.bordercol = (uint8_t)(phase ? 3 : 4);
@@ -121,13 +123,14 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING  V3.4");
+  dmd_text("SEARCHING FOR *", "BUILDING  V4.0");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
   dma_fill(ATTIC_SIG, 0, 16);
   table_build_mask();
   table_build_art();
+  table_build_overlay();
   phys_init();                   /* Flipperpositionen fuer die Bilder */
   render_build();
 

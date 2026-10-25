@@ -8,6 +8,8 @@
 #include <mega65.h>
 #include "table.h"
 #include "hw.h"
+#include "fixmath.h"
+#include "ramp_path.h"
 
 int16_t win_y0 = -1000;
 const uint8_t MASK_BIT[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
@@ -61,6 +63,10 @@ void table_build_palette(void) {
   set_color(C_DMD_EDGE, 170, 90, 16);
   set_color(C_LOGO_RED, 232, 69, 60);
   set_color(C_LOGO_BLUE, 61, 107, 234);
+  set_color(C_RAMP_RAIL, 220, 230, 255);    /* Rampe: Chromschienen ... */
+  set_color(C_RAMP_RAIL_DK, 120, 130, 190);
+  set_color(C_RAMP_FLOOR, 70, 150, 210);    /* ... und durchsichtiger Boden (Raster) */
+  for (uint8_t k = 0; k < 4; k++) set_color((uint8_t)(C_SPIN0 + k), 90, 90, 110);
 }
 
 
@@ -84,6 +90,10 @@ static const int16_t SEGS[][5] = {
   {64, 462, 92, 524, M_SLING_L},
   {236, 462, 208, 524, M_SLING_R},
   {290, 90, 290, 138, M_GATE},            /* Einweg-Tor */
+  {66, 336, 66, 410, M_WALL},             /* Einfahrt der Rampe: rechte Schiene */
+  {38, 318, 66, 336, M_WALL},             /* oben schraeg zu (keine Ruheflaeche) */
+  {290, 314, 280, 326, M_WALL},           /* Dach ueber den SID-Targets: sonst blieb der Ball unter
+                                             dem dritten Flipper auf dem obersten Target liegen */
   {12, 236, 34, 256, M_GATE_UP},          /* Einwegtor linker Orbit */
 };
 #define NSEGS (sizeof(SEGS) / sizeof(SEGS[0]))
@@ -318,11 +328,14 @@ static void band_overlays(uint8_t *b) {
   if (band_y0 < 66 && band_y1 > 56)
     for (uint8_t i = 0; i < 3; i++) band_disc(b, 126 + 24 * i, 61, 4, (uint8_t)(C_TOP0 + i));
   /* Kick-Out-Hole "1541" */
-  if (band_y0 < 254 && band_y1 > 220) {
-    band_disc(b, 226, 232, 10, C_HOLE_RING);
-    band_disc(b, 226, 232, 8, C_HOLE);
-    band_text(b, 219, 246, "1541", 1, C_LABEL);
+  if (band_y0 < KICK_Y + 20 && band_y1 > KICK_Y - 12) {
+    band_disc(b, KICK_X, KICK_Y, 10, C_HOLE_RING);
+    band_disc(b, KICK_X, KICK_Y, 8, C_HOLE);
+    band_text(b, KICK_X - 7, KICK_Y + 13, "1541", 1, C_LABEL);
   }
+  /* Spinner in der Einfahrt der Rampe: vier Streifen, deren Farben wandern */
+  if (band_y0 < SPIN_Y + 4 && band_y1 > SPIN_Y - 4)
+    for (uint8_t k = 0; k < 4; k++) band_rect(b, 40, SPIN_Y - 4 + 2 * k, 23, 2, (uint8_t)(C_SPIN0 + k));
   if (band_y0 < 290 && band_y1 > 280) band_text(b, 96, 282, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 318 && band_y1 > 308) band_text(b, 136, 310, "6510", 1, C_TARGET_6510);
   if (band_y0 < 420 && band_y1 > 408) band_text(b, 272, 410, "SID", 1, C_TARGET_SID);
@@ -345,6 +358,52 @@ static void band_overlays(uint8_t *b) {
   }
 }
 
+/* ---------- Rampe ----------
+ * Entlang des Weges in halben Pixeln: Querschnitt von -7 bis +7 Pixel,
+ * aussen Chromschienen, dazwischen ein durchsichtiger Boden als Raster
+ * (jeder zweite Pixel). Dasselbe Bild liegt als Deckbild im Attic-RAM
+ * (ATTIC_OVL), damit der Ball unter der Bruecke verschwindet. */
+#define RAMP_Y_MIN 70
+#define RAMP_Y_MAX 360
+static void ramp_stamp(uint8_t *buf) {
+  if (band_y1 <= RAMP_Y_MIN || band_y0 > RAMP_Y_MAX) return;
+  uint8_t seg = 0;
+  for (fix16 s = 0; s <= RAMP_LEN; s += 32768L) {
+    while (seg + 1 < RAMP_NSEG && s >= RAMP_SEGS[seg + 1].s0) seg++;
+    const ramp_seg_t *g = &RAMP_SEGS[seg];
+    fix16 d = s - g->s0;
+    fix16 y = g->y0 + fmul(g->uy, d);
+    int16_t yi = (int16_t)(y >> 16);
+    if (yi < band_y0 - 8 || yi > band_y1 + 8) continue;
+    fix16 x = g->x0 + fmul(g->ux, d);
+    for (int8_t o2 = -14; o2 <= 14; o2++) {
+      fix16 o = (fix16)o2 << 15;
+      int16_t xx = (int16_t)((x - fmul(g->uy, o)) >> 16), yy = (int16_t)((y + fmul(g->ux, o)) >> 16);
+      if (yy < band_y0 || yy >= band_y1 || xx < 0 || xx >= TW) continue;
+      uint8_t *p = &buf[((uint16_t)(xx >> 3) << 6) + ((yy - band_y0) << 3) + (xx & 7)];
+      uint8_t ao = (uint8_t)(o2 < 0 ? -o2 : o2);
+      if (ao >= 12) *p = C_RAMP_RAIL;
+      else if (ao >= 11) { if (*p != C_RAMP_RAIL) *p = C_RAMP_RAIL_DK; }
+      else if (((xx ^ yy) & 1) && *p != C_RAMP_RAIL && *p != C_RAMP_RAIL_DK) *p = C_RAMP_FLOOR;
+    }
+  }
+}
+
+/* Deckbild der Rampe: nur die Rampe, alles andere 0 (durchsichtig) */
+void table_build_overlay(void) {
+  uint8_t *b = ROWBUF;
+  for (uint8_t k = 0; k < 4; k++) dma_fill(ATTIC_OVL + (uint32_t)k * 51200u, 0, 51200u);
+  for (band_y0 = RAMP_Y_MIN & ~7; band_y0 <= RAMP_Y_MAX; band_y0 += 8) {
+    band_y1 = band_y0 + 8;
+    for (uint16_t i = 0; i < ROW_BYTES; i++) b[i] = 0;
+    ramp_stamp(b);
+    uint32_t dst = ATTIC_OVL + (uint32_t)(uint16_t)band_y0 * 8;
+    for (uint8_t c = 0; c < 40; c++, dst += STRIP_BYTES)
+      dma_copy(CPUADDR(b + (uint16_t)c * 64), dst, 64);
+    build_progress(2, (uint8_t)((band_y0 - (RAMP_Y_MIN & ~7)) >> 3));
+  }
+}
+
 void table_build_art(void) {
   uint8_t *b = ROWBUF;
   for (band_y0 = 0; band_y0 < TH; band_y0 += 8) {
@@ -356,6 +415,7 @@ void table_build_art(void) {
         b[((uint16_t)(x >> 3) << 6) + (py << 3) + (x & 7)] = art_px(x, y);
     }
     band_overlays(b);
+    ramp_stamp(b);
     /* Jede Zeichenspalte in ihren Streifen im Attic-RAM */
     uint32_t dst = ATTIC_BG + (uint32_t)(uint16_t)band_y0 * 8;
     for (uint8_t c = 0; c < 40; c++, dst += STRIP_BYTES)

@@ -281,6 +281,21 @@ static void blit_ball(int16_t bx, int16_t by, uint32_t fb, int16_t cam) {
                    fb + (uint32_t)(c0 + k) * COL_BYTES + doff, count);
 }
 
+/* Rampe ueber den Ball legen (Ball unter der Bruecke): Deckbild aus dem
+ * Attic-RAM transparent ueber die 3 Spalten des Balls kopieren */
+static void blit_overlay(int16_t bx, int16_t by, uint32_t fb, int16_t cam) {
+  int16_t x0 = bx - 5, s0 = by - 5, s1 = by + 5;
+  if (x0 < 0) x0 = 0;
+  if (s0 < cam) s0 = cam;
+  if (s1 > cam + VIEW_H - 1) s1 = cam + VIEW_H - 1;
+  if (s0 > s1) return;
+  uint16_t count = (uint16_t)(s1 - s0 + 1) * 8, doff = (uint16_t)(s0 - cam) * 8;
+  uint8_t c0 = (uint8_t)(x0 >> 3);
+  uint32_t src = ATTIC_OVL + (uint32_t)c0 * STRIP_BYTES + (uint16_t)s0 * 8;
+  for (uint8_t k = 0; k < 3 && c0 + k < 40; k++, src += STRIP_BYTES)
+    dma_copy_trans(src, fb + (uint32_t)(c0 + k) * COL_BYTES + doff, count);
+}
+
 uint8_t render_uses_dma(void) { return use_dma; }
 
 void render_init(void) {
@@ -354,7 +369,10 @@ void render_frame(uint8_t b, int16_t cam) {
   if (use_dma) {
     for (uint8_t i = 0; i < N_FLIP; i++)
       if (redraw[i]) blit_flipper(i, phase[i], fb, cam);
-    if (ball_on) blit_ball(bx, by, fb, cam);
+    if (ball_on) {
+      blit_ball(bx, by, fb, cam);
+      if (!on_ramp && by < 370) blit_overlay(bx, by, fb, cam);   /* nur wo die Rampe ist */
+    }
   } else {
 
   /* 2. Was muss gezeichnet werden? */

@@ -3,11 +3,15 @@
  */
 #include "physics.h"
 #include "table.h"
+#include "ramp_path.h"
 
 ball_t ball;
 flipper_t flip[N_FLIP];
 uint8_t ev_bumper, ev_sling;
 uint16_t ev_target;
+uint8_t ev_ramp, ev_kick, on_ramp, kick_timer;
+fix16 ramp_s, ramp_v;
+static uint8_t ramp_seg, kick_cool;
 uint8_t state, pull, in_lane;
 uint16_t bumper_hits, sling_hits, collisions;
 uint8_t test_active;
@@ -216,30 +220,102 @@ static void collide_flipper(const flipper_t *f) {
   ball.vy -= fmul(imp, ny);
 }
 
+/* ---------- Rampe ----------
+ * Auf der Rampe folgt der Ball einem festen Weg (zweite Ebene, keine Maske).
+ * Am Anfang bremst die Steigung, auf der Bruecke rollt er fast ohne Verlust,
+ * rechts abwaerts beschleunigt er. Reicht der Schwung nicht, rollt er zurueck. */
+#define RAMP_V_MIN 32768L          /* 0,5 Pixel pro Substep auf der Bruecke */
+
+static void ramp_place(void) {
+  while (ramp_seg + 1 < RAMP_NSEG && ramp_s >= RAMP_SEGS[ramp_seg + 1].s0) ramp_seg++;
+  while (ramp_seg > 0 && ramp_s < RAMP_SEGS[ramp_seg].s0) ramp_seg--;
+  const ramp_seg_t *g = &RAMP_SEGS[ramp_seg];
+  fix16 d = ramp_s - g->s0;
+  ball.x = g->x0 + fmul(g->ux, d);
+  ball.y = g->y0 + fmul(g->uy, d);
+  /* Geschwindigkeit in Fahrtrichtung, damit Kamera und Anzeige stimmen */
+  ball.vx = fmul(g->ux, ramp_v);
+  ball.vy = fmul(g->uy, ramp_v);
+}
+
+static void ramp_step(void) {
+  if (ramp_s < RAMP_CLIMB_END) ramp_v -= GRAVITY;
+  else if (ramp_s >= RAMP_DESC_START) { ramp_v += GRAVITY >> 1; if (ramp_v > MAX_V) ramp_v = MAX_V; }
+  else { ramp_v -= ramp_v >> 9; if (ramp_v < RAMP_V_MIN) ramp_v = RAMP_V_MIN; }
+  ramp_s += ramp_v;
+  if (ramp_s < 0) {                        /* zurueckgerollt: unten aus der Einfahrt */
+    on_ramp = 0;
+    ball.x = (fix16)RAMP_X0 << 16;
+    ball.y = ((fix16)RAMP_Y0 + 1) << 16;
+    ball.vx = 0;
+    ball.vy = -ramp_v;
+    ev_ramp |= EV_RAMP_BACK;
+  } else if (ramp_s >= RAMP_LEN) {         /* Ende unterhalb des dritten Flippers */
+    on_ramp = 0;
+    ball.x = RAMP_EXIT_X;
+    ball.y = RAMP_EXIT_Y;
+    ball.vx = -32768L;                     /* rollt zum linken Flipper */
+    ball.vy = 32768L;
+    ev_ramp |= EV_RAMP_DONE;
+  } else ramp_place();
+}
+
+/* ---------- Kick-Out-Hole ---------- */
+static void check_kick(void) {
+  if (kick_cool) return;
+  fix16 dx = ball.x - ((fix16)KICK_X << 16), dy = ball.y - ((fix16)KICK_Y << 16);
+  const fix16 lim = 5L << 16;
+  if (dx > lim || dx < -lim || dy > lim || dy < -lim) return;
+  int32_t a = dx >> 8, b = dy >> 8;
+  if (mul32(a, a) + mul32(b, b) >= 25L * 65536L) return;
+  fix16 sp = (ball.vx < 0 ? -ball.vx : ball.vx) + (ball.vy < 0 ? -ball.vy : ball.vy);
+  if (sp > 3L * 65536L) return;            /* zu schnell: rollt darueber */
+  ball.x = (fix16)KICK_X << 16;
+  ball.y = (fix16)KICK_Y << 16;
+  ball.vx = ball.vy = 0;
+  kick_timer = KICK_HOLD;
+  ev_kick |= EV_KICK_IN;
+}
+
 /* ---------- Substep ---------- */
 static void substep(void) {
   update_flipper(&flip[0]);
   update_flipper(&flip[1]);
   update_flipper(&flip[2]);
-  if (state == ST_DRAIN) return;
+  if (state == ST_DRAIN || kick_timer) return;
+  if (on_ramp) { ramp_step(); return; }
+  fix16 prev_y = ball.y;
   ball.vy += GRAVITY;
   if (ball.vx > MAX_V) ball.vx = MAX_V; else if (ball.vx < -MAX_V) ball.vx = -MAX_V;
   if (ball.vy > MAX_V) ball.vy = MAX_V; else if (ball.vy < -MAX_V) ball.vy = -MAX_V;
   ball.x += ball.vx;
   ball.y += ball.vy;
   int16_t bx = (int16_t)(ball.x >> 16);
+  /* Einfahrt der Rampe: Ball kreuzt die Linie RAMP_Y0 nach oben */
+  if (prev_y >= ((fix16)RAMP_Y0 << 16) && ball.y < ((fix16)RAMP_Y0 << 16) &&
+      bx >= RAMP_LANE_X0 && bx <= RAMP_LANE_X1) {
+    on_ramp = 1;
+    ramp_s = 0;
+    ramp_seg = 0;
+    ramp_v = -ball.vy;
+    ramp_place();
+    return;
+  }
   if (bx > 293) in_lane = 1; else if (bx < 276) in_lane = 0;
   collide_flipper(&flip[0]);
   collide_flipper(&flip[1]);
   collide_flipper(&flip[2]);
   collide_bumpers();
   collide_mask();
+  check_kick();
   if (in_lane && bx > 292 && ball.y > ((fix16)plunger_top << 16)) {
     ball.y = (fix16)plunger_top << 16;
     if (ball.vy > 0) ball.vy = 0;
     ball.vx = 0;
   }
 }
+
+void in_lane_reset(void) { in_lane = 0; }
 
 static void new_ball(void) {
   ball.x = (fix16)LANE_X << 16;
@@ -248,6 +324,8 @@ static void new_ball(void) {
   in_lane = 1;
   pull = 0;
   state = ST_PLUNGER;
+  on_ramp = 0;
+  kick_timer = 0;
 }
 
 static void launch(uint8_t p) {
@@ -287,6 +365,14 @@ void game_frame(const input_t *in) {
   flip[2].pressed = in->right;
   ev_bumper = ev_sling = 0;
   ev_target = 0;
+  ev_ramp = ev_kick = 0;
+  if (kick_cool) kick_cool--;
+  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach links unten */
+    ball.vx = -65536L;
+    ball.vy = 19661L;
+    kick_cool = 30;
+    ev_kick |= EV_KICK_OUT;
+  }
 
   tune_input(in);
   if (in->reset) { new_ball(); test_active = 0; }

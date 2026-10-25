@@ -9,6 +9,10 @@
  * Bonus:   jedes neu angeschaltete Target oder jede Lane 1.000, am Ballende
  *          mal Multiplikator.
  * Flipperknopf: Lampen der oberen Lanes und L O A D wandern (Lane-Wechsel).
+ * Meilenstein 4:
+ *          Rampe "FAST LOADER": 5.000, 10.000, ... bis 25.000 je Ball.
+ *          Kick-Out-Hole "1541": haelt den Ball (Laufwerksgeraeusch), dann 3.000.
+ *          Spinner in der Einfahrt: 100 je Umdrehung.
  */
 #include "game.h"
 #include "table.h"
@@ -19,6 +23,9 @@
 uint32_t score;
 uint8_t ball_no, mult, game_over;
 uint16_t bonus;
+uint8_t ramps;
+static uint16_t spin_v, spin_ang;
+static uint8_t spin_shown = 0xFF;
 char msg1[DMD_COLS + 1], msg2[DMD_COLS + 1];
 uint8_t msg_timer;
 
@@ -79,6 +86,18 @@ static void lamps_apply(void) {
   }
 }
 
+/* Spinner: der helle Streifen wandert mit dem Drehwinkel */
+static void spin_apply(void) {
+  uint8_t ph = spin_v ? (uint8_t)(spin_ang >> 6) & 3 : 4;   /* 4 = steht, alle gleich */
+  if (ph == spin_shown) return;
+  spin_shown = ph;
+  for (uint8_t k = 0; k < 4; k++) {
+    uint8_t on = k == ph, mid = ph < 4 && ((k + 1) & 3) == ph;
+    uint8_t v = on ? 255 : mid ? 160 : 70;
+    set_color((uint8_t)(C_SPIN0 + k), v, v, (uint8_t)(v < 200 ? v + 30 : 255));
+  }
+}
+
 void game_new(void) {
   score = 0;
   ball_no = 1;
@@ -87,6 +106,8 @@ void game_new(void) {
   game_over = 0;
   tgt_lit = 0;
   top_lit = load_lit = 0;
+  ramps = 0;
+  spin_v = 0;
   msg_timer = 0;
   prev_state = state;
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
@@ -183,6 +204,36 @@ void game_update(const input_t *in) {
     if (ev_target)
       for (uint8_t i = 0; i < N_TARGETS; i++)
         if ((ev_target & ((uint16_t)1 << i)) && !tgt_cool[i]) { tgt_cool[i] = 15; target_hit(i); }
+    /* Spinner: Ball kreuzt ihn in der Einfahrt, Drehung nach Tempo */
+    if ((prev_y < SPIN_Y) != (y < SPIN_Y) && x >= RAMP_LANE_X0 - 2 && x <= RAMP_LANE_X1 + 2) {
+      int16_t d = y - prev_y;
+      if (d < 0) d = -d;
+      if (d > 40) d = 0;                     /* Sprung (neuer Ball, Rampe): kein Drehen */
+      spin_v += (uint16_t)d * 8;
+      if (spin_v > 700) spin_v = 700;
+    }
+    if (ev_ramp & EV_RAMP_DONE) {
+      if (ramps < 5) ramps++;
+      uint16_t pts = (uint16_t)ramps * 5000u;
+      add(pts);
+      bonus++;
+      message("FAST LOADER", pts);
+      snd_play(SND_RAMP);
+    }
+    if (ev_kick & EV_KICK_IN) {
+      dmd_put(msg1, "SEARCHING FOR *");
+      dmd_put(msg2, "LOADING");
+      msg_timer = KICK_HOLD;
+    }
+    if (ev_kick & EV_KICK_OUT) {
+      add(3000);
+      bonus++;
+      dmd_put(msg1, "READY.");
+      fmt_points(msg2, 3000);
+      msg_timer = 50;
+      snd_play(SND_BUMPER);
+    }
+    if (kick_timer && (kick_timer & 7) == 0) snd_play(SND_DRIVE);
     /* Rollover: Ball ueberquert die Zaehllinie */
     if ((prev_y < TOPLANE_Y) != (y < TOPLANE_Y) && x > TOPLANE_X0 && x < TOPLANE_X0 + 72)
       top_lane(x < TOPLANE_X0 + 24 ? 0 : x < TOPLANE_X0 + 48 ? 1 : 2);
@@ -208,6 +259,7 @@ void game_update(const input_t *in) {
   }
   if (state == ST_PLUNGER && prev_state == ST_DRAIN) {
     bonus = 0;
+    ramps = 0;
     mult = 1;
     if (ball_no < BALLS_PER_GAME) ball_no++;
     else game_over = 1;
@@ -217,6 +269,15 @@ void game_update(const input_t *in) {
   for (uint8_t i = 0; i < N_TARGETS; i++) if (tgt_cool[i]) tgt_cool[i]--;
   for (uint8_t i = 0; i < 5; i++) if (flash[i]) flash[i]--;
   if (msg_timer) msg_timer--;
+  /* Spinner dreht sich aus */
+  if (spin_v) {
+    uint16_t a = spin_ang + spin_v;
+    uint8_t turns = (uint8_t)((a >> 8) - (spin_ang >> 8));
+    if (turns) { add((uint16_t)turns * 100u); snd_play(SND_SPIN); }
+    spin_ang = a;
+    spin_v -= (spin_v >> 5) + 1;
+  }
+  spin_apply();
   lamps_apply();
   snd_update();
 }

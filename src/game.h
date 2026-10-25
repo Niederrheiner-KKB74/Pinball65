@@ -12,6 +12,7 @@
 extern uint32_t score;
 extern uint8_t ball_no, mult, game_over;
 extern uint16_t bonus;          /* Bonuspunkte in Tausend, vor Multiplikator */
+extern uint8_t ramps;           /* Rampen in diesem Ball */
 
 /* Meldung im Display (Zeile 1 und 2), solange msg_timer > 0 */
 extern char msg1[], msg2[];

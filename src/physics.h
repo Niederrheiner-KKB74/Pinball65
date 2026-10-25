@@ -72,6 +72,16 @@ extern flipper_t flip[N_FLIP];
 /* Ereignisse des letzten Bildes fuer die Spielregeln (game.c), Bit = Nummer */
 extern uint8_t ev_bumper, ev_sling;
 extern uint16_t ev_target;
+/* Meilenstein 4: Rampe und Kick-Out-Hole */
+#define EV_RAMP_DONE  1
+#define EV_RAMP_BACK  2
+#define EV_KICK_IN    1
+#define EV_KICK_OUT   2
+#define KICK_HOLD     75           /* Bilder im Loch (1,5 s) */
+extern uint8_t ev_ramp, ev_kick;
+extern uint8_t on_ramp;            /* Ball faehrt auf der Rampe (zweite Ebene) */
+extern uint8_t kick_timer;         /* > 0: Ball liegt im Kick-Out-Hole */
+extern fix16 ramp_s, ramp_v;
 extern uint8_t state, pull;
 extern uint16_t bumper_hits, sling_hits, collisions;
 extern uint8_t test_active;
@@ -81,6 +91,7 @@ extern uint8_t tune_on, tune_sel;
 extern fix16 snap_x, snap_y;
 
 void phys_init(void);
+void in_lane_reset(void);        /* nur fuer Tests: Ball nicht in der Abschussbahn */
 void game_frame(const input_t *in);
 uint8_t flip_dir(const flipper_t *f);
 

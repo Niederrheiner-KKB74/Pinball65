@@ -11,7 +11,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
 | 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bestanden (25.10.2026), v2.10 |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | bestanden (25.10.2026), v3.0 |
-| 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | läuft; v3.1 teilt das Programm in Lader und Spiel |
+| 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | läuft; v4.0 zum Test |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
 | 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
 
@@ -46,6 +46,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 3.1 (Lader) | – | hängt im KERNAL bei PC=$E65A beim Nachladen |
 | 25.10.2026 | Meilenstein 3.2 (Lader) | – | Rahmen weiß (= Farbe 5 unserer Palette, also im Laden), hängt wieder bei $E65A |
 | 25.10.2026 | Meilenstein 3.3 (Lader) | – | Rahmen grün, hängt weiter bei $E65A |
+| 25.10.2026 | Meilenstein 4.0 | – | – |
 | 25.10.2026 | Meilenstein 3.4 (Lader) | Nachladen funktioniert | Nachladen funktioniert |
 | 25.10.2026 | Meilenstein 3.0 | Effekte zu hören, Lampen richtig, dritter Flipper gut spielbar, MAX bis 258 | – |
 | 25.10.2026 | Meilenstein 2.7 | L 499, MAX 452, UEB 49; P 9, S 59, Z 15, D 57 – Überlauf-Meldung falsch, echte Last höchstens etwa 190 Zeilen | – |
@@ -99,6 +100,20 @@ Ergebnis: `build\pinball65.d81` mit den Programmen `PINBALL65` (Lader), `PB65GAM
 2. Am MEGA65 eingeben: `RUN "PINBALL65"`
 
 In Xemu: `xmega65 -8 build\pinball65.d81`, danach ebenfalls `RUN "PINBALL65"`.
+
+### Meilenstein 4: Bedienung und Test
+
+Neu in v4.0:
+- **Rampe „FAST LOADER“**: Einfahrt links in der Mitte (Gasse neben der linken Orbit-Führung). Die Rampe steigt links hoch, führt als Brücke hinten quer über den Tisch (unterhalb der Lanes C 6 4) und rechts wieder herunter. Sie endet links unterhalb des dritten Flippers, der Ball rollt zum linken Flipper. Der Ball braucht in der Einfahrt mindestens etwa 1,6 Pixel pro Substep (13 Pixel pro Bild), sonst rollt er zurück. Punkte: 5.000, 10.000, … bis 25.000 je Ball. Auf der Rampe folgt der Ball einem festen Weg (zweite Ebene); unter der Brücke liegt die Rampe sichtbar über dem Ball (halb durchsichtiger Boden).
+- **Spinner** in der Einfahrt: dreht sich je nach Tempo des Balls, 100 Punkte pro Umdrehung, die Streifen wechseln die Helligkeit.
+- **Kick-Out-Hole „1541“**: fängt einen nicht zu schnellen Ball, hält ihn 1,5 Sekunden (`SEARCHING FOR *` / `LOADING`, Laufwerksgeräusch), wirft ihn nach links unten aus und gibt 3.000 Punkte (`READY.`).
+- Neue Wandstücke: rechte Schiene der Einfahrt, ein schräger Deckel darüber und ein schräges Dach über den SID-Targets (der Spielroboter fand dort unter dem dritten Flipper einen Ruheplatz).
+
+Im PC-Test: Schüsse in die Rampe ab 1,8 Pixel pro Substep schaffen sie und kommen bei x 122–126 am linken Flipper an; der Spielroboter schaffte in 126 Spielen 99 Rampen, 84 Kick-Outs und blieb nirgends hängen. Der Testabschuss liefert unverändert `TEST X 07457637` und `TEST Y 21572962`.
+
+**Was zu prüfen ist:** wie sich die Rampe spielt (zu leicht, zu schwer?), ob der Ball unter der Brücke richtig verdeckt wird, ob Kick-Out und Spinner gut wirken und wie hoch MAX steigt.
+
+Bekannt: Funktioniert die DMA-Transparenz nicht (Anzeige `CPU`), liegt der Ball unter der Brücke über der Rampe.
 
 ### Meilenstein 3: Bedienung und Test
 
@@ -196,6 +211,7 @@ Das Programm schaltet auf 40 MHz, vergleicht 2000 Festkomma-Multiplikationen in 
 prototype/   Physik-Prototyp im Browser (HTML-Datei direkt öffnen)
 src/         C-Quellcode für den MEGA65
 tools/       Hilfsprogramme: mkd81.py (Diskettenimage), gen_tables.py (Sinus/atan),
+             gen_ramp.py (Weg der Rampe),
              gen_font.py (5x7-Schrift fürs Display)
 test/host/   PC-Test: derselbe C-Code mit simuliertem Speicher und DMA, schreibt Bilder,
              prüft die Spielregeln und lässt mit BOT=n einen Spielroboter n Bilder spielen

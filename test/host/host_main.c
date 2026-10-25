@@ -80,9 +80,9 @@ static void rules_test(void) {
   check("Bonus-Zaehler", bonus, 3);
   /* obere Lanes: Ball ueberquert y 52 in jeder Lane */
   /* Ball ausserhalb der Lanes unter die Linie, dann in der Lane darueber */
-  #define LANE_PASS(xx) do { ball.x = 60L << 16; ball.y = 60L << 16; game_update(&in); \
+  #define LANE_PASS(xx) do { ball.x = 100L << 16; ball.y = 60L << 16; game_update(&in); \
     ball.x = (long)(xx) << 16; ball.y = 45L << 16; game_update(&in); \
-    ball.x = 60L << 16; ball.y = 60L << 16; game_update(&in); } while (0)
+    ball.x = 100L << 16; ball.y = 60L << 16; game_update(&in); } while (0)
   for (int lane = 0; lane < 3; lane++) LANE_PASS(126 + 24 * lane);
   check("C 6 4 komplett: Multiplikator", mult, 2);
   printf("   Meldung: %s / %s\n", msg1, msg2);
@@ -125,14 +125,15 @@ static void bot_run(long frames) {
   long still = 0, games = 0, stuck = 0;
   int16_t lx = 0, ly = 0;
   uint8_t pulling = 0, target_pull = 0, hold_l = 0, hold_r = 0, hold_3 = 0, cool = 0;
-  unsigned long best = 0, tgt_hits = 0;
+  unsigned long best = 0, tgt_hits = 0, n_ramp = 0, n_back = 0, n_kick = 0;
+  int kick_trace = 0;
   game_new(); phys_init();
   for (long f = 0; f < frames; f++) {
     memset(&in, 0, sizeof in);
     seed = seed * 1103515245u + 12345u;
     int16_t x = (int16_t)(ball.x >> 16), y = (int16_t)(ball.y >> 16);
     if (game_over) {
-      if (!(f & 1)) { if (score > best) best = score; games++; printf("   Spiel %ld: %lu Punkte\n", games, (unsigned long)score); in.plunger = 1; }
+      if (!(f & 1)) { if (score > best) best = score; games++; in.plunger = 1; }
       pulling = 0;
     }
     else if (state == ST_PLUNGER) {
@@ -140,7 +141,9 @@ static void bot_run(long frames) {
       if (pull < target_pull && (pull || !(f & 1))) in.plunger = 1; else if (pull >= target_pull) pulling = 0;
     }
     if (cool) cool--;
-    if (state == ST_PLAY && !cool && !hold_l && !hold_r && !hold_3) {
+    /* Zufaellige Verzoegerung wie bei einem Menschen, sonst laeuft der
+     * Roboter nach dem Kick-Out immer dieselbe Bahn (Endlosschleife) */
+    if (state == ST_PLAY && !cool && !hold_l && !hold_r && !hold_3 && ((seed >> 16) % 3) != 0) {
       if (y > 530 && y < 575 && x > 70 && x < 150 && ball.vy > 0) hold_l = 8;
       if (y > 530 && y < 575 && x > 150 && x < 230 && ball.vy > 0) hold_r = 8;
       if (y > 285 && y < 325 && x > 240 && x < 290) hold_3 = 8;
@@ -151,15 +154,71 @@ static void bot_run(long frames) {
     game_input(&in);
     game_frame(&in);
     if (ev_target) tgt_hits++;
+    if (ev_ramp & EV_RAMP_DONE) n_ramp++;
+    if (ev_ramp & EV_RAMP_BACK) n_back++;
+    if (ev_kick & EV_KICK_IN) n_kick++;
+    if (ev_kick & EV_KICK_OUT) kick_trace = 1;
+    if (kick_trace && kick_trace < 200 && getenv("KTRACE") && n_kick < 4 && (kick_trace % 10) == 1)
+      printf("   nach Auswurf %d: x=%d y=%d\n", kick_trace, x, y);
+    if (kick_trace) kick_trace++;
     game_update(&in);
     if (state == ST_PLAY && abs(x - lx) < 2 && abs(y - ly) < 2) {
       if (++still == 150) { stuck++; printf("   Ball liegt bei x=%d y=%d (Bild %ld)\n", x, y, f); ball.vx = 30000; ball.vy = -60000; }
     } else still = 0;
     lx = x; ly = y;
-    if (0) printf("   f=%ld st=%u x=%d y=%d pull=%u ball=%u score=%lu over=%u\n", f, state, x, y, pull, ball_no, (unsigned long)score, game_over);
+    if (getenv("TRACE") && f % 2000 == 0) printf("   f=%ld st=%u x=%d y=%d pull=%u ball=%u score=%lu over=%u\n", f, state, x, y, pull, ball_no, (unsigned long)score, game_over);
   }
   printf("Roboter: %ld Bilder, %ld Spiele, bestes Ergebnis %lu, Target-Bilder %lu, haengen %ld\n",
          frames, games, best, tgt_hits, stuck);
+  printf("Roboter: Rampe %lu geschafft, %lu zurueckgerollt, Kick-Out %lu\n", n_ramp, n_back, n_kick);
+}
+
+/* Rampe und Kick-Out-Hole: Ball gezielt hineinschicken */
+static void ramp_shot(double v) {
+  input_t in; memset(&in, 0, sizeof in);
+  phys_init(); game_new();
+  state = ST_PLAY; in_lane_reset();
+  ball.x = 51L << 16; ball.y = 440L << 16; ball.vx = 0; ball.vy = (fix16)(-v * 65536);
+  int done = 0, back = 0, entered = 0; long f;
+  int16_t xs = -1;
+  for (f = 0; f < 600; f++) {
+    game_frame(&in);
+    if (on_ramp) entered = 1;
+    if (ev_ramp & EV_RAMP_DONE) done = (int)f;
+    if (ev_ramp & EV_RAMP_BACK) back = (int)f;
+    game_update(&in);
+    if (done && xs < 0 && (ball.y >> 16) >= 540) { xs = (int16_t)(ball.x >> 16); break; }
+    if (back && (ball.y >> 16) > 420) break;
+    if (state != ST_PLAY) break;
+  }
+  printf("   Schuss %.1f px/Substep: %s%s%s", v, entered ? "auf der Rampe" : "nicht auf der Rampe",
+         done ? ", geschafft nach " : back ? ", zurueckgerollt" : "", "");
+  if (done) printf("%d Bildern, bei y 540 x = %d, Punkte %lu", done, xs, (unsigned long)score);
+  printf("\n");
+}
+static void kick_test(void) {
+  input_t in; memset(&in, 0, sizeof in);
+  phys_init(); game_new();
+  state = ST_PLAY;
+  ball.x = (long)KICK_X << 16; ball.y = (KICK_Y - 30L) << 16; ball.vx = 3000; ball.vy = 0;
+  int cap = -1, out = -1;
+  for (long f = 0; f < 400; f++) {
+    game_frame(&in);
+    if ((ev_kick & EV_KICK_IN) && cap < 0) cap = (int)f;
+    if ((ev_kick & EV_KICK_OUT) && out < 0) out = (int)f;
+    game_update(&in);
+    if (out >= 0 && f == out + 60) printf("   60 Bilder nach dem Auswurf: x=%ld y=%ld\n", (long)(ball.x >> 16), (long)(ball.y >> 16));
+  }
+  printf("   Kick-Out: gefangen in Bild %d, ausgeworfen in Bild %d, Punkte %lu\n", cap, out, (unsigned long)score);
+}
+
+/* Bild mit dem Ball an einer festen Stelle (unter oder auf der Rampe) */
+static void pose(const char *name, int x, int y, int ramp) {
+  phys_init(); state = ST_PLAY;
+  ball.x = (fix16)x << 16; ball.y = (fix16)y << 16; on_ramp = (uint8_t)ramp;
+  int16_t cam = y - 100; if (cam < 0) cam = 0; if (cam > TH - VIEW_H) cam = TH - VIEW_H;
+  render_frame(0, cam); render_frame(0, cam);
+  dump_screen(name, 0);
 }
 
 extern int host_no_trans;
@@ -177,6 +236,7 @@ int main(void) {
   dmd_render();
   table_build_mask();
   table_build_art();
+  table_build_overlay();
   phys_init();
   render_build();
   render_init();
@@ -217,6 +277,12 @@ int main(void) {
     if (frame == 125) dump_screen("frame_mid.ppm", front);
   }
   rules_test();
+  printf("--- Rampe ---\n");
+  for (double v = 0.6; v <= 3.6; v += 0.4) ramp_shot(v);
+  kick_test();
+  pose("pose_under_bridge.ppm", 150, 84, 0);
+  pose("pose_on_bridge.ppm", 150, 82, 1);
+  pose("pose_under_right.ppm", 240, 200, 0);
   if (getenv("BOT")) bot_run(atol(getenv("BOT")));
   return 0;
 }

@@ -22,6 +22,9 @@ static const fx_t FX[SND_COUNT] = {
   { 2, 0x20, 0x0A, 0xA6, 0x1800,  -0x40, 45 },   /* Ballverlust: fallend */
   { 1, 0x10, 0x0A, 0x84, 0x1200,  0x180, 20 },   /* Gruppe komplett: aufsteigend */
   { 2, 0x40, 0x08, 0x84, 0x0E00,  0x100, 12 },   /* Spielstart */
+  { 1, 0x10, 0x02, 0x00, 0x3000,      0,  1 },   /* Spinner: kurzes Ticken */
+  { 2, 0x80, 0x04, 0x00, 0x0300,      0,  3 },   /* 1541: Kopf rattert (wiederholt) */
+  { 1, 0x20, 0x0A, 0x84, 0x0800,  0x0C0, 30 },   /* Rampe geschafft: lange steigend */
 };
 
 static uint16_t cur_freq[3];

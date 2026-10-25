@@ -11,7 +11,7 @@ HDR     := $(wildcard src/*.h)
 GAME_SRC := $(filter-out src/boot.c,$(SRC))
 # Lader: baut die Tischdaten auf und laedt dann das Spiel nach
 BOOT_SRC := src/boot.c src/table.c src/render.c src/physics.c src/hw.c src/dmd.c \
-            src/font5x7.c src/tables.c src/fixmath.c
+            src/font5x7.c src/tables.c src/fixmath.c src/ramp_path.c
 NM      := llvm-nm
 
 all: build/pinball65.d81
