@@ -31,13 +31,21 @@
 #define MAP_B       0x5D400UL   /* Bildschirmkarte B */
 #define DMD_TPL     0x5DC00UL   /* Vorlage: eine Display-Zeichenzeile, alle Punkte aus */
 #define TRANS_TEST  0x5E600UL   /* 64 Byte fuer den Transparenz-Selbsttest */
-#define CLS_FAR     0x5F000UL   /* Klassenraster der Kollisionsmaske, 80 x 40 Byte */
 #define FB_A_CHAR   0x1000u     /* = FB_A / 64 */
 #define FB_B_CHAR   0x1348u     /* = FB_B / 64 */
 #define DISP_CHAR   0x1690u     /* = DISP_ADDR / 64 */
 
 #define ATTIC_BG    0x8000000UL /* Tischgrafik, 40 Spalten-Streifen */
 #define ATTIC_SPR   0x8040000UL /* vorgezeichnete Flipper und Ball (Spaltenstreifen) */
+#define ATTIC_OVL   0x8080000UL /* Rampe als Deckbild ueber dem Ball, 40 Streifen wie ATTIC_BG */
+#define ATTIC_MASK  0x8100000UL /* Kollisionsmaske, 640 x 40 Byte */
+#define ATTIC_CLS   0x8110000UL /* Klassenraster der Maske, 80 x 40 Byte */
+#define ATTIC_SIG   0x8120000UL /* Kennung: Tischdaten vom Lader aufgebaut */
+/* Der Lader (PINBALL65) baut alles im Attic-RAM auf und laedt dann das Spiel
+ * (PB65GAME). Das Spiel prueft die Kennung; die Nummer aendert sich, wenn
+ * sich der Aufbau der Daten aendert. */
+#define PB_SIG      "PB65DATA4"
+#define PB_SIG_LEN  9
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */
@@ -57,6 +65,8 @@
 #endif
 
 void hw_init(void);
+/* Nur Bildschirm und Farben einrichten (der Lader braucht das KERNAL noch) */
+void hw_video_init(void);
 uint8_t attic_ok(void);
 void dma_copy(uint32_t src, uint32_t dst, uint16_t count);
 void dma_fill(uint32_t dst, uint8_t value, uint16_t count);

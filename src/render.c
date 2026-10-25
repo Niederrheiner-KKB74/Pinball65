@@ -37,6 +37,7 @@ static const int8_t *span_get(uint8_t slot, uint8_t p) {
   return spb[slot];
 }
 
+#ifdef PB_BUILDER
 static void spans_init(void) {
   int8_t *span0 = spb[0], *span1 = spb[0] + SROWS, *in0 = spb[0] + 2 * SROWS, *in1 = spb[0] + 3 * SROWS;
   for (uint8_t p = 0; p < NPH; p++) {
@@ -79,8 +80,13 @@ static void spans_init(void) {
     }
     dma_copy(CPUADDR(spb[0]), SPAN_ADDR(p), SPAN_BYTES);
   }
+  /* Zeilenbereiche je Phase hinter den Spannen ablegen, das Spiel liest sie */
+  dma_copy(CPUADDR(ph_row0), SPAN_ADDR(NPH), NPH);
+  dma_copy(CPUADDR(ph_row1), SPAN_ADDR(NPH) + NPH, NPH);
   for (uint8_t i = 0; i < N_FLIP; i++) spb_ph[i] = 0xFF;
 }
+
+#endif /* PB_BUILDER */
 
 static uint8_t phase_of(const flipper_t *f) {
   int16_t v = (f->ang - F_UP * 256 + 256) >> 9;
@@ -209,6 +215,7 @@ static uint32_t fspr(uint8_t i, uint8_t p, uint8_t k) {
   return ATTIC_SPR + (uint32_t)(((uint16_t)(i * NPH + p) << 3) + k) * FSPR_BYTES;
 }
 
+#ifdef PB_BUILDER
 static void sprites_build(void) {
   for (uint8_t i = 0; i < 2; i++) {
     const flipper_t *f = &flip[i];
@@ -233,6 +240,14 @@ static void sprites_build(void) {
       dma_copy(CPUADDR(COLBUF), BSPR_BASE + (uint16_t)(s * 3 + k) * 88, 88);
     }
 }
+
+/* Lader: Flipperspannen und vorgezeichnete Bilder ins Attic-RAM */
+void render_build(void) {
+  spans_init();
+  ball_init();
+  sprites_build();
+}
+#endif /* PB_BUILDER */
 
 /* Der dritte Flipper nutzt die Bilder des rechten unteren (gleiche Form,
  * gleiche Lage innerhalb der Zeichenspalte) */
@@ -269,10 +284,11 @@ static void blit_ball(int16_t bx, int16_t by, uint32_t fb, int16_t cam) {
 uint8_t render_uses_dma(void) { return use_dma; }
 
 void render_init(void) {
-  spans_init();
   ball_init();
+  dma_copy(SPAN_ADDR(NPH), CPUADDR(ph_row0), NPH);
+  dma_copy(SPAN_ADDR(NPH) + NPH, CPUADDR(ph_row1), NPH);
+  for (uint8_t i = 0; i < N_FLIP; i++) spb_ph[i] = 0xFF;
   use_dma = dma_trans_ok();
-  if (use_dma) sprites_build();
   buf_cam[0] = buf_cam[1] = -1;
   drawn_ball_on[0] = drawn_ball_on[1] = 0;
 }

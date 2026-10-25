@@ -168,15 +168,18 @@ static void code_check_fail(const char *where) {
   for (;;) {}
 }
 
-void build_progress(uint8_t phase, uint8_t step) {
-  char l2[DMD_COLS + 1], *p;
-  p = dmd_put(l2, phase ? "GRAFIK " : "MASKE ");
-  p = dmd_num(p, step + 1, 2);
-  dmd_put(p, phase ? "/80" : "/14");
-  dmd_text("SEARCHING FOR *", l2);
+/* Hat der Lader die Tischdaten aufgebaut (Kennung im Attic-RAM)? */
+static uint8_t data_ok(void) {
+  dma_copy(ATTIC_SIG, CPUADDR(COLBUF), PB_SIG_LEN);
+  for (uint8_t i = 0; i < PB_SIG_LEN; i++) if (COLBUF[i] != (uint8_t)PB_SIG[i]) return 0;
+  return 1;
+}
+
+static void halt(const char *l1, const char *l2) {
+  dmd_text(l1, l2);
   dmd_flush();
-  VICIV.bordercol = (uint8_t)(phase ? 3 : 4);   /* Rahmen: Chromfarben waehrend des Aufbaus */
-  code_check(l2);
+  VICIV.bordercol = 2;
+  for (;;) {}
 }
 
 int main(void) {
@@ -190,18 +193,11 @@ int main(void) {
   dma_fill(DISP_ADDR, C_DMD_BG, DISP_ROWS * ROW_BYTES);
   show_buffer(0);
 
-  if (!attic_ok()) {                    /* Hintergrund braucht das Attic-RAM */
-    dmd_text("?ATTIC RAM  ERROR", "READY.");
-    dmd_flush();
-    VICIV.bordercol = 2;
-    for (;;) {}
-  }
-  dmd_text("SEARCHING FOR *", "LOADING  V3.0");
-  dmd_flush();
+  if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");   /* Hintergrund braucht das Attic-RAM */
+  /* Tischdaten baut der Lader PINBALL65; wurde das Spiel direkt gestartet: */
+  if (!data_ok()) halt("?FILE NOT FOUND  ERROR", "RUN\"PINBALL65\"");
   code_check("NACH ATTIC-TEST");
 
-  table_build_mask();
-  table_build_art();
   phys_init();
   render_init();
   snd_init();

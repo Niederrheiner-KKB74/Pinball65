@@ -40,16 +40,16 @@ static uint8_t sim_dummy[2000];
 static uint8_t cls_mem[3200];
 static uint8_t *far_ptr_mask(uint32_t a, uint16_t n) {
   if (a >= CLS_FAR && a + n <= CLS_FAR + sizeof cls_mem) return cls_mem + (uint16_t)(a - CLS_FAR);
-  const uint32_t base = 0xFF81000UL + SIM_MASK_FROM * 40UL;
+  const uint32_t base = MASK_FAR + SIM_MASK_FROM * 40UL;
   if (a >= base && a + n <= base + sizeof colram_mask) return colram_mask + (uint16_t)(a - base);
-  if (a >= 0xFF81000UL && a < base && n <= sizeof sim_dummy) return sim_dummy;   /* oberer Teil: leer */
+  if (a >= MASK_FAR && a < base && n <= sizeof sim_dummy) return sim_dummy;   /* oberer Teil: leer */
   return 0;
 }
 #else
 static uint8_t *far_ptr_mask(uint32_t a, uint16_t n) { (void)a; (void)n; return 0; }
 #endif
 /* Flipper-Spannen im Attic-RAM (render.c, 25 Phasen x 192 Byte) */
-static uint8_t span_mem[25 * 192];
+static uint8_t span_mem[25 * 192 + 50];
 static uint8_t *span_ptr(uint32_t a, uint16_t n) {
   const uint32_t base = ATTIC_SPR + 0x38000UL;
   if (a >= base && a + n <= base + sizeof span_mem) return span_mem + (uint16_t)(a - base);
@@ -83,6 +83,7 @@ void show_buffer(uint8_t b) { (void)b; }
 uint16_t raster_line(void) { return 0; }
 void wait_vblank(void) {}
 void hw_init(void) {}
+void hw_video_init(void) {}
 uint8_t attic_ok(void) { return 1; }
 uint8_t key_col(uint8_t c) { (void)c; return 0; }
 uint8_t joy2(void) { return 0; }

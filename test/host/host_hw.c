@@ -13,7 +13,7 @@
 struct host_vic VICIV;
 uint8_t chip[0x60000];
 uint8_t colram[0x8000];
-uint8_t attic[0x80000];
+uint8_t attic[0x130000];
 uint8_t host_rowbuf[2560], host_colbuf[1344], host_maskwin[1920], host_clswin[280];
 uint8_t pal[256][3];
 uint8_t shown;
@@ -79,6 +79,7 @@ void set_color(uint8_t i, uint8_t r, uint8_t g, uint8_t b) { pal[i][0] = r; pal[
 void show_buffer(uint8_t b) { shown = b; }
 uint16_t raster_line(void) { return 0; }
 void wait_vblank(void) {}
+void hw_video_init(void) {}
 void hw_init(void) {
   /* Bildschirmkarten wie auf dem MEGA65 (siehe hw.c) */
   for (int buf = 0; buf < 2; buf++) {

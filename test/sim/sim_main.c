@@ -18,6 +18,7 @@ int main(void) {
   table_build_mask();
   printf("maske ok\n");
   phys_init();
+  render_build();
   render_init();
   snd_init();
   game_new();

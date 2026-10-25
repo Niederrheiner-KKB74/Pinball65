@@ -27,6 +27,46 @@ void mask_load(int16_t y0) {
   dma_copy(CLS_FAR + (uint16_t)r0 * 40, CPUADDR(CLSWIN), CLS_ROWS * 40);
 }
 
+void table_build_palette(void) {
+  set_color(0, 0, 0, 0);
+  set_color(C_BG, 16, 12, 56);
+  set_color(C_GRID, 26, 21, 74);
+  set_color(C_CHROME_DK, 100, 96, 150);
+  set_color(C_CHROME_MID, 160, 156, 205);
+  set_color(C_CHROME_HI, 236, 235, 255);
+  set_color(C_SLING_BODY, 40, 33, 100);
+  set_color(C_RUBBER, 216, 48, 64);
+  set_color(C_LANE, 7, 5, 26);
+  set_color(C_FLIP, 243, 234, 210);
+  set_color(C_FLIP_EDGE, 224, 48, 58);
+  set_color(C_BALL_DK, 85, 87, 122);
+  set_color(C_BALL_MID, 201, 203, 224);
+  set_color(C_BALL_HI, 255, 255, 255);
+  set_color(C_TARGET_VIC, 80, 200, 255);
+  set_color(C_TARGET_6510, 120, 240, 140);
+  set_color(C_TARGET_SID, 255, 120, 220);
+  set_color(C_BUMPER_RING, 200, 32, 46);
+  set_color(C_C64_DARK, 64, 49, 141);       /* Einschaltbild: Hintergrund */
+  set_color(C_C64_LIGHT, 120, 106, 189);    /* Einschaltbild: Schrift */
+  set_color(C_HOLE, 4, 3, 12);
+  set_color(C_HOLE_RING, 255, 210, 60);
+  set_color(C_LAMP, 120, 96, 30);           /* Lampe aus (gedimmtes Gelb) */
+  set_color(C_LABEL, 170, 160, 230);
+  set_color(C_TRACE, 34, 28, 92);
+  set_color(C_TRACE2, 50, 120, 140);
+  set_color(C_KICKBACK, 220, 50, 64);
+  set_color(C_DMD_BG, 0, 0, 0);
+  set_color(C_DMD_OFF, 40, 18, 4);
+  set_color(C_DMD_ON, 255, 160, 40);
+  set_color(C_DMD_EDGE, 170, 90, 16);
+  set_color(C_LOGO_RED, 232, 69, 60);
+  set_color(C_LOGO_BLUE, 61, 107, 234);
+}
+
+
+#ifdef PB_BUILDER
+/* ===== Ab hier nur im Lader (PINBALL65): Aufbau von Maske und Grafik ===== */
+
 /* Wandsegmente: x0, y0, x1, y1, Klasse */
 static const int16_t SEGS[][5] = {
   {10, 156, 10, 640, M_WALL},
@@ -159,42 +199,6 @@ void table_build_mask(void) {
     build_progress(0, (uint8_t)(band_y0 / WIN_ROWS));
   }
   win_y0 = -1000;                       /* Fenster ungueltig, naechster Zugriff laedt neu */
-}
-
-void table_build_palette(void) {
-  set_color(0, 0, 0, 0);
-  set_color(C_BG, 16, 12, 56);
-  set_color(C_GRID, 26, 21, 74);
-  set_color(C_CHROME_DK, 100, 96, 150);
-  set_color(C_CHROME_MID, 160, 156, 205);
-  set_color(C_CHROME_HI, 236, 235, 255);
-  set_color(C_SLING_BODY, 40, 33, 100);
-  set_color(C_RUBBER, 216, 48, 64);
-  set_color(C_LANE, 7, 5, 26);
-  set_color(C_FLIP, 243, 234, 210);
-  set_color(C_FLIP_EDGE, 224, 48, 58);
-  set_color(C_BALL_DK, 85, 87, 122);
-  set_color(C_BALL_MID, 201, 203, 224);
-  set_color(C_BALL_HI, 255, 255, 255);
-  set_color(C_TARGET_VIC, 80, 200, 255);
-  set_color(C_TARGET_6510, 120, 240, 140);
-  set_color(C_TARGET_SID, 255, 120, 220);
-  set_color(C_BUMPER_RING, 200, 32, 46);
-  set_color(C_C64_DARK, 64, 49, 141);       /* Einschaltbild: Hintergrund */
-  set_color(C_C64_LIGHT, 120, 106, 189);    /* Einschaltbild: Schrift */
-  set_color(C_HOLE, 4, 3, 12);
-  set_color(C_HOLE_RING, 255, 210, 60);
-  set_color(C_LAMP, 120, 96, 30);           /* Lampe aus (gedimmtes Gelb) */
-  set_color(C_LABEL, 170, 160, 230);
-  set_color(C_TRACE, 34, 28, 92);
-  set_color(C_TRACE2, 50, 120, 140);
-  set_color(C_KICKBACK, 220, 50, 64);
-  set_color(C_DMD_BG, 0, 0, 0);
-  set_color(C_DMD_OFF, 40, 18, 4);
-  set_color(C_DMD_ON, 255, 160, 40);
-  set_color(C_DMD_EDGE, 170, 90, 16);
-  set_color(C_LOGO_RED, 232, 69, 60);
-  set_color(C_LOGO_BLUE, 61, 107, 234);
 }
 
 /* ---------- Platzhaltergrafik ---------- */
@@ -361,3 +365,4 @@ void table_build_art(void) {
   VICIV.bordercol = 0;
   win_y0 = -1000;
 }
+#endif /* PB_BUILDER */

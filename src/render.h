@@ -7,6 +7,10 @@
 #include <stdint.h>
 
 void render_init(void);
+#ifdef PB_BUILDER
+/* Nur im Lader: Flipperspannen und Bilder fuer den DMA-Weg aufbauen */
+void render_build(void);
+#endif
 /* Kamera: oberste sichtbare Tischzeile 0 .. TH-VIEW_H, folgt dem Ball */
 int16_t camera_update(void);
 /* Zeichnet den Ausschnitt ab Tischzeile cam in Puffer b (0 = A, 1 = B) */

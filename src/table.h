@@ -79,15 +79,16 @@ enum {
 
 /*
  * Kollisionsmaske: 1 Bit pro Pixel (fest/frei), 40 Byte pro Tischzeile,
- * zusammen 25600 Byte im Farb-RAM ab MASK_FAR. Die CPU arbeitet mit einem
+ * zusammen 25600 Byte im Attic-RAM ab MASK_FAR. Die CPU arbeitet mit einem
  * Fenster von WIN_ROWS Zeilen (MASKWIN), das bei Bedarf per DMA nachgeladen
  * wird.
  */
-#define MASK_FAR  0xFF81000UL
+#define MASK_FAR  ATTIC_MASK
+#define CLS_FAR   ATTIC_CLS
 #define WIN_ROWS  48
 extern int16_t win_y0;
 void mask_load(int16_t y0);
-/* Klasse je 8x8-Feld: 40 x 80 Byte im Chip-RAM (CLS_FAR). Mit dem
+/* Klasse je 8x8-Feld: 40 x 80 Byte im Attic-RAM (CLS_FAR). Mit dem
  * Maskenfenster werden die 7 Klassenzeilen ab cls_r0 nach CLSWIN geladen,
  * das spart 3,2 KB im Hauptspeicher. */
 #define CLS_ROWS  7

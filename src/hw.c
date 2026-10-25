@@ -62,8 +62,8 @@ uint8_t dma_trans_ok(void) {
   uint8_t *a = COLBUF, *b = COLBUF + 64;
   for (uint8_t i = 0; i < 64; i++) a[i] = (i & 1) ? (uint8_t)(i + 1) : 0;
   dma_fill(TRANS_TEST, 0x55, 64);
-  dma_copy(CPUADDR(a), ATTIC_SPR, 64);                 /* Quelle wie im Spiel: Attic */
-  dma_copy_trans(ATTIC_SPR, TRANS_TEST, 64);
+  dma_copy(CPUADDR(a), ATTIC_SIG + 0x100, 64);         /* Quelle wie im Spiel: Attic */
+  dma_copy_trans(ATTIC_SIG + 0x100, TRANS_TEST, 64);
   dma_copy(TRANS_TEST, CPUADDR(b), 64);
   for (uint8_t i = 0; i < 64; i++)
     if (b[i] != ((i & 1) ? (uint8_t)(i + 1) : 0x55)) return 0;
@@ -134,14 +134,18 @@ uint8_t joy2(void) {
 
 void hw_init(void) {
   asm volatile("sei");
+  hw_video_init();
+  /* 40 MHz. Danach darf das KERNAL nicht mehr aufgerufen werden. */
+  CPU_PORTDDR = 65;
+  CIA1.ddra = 0xFF;
+  CIA1.ddrb = 0x00;
+}
 
+void hw_video_init(void) {
   /* VIC-IV freischalten und VIC-II-"Hot-Register" abschalten */
   VICIV.key = 0x47;
   VICIV.key = 0x53;
   VICIV.sdbdrwd_msb &= ~VIC4_HOTREG_MASK;
-
-  /* 40 MHz. Danach darf das KERNAL nicht mehr aufgerufen werden. */
-  CPU_PORTDDR = 65;
 
   VICIV.ctrlb = (VICIV.ctrlb | VIC3_FAST_MASK | VIC3_ATTR_MASK) &
                 ~(VIC3_H640_MASK | VIC3_V400_MASK);
@@ -174,7 +178,4 @@ void hw_init(void) {
                                       : (uint16_t)(base + c * VIEW_ROWS + (r - DISP_ROWS));
     dma_copy(CPUADDR(ROWBUF), buf ? MAP_B : MAP_A, 2000);
   }
-
-  CIA1.ddra = 0xFF;
-  CIA1.ddrb = 0x00;
 }

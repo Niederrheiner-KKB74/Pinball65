@@ -7,6 +7,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "hw.h"
 #include "table.h"
 #include "physics.h"
@@ -177,6 +178,7 @@ int main(void) {
   table_build_mask();
   table_build_art();
   phys_init();
+  render_build();
   render_init();
   snd_init();
   game_new();

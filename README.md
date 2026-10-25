@@ -11,7 +11,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
 | 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bestanden (25.10.2026), v2.10 |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | bestanden (25.10.2026), v3.0 |
-| 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
+| 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | läuft; v3.1 teilt das Programm in Lader und Spiel |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
 | 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
 
@@ -84,7 +84,9 @@ Unter Linux oder macOS (oder Windows mit `make`):
 make
 ```
 
-Ergebnis: `build\pinball65.d81` mit dem Programm `PINBALL65`.
+Ergebnis: `build\pinball65.d81` mit den Programmen `PINBALL65` (Lader), `PB65GAME` (Spiel) und `LOADTEST`.
+
+**Lader und Spiel (seit v3.1):** `PINBALL65` baut Kollisionsmaske, Tischgrafik und die vorgezeichneten Flipper im Attic-RAM auf, setzt dort eine Kennung und lädt dann mit dem KERNAL das Spiel `PB65GAME` nach. Ein kleines Maschinenprogramm bei `$0E00` übernimmt das Laden, weil das Spiel denselben Speicher ab `$2001` belegt wie der Lader. So braucht das Spiel den Aufbau-Code (rund 11 KB) nicht mehr; es endet jetzt bei `$9863` statt `$C265`. Wird `PB65GAME` ohne den Lader gestartet, meldet es `?FILE NOT FOUND  ERROR` und `RUN"PINBALL65"`. Schlägt das Nachladen fehl, blinkt der Rahmen.
 
 ## Auf dem MEGA65 starten
 
@@ -217,6 +219,6 @@ Auf der Diskette liegt neben dem Spiel das Programm `LOADTEST` (`RUN "LOADTEST"`
 - **Grafik**: Full-Colour-Charakter-Modus (CHR16, 256 Farben pro Pixel), 40 × 25 Zeichen. Zeilen 0–3 sind das Display, Zeilen 4–24 der Tischausschnitt (168 Pixel).
 - **Scrolling**: Die Zeichen des Tischausschnitts sind spaltenweise nummeriert, eine Bildschirmspalte ist ein zusammenhängender Block von 1344 Byte. Die Tischgrafik liegt als 40 Spaltenstreifen (640 × 8 Byte) im Attic-RAM ab `$8000000`. Bewegt sich die Kamera, füllt je ein DMA-Auftrag pro Spalte den Bildpuffer, auf jede Pixelzeile genau. Steht sie still, werden nur die Stellen erneuert, an denen Flipper und Ball waren.
 - **Speicher (Chip-RAM)**: Bildpuffer A `$40000`, B `$4D200`, Display `$5A400`, Bildschirmkarten `$5CC00` und `$5D400`. CPU-Puffer fest bei `$0800` (Zeichenzeile), `$1200` (Bildschirmspalte), `$1740` (Maskenfenster, 48 Zeilen), `$1EC0` (Klassenfenster, 7 Zeilen). Das Klassenraster der Maske liegt seit v3.0 im Chip-RAM ab `$5F000`, im Attic-RAM ab `$8040000` die vorgezeichneten Flipper und der Ball.
-- **Hauptspeicher ist knapp**: Programm und Variablen enden bei v3.0 bei `$CD00`, darüber bleiben 768 Byte für den Stack bis `$D000`. Für die nächsten Meilensteine müssen weitere Tabellen oder Programmteile ausgelagert werden.
+- **Hauptspeicher ist knapp**: Programm und Variablen endeten bei v3.0 bei `$CD00`, darüber blieben nur 768 Byte für den Stack. Seit v3.1 baut der Lader die Tischdaten auf, das Spiel endet mit Variablen bei `$A198`.
 - **Tischdesign-Regel aus dem PC-Test**: Die Schwerkraft wirkt senkrecht, deshalb ist jede waagerechte Fläche und jede Lücke in Ballbreite ein möglicher Ruheplatz. Targetreihen sind deshalb schräg und lückenlos. Ein Einwegtor oben im linken Orbit lenkt von oben kommende Bälle aufs Spielfeld, sonst liefen abgeschossene Bälle direkt in die linke Outlane.
-- **Kollisionsmaske**: 25 KB im Farb-RAM ab `$FF81000`; die CPU arbeitet mit einem Fenster von 48 Zeilen, das per DMA nachgeladen wird.
+- **Kollisionsmaske**: 25 KB im Attic-RAM ab `$8100000` (bis v3.0 im Farb-RAM), Klassenraster ab `$8110000`; die CPU arbeitet mit einem Fenster von 48 Zeilen, das per DMA nachgeladen wird.
