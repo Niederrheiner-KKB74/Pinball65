@@ -44,6 +44,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 2.9 | Ball am Flipper: L 175, MAX 345; P 18, S 59, Z 243, D 25 – Zeichnen ist der Engpass | – |
 | 25.10.2026 | Meilenstein 2.10 | Abschussbahn L 103, MAX 126, `DMA`; Spiel L 236, MAX 243; P 71, S 60, Z 56, D 56; Bild in Ordnung | Abschussbahn L 104, MAX 127, `DMA`; Ball am Flipper L 232, MAX 208; P 52, S 101, Z 30, D 25; Bild in Ordnung |
 | 25.10.2026 | Meilenstein 3.1 (Lader) | – | hängt im KERNAL bei PC=$E65A beim Nachladen |
+| 25.10.2026 | Meilenstein 3.2 (Lader) | – | Rahmen weiß (= Farbe 5 unserer Palette, also im Laden), hängt wieder bei $E65A |
 | 25.10.2026 | Meilenstein 3.0 | Effekte zu hören, Lampen richtig, dritter Flipper gut spielbar, MAX bis 258 | – |
 | 25.10.2026 | Meilenstein 2.7 | L 499, MAX 452, UEB 49; P 9, S 59, Z 15, D 57 – Überlauf-Meldung falsch, echte Last höchstens etwa 190 Zeilen | – |
 
@@ -87,7 +88,7 @@ make
 
 Ergebnis: `build\pinball65.d81` mit den Programmen `PINBALL65` (Lader), `PB65GAME` (Spiel) und `LOADTEST`.
 
-**Lader und Spiel (seit v3.1):** `PINBALL65` baut Kollisionsmaske, Tischgrafik und die vorgezeichneten Flipper im Attic-RAM auf, setzt dort eine Kennung und lädt dann mit dem KERNAL das Spiel `PB65GAME` nach. Ein kleines Maschinenprogramm bei `$0E00` übernimmt das Laden, weil das Spiel denselben Speicher ab `$2001` belegt wie der Lader. So braucht das Spiel den Aufbau-Code (rund 11 KB) nicht mehr; es endet jetzt bei `$9863` statt `$C265`. Wird `PB65GAME` ohne den Lader gestartet, meldet es `?FILE NOT FOUND  ERROR` und `RUN"PINBALL65"`. Schlägt das Nachladen fehl, blinkt der Rahmen. Während des Ladens ist der Rahmen grün. Vor dem Laden stellt das Maschinenprogramm den DMA-Baustein auf das alte F018A-Format zurück, weil das Diskettensystem des C65 dieses benutzt (v3.1 hing mit F018B im KERNAL).
+**Lader und Spiel (seit v3.1):** `PINBALL65` baut Kollisionsmaske, Tischgrafik und die vorgezeichneten Flipper im Attic-RAM auf, setzt dort eine Kennung und lädt dann mit dem KERNAL das Spiel `PB65GAME` nach. Ein kleines Maschinenprogramm bei `$0E00` übernimmt das Laden, weil das Spiel denselben Speicher ab `$2001` belegt wie der Lader. So braucht das Spiel den Aufbau-Code (rund 11 KB) nicht mehr; es endet jetzt bei `$9863` statt `$C265`. Wird `PB65GAME` ohne den Lader gestartet, meldet es `?FILE NOT FOUND  ERROR` und `RUN"PINBALL65"`. Schlägt das Nachladen fehl, blinkt der Rahmen. Während des Ladens ist der Rahmen grün. Vor dem Laden stellt das Maschinenprogramm den DMA-Baustein auf das alte F018A-Format zurück, weil das Diskettensystem des C65 dieses benutzt (v3.1 hing mit F018B im KERNAL). Außerdem sichert der Lader beim Start, noch vor dem C-Startcode, die Zeropage und stellt sie vor dem Laden wieder her: Das MEGA65-KERNAL nutzt die ganze Zeropage, llvm-mos überschreibt aber $02–$8F (v3.2 hing deshalb weiter bei $E65A).
 
 ## Auf dem MEGA65 starten
 

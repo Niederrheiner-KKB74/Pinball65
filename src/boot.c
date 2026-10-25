@@ -46,39 +46,55 @@ static void halt(const char *l1, const char *l2) {
 
 static const char GAME_NAME[] = "PB65GAME";
 
+/* Zeropage beim Programmstart sichern, bevor der C-Startcode sie belegt.
+ * Das MEGA65-KERNAL nutzt die ganze Zeropage; v3.1 und v3.2 hingen beim
+ * Nachladen im KERNAL bei $E65A, weil llvm-mos $02-$8F ueberschrieben hatte.
+ * Das Lade-Programm stellt sie vor dem LOAD wieder her. */
+__attribute__((section(".noinit"), used)) uint8_t zp_save[256];
+asm(".pushsection .init.005,\"ax\",@progbits\n"
+    "  ldx #2\n"
+    "1:\n"
+    "  lda $00,x\n"
+    "  sta zp_save,x\n"
+    "  inx\n"
+    "  bne 1b\n"
+    ".popsection\n");
+
 /* Lade-Programm (6502):
- *   DMA auf das alte F018A-Format zurueckstellen (das Diskettensystem des C65
- *   benutzt es; mit F018B hing v3.1 im KERNAL bei $E65A) /
- *   SETBNK 0,0 / SETLFS 0,8,1 / SETNAM / ROMs wie unter BASIC einblenden /
- *   Rahmen gruen, CLI, LOAD, SEI / bei Fehler Rahmen blinken, sonst Spiel */
+ *   Zeropage zuruecksichern / DMA auf das alte F018A-Format (das Diskettensystem
+ *   des C65 benutzt es) / SETBNK 0,0 / SETLFS 0,8,1 / SETNAM / ROMs wie unter
+ *   BASIC / Rahmen gruen, CLI, LOAD, SEI / bei Fehler Rahmen blinken, sonst Spiel */
 static const uint8_t STUB[] = {
-  0xA9, 0x00, 0x8D, 0x03, 0xD7,                         /*  0 $D703 = 0: DMA im F018A-Format */
-  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /*  5 SETBNK: Daten Bank 0, Name Bank 0 */
-  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /* 12 SETLFS: Datei 0, Geraet 8, Adresse aus Datei */
-  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0x20, 0xBD, 0xFF, /* 21 SETNAM: Laenge, Adresse (wird eingesetzt) */
-  0xA9, 0x3F, 0x85, 0x01,                               /* 30 $01 = $3F wie unter BASIC */
-  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /* 34 $D030 = $64: ROM bei $C000 wie unter BASIC */
-  0xA9, 0x05, 0x8D, 0x20, 0xD0,                         /* 39 Rahmen gruen: Laden laeuft */
-  0xA9, 0x00, 0x58, 0x20, 0xD5, 0xFF, 0x78,             /* 44 LOAD (A = 0), mit Interrupts */
-  0xB0, 0x03,                                           /* 51 BCS Fehler */
-  0x4C, 0x00, 0x00,                                     /* 53 JMP Spiel (wird eingesetzt) */
-  0xEE, 0x20, 0xD0, 0x4C, 0x00, 0x00,                   /* 56 Fehler: INC $D020, JMP 56 */
+  0xA2, 0x02, 0xBD, 0x00, 0x00, 0x95, 0x00, 0xE8, 0xD0, 0xF8, /*  0 Zeropage $02-$FF aus zp_save */
+  0xA9, 0x00, 0x8D, 0x03, 0xD7,                         /* 10 $D703 = 0: DMA im F018A-Format */
+  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /* 15 SETBNK: Daten Bank 0, Name Bank 0 */
+  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /* 22 SETLFS: Datei 0, Geraet 8, Adresse aus Datei */
+  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0x20, 0xBD, 0xFF, /* 31 SETNAM: Laenge, Adresse (wird eingesetzt) */
+  0xA9, 0x3F, 0x85, 0x01,                               /* 40 $01 = $3F wie unter BASIC */
+  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /* 44 $D030 = $64: ROM bei $C000 wie unter BASIC */
+  0xA9, C_TARGET_6510, 0x8D, 0x20, 0xD0,                /* 49 Rahmen gruen (Farbe aus unserer Palette) */
+  0xA9, 0x00, 0x58, 0x20, 0xD5, 0xFF, 0x78,             /* 54 LOAD (A = 0), mit Interrupts */
+  0xB0, 0x03,                                           /* 61 BCS Fehler */
+  0x4C, 0x00, 0x00,                                     /* 63 JMP Spiel (wird eingesetzt) */
+  0xEE, 0x20, 0xD0, 0x4C, 0x00, 0x00,                   /* 66 Fehler: INC $D020, JMP 66 */
 };
 #define STUB_NAME (sizeof STUB)
-_Static_assert(sizeof STUB == 62, "Sprungziele im Lade-Programm pruefen");
+_Static_assert(sizeof STUB == 72, "Sprungziele im Lade-Programm pruefen");
 
 static void start_game(void) {
   uint8_t *s = (uint8_t *)STUB_ADDR;
   for (uint8_t i = 0; i < sizeof STUB; i++) s[i] = STUB[i];
   for (uint8_t i = 0; i < sizeof GAME_NAME - 1; i++) s[STUB_NAME + i] = (uint8_t)GAME_NAME[i];
-  uint16_t name = STUB_ADDR + STUB_NAME, err = STUB_ADDR + 56;
-  s[22] = (uint8_t)(sizeof GAME_NAME - 1);
-  s[24] = (uint8_t)name;
-  s[26] = (uint8_t)(name >> 8);
-  s[54] = (uint8_t)GAME_ENTRY;
-  s[55] = (uint8_t)(GAME_ENTRY >> 8);
-  s[60] = (uint8_t)err;
-  s[61] = (uint8_t)(err >> 8);
+  uint16_t name = STUB_ADDR + STUB_NAME, err = STUB_ADDR + 66, save = (uint16_t)zp_save;
+  s[3] = (uint8_t)save;
+  s[4] = (uint8_t)(save >> 8);
+  s[32] = (uint8_t)(sizeof GAME_NAME - 1);
+  s[34] = (uint8_t)name;
+  s[36] = (uint8_t)(name >> 8);
+  s[64] = (uint8_t)GAME_ENTRY;
+  s[65] = (uint8_t)(GAME_ENTRY >> 8);
+  s[70] = (uint8_t)err;
+  s[71] = (uint8_t)(err >> 8);
   asm volatile("jmp $0E00" ::: "memory");
 }
 
@@ -94,7 +110,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING  V3.2");
+  dmd_text("SEARCHING FOR *", "BUILDING  V3.3");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
