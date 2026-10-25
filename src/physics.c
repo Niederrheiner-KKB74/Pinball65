@@ -5,7 +5,9 @@
 #include "table.h"
 
 ball_t ball;
-flipper_t flip[2];
+flipper_t flip[N_FLIP];
+uint8_t ev_bumper, ev_sling;
+uint16_t ev_target;
 uint8_t state, pull, in_lane;
 uint16_t bumper_hits, sling_hits, collisions;
 uint8_t test_active;
@@ -100,9 +102,10 @@ static uint8_t ball_hits_mask(void) {
 static uint8_t near_wall(int16_t cx, int16_t cy) {
   if (cx < 6 || cx > TW - 7 || cy < 6 || cy > TH - 7) return 1;
   uint8_t c0 = (uint8_t)((cx - 5) >> 3), c1 = (uint8_t)((cx + 5) >> 3);
-  uint8_t r0 = (uint8_t)((cy - 5) >> 3), r1 = (uint8_t)((cy + 5) >> 3);
+  mask_ensure(cy - 5, cy + 5);
+  uint8_t r0 = (uint8_t)(((cy - 5) >> 3) - cls_r0), r1 = (uint8_t)(((cy + 5) >> 3) - cls_r0);
   for (uint8_t r = r0; r <= r1; r++) {
-    const uint8_t *g = &cls_grid[((uint16_t)r << 5) + ((uint16_t)r << 3)];
+    const uint8_t *g = &CLSWIN[((uint16_t)r << 5) + ((uint16_t)r << 3)];
     for (uint8_t c = c0; c <= c1; c++) if (g[c]) return 1;
   }
   return 0;
@@ -131,6 +134,7 @@ static void collide_mask(void) {
   fix16 imp = (-vn < REST_V) ? vn : fmul(vn, p_wall_imp);
   ball.vx -= fmul(imp, nx);
   ball.vy -= fmul(imp, ny);
+  if (kind >= M_TARGET) ev_target |= (uint16_t)1 << (kind - M_TARGET);
   if (kind == M_SLING_L || kind == M_SLING_R) {
     uint8_t s = kind - M_SLING_L;
     if (!sling_cool[s]) {
@@ -138,6 +142,7 @@ static void collide_mask(void) {
       ball.vy += fmul(SLING_KICK, ny);
       sling_cool[s] = 8;
       sling_hits++;
+      ev_sling |= (uint8_t)(1 << s);
     }
   }
 }
@@ -162,6 +167,7 @@ static void collide_bumpers(void) {
     ball.vx += fmul(BUMPER_KICK, nx);
     ball.vy += fmul(BUMPER_KICK, ny);
     bumper_hits++;
+    ev_bumper |= (uint8_t)(1 << i);
   }
 }
 
@@ -214,6 +220,7 @@ static void collide_flipper(const flipper_t *f) {
 static void substep(void) {
   update_flipper(&flip[0]);
   update_flipper(&flip[1]);
+  update_flipper(&flip[2]);
   if (state == ST_DRAIN) return;
   ball.vy += GRAVITY;
   if (ball.vx > MAX_V) ball.vx = MAX_V; else if (ball.vx < -MAX_V) ball.vx = -MAX_V;
@@ -224,6 +231,7 @@ static void substep(void) {
   if (bx > 293) in_lane = 1; else if (bx < 276) in_lane = 0;
   collide_flipper(&flip[0]);
   collide_flipper(&flip[1]);
+  collide_flipper(&flip[2]);
   collide_bumpers();
   collide_mask();
   if (in_lane && bx > 292 && ball.y > ((fix16)plunger_top << 16)) {
@@ -269,12 +277,16 @@ void phys_init(void) {
   tune_reset();
   flip[0] = (flipper_t){ FLIP_L_X, FLIP_Y, 1, F_REST * 256, 0, 0 };
   flip[1] = (flipper_t){ FLIP_R_X, FLIP_Y, -1, F_REST * 256, 0, 0 };
+  flip[2] = (flipper_t){ FLIP3_X, FLIP3_Y, -1, F_REST * 256, 0, 0 };
   new_ball();
 }
 
 void game_frame(const input_t *in) {
   flip[0].pressed = in->left;
   flip[1].pressed = in->right;
+  flip[2].pressed = in->right;
+  ev_bumper = ev_sling = 0;
+  ev_target = 0;
 
   tune_input(in);
   if (in->reset) { new_ball(); test_active = 0; }

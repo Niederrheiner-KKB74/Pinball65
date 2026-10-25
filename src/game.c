@@ -1,0 +1,222 @@
+/*
+ * game.c – Spielregeln (Meilenstein 3)
+ *
+ * Punkte:  Bumper 100, Slingshot 10, Target 500 (schon an: 100),
+ *          obere Lane 1000 (an: 200), L O A D 2000 (an: 500).
+ * Gruppen: VIC-II 10.000, 6510 20.000, SID 10.000; danach gehen die Lampen aus.
+ *          C 6 4 komplett: Bonus-Multiplikator +1 (bis 5X) und 5.000.
+ *          L O A D komplett: 25.000.
+ * Bonus:   jedes neu angeschaltete Target oder jede Lane 1.000, am Ballende
+ *          mal Multiplikator.
+ * Flipperknopf: Lampen der oberen Lanes und L O A D wandern (Lane-Wechsel).
+ */
+#include "game.h"
+#include "table.h"
+#include "hw.h"
+#include "dmd.h"
+#include "sound.h"
+
+uint32_t score;
+uint8_t ball_no, mult, game_over;
+uint16_t bonus;
+char msg1[DMD_COLS + 1], msg2[DMD_COLS + 1];
+uint8_t msg_timer;
+
+static uint16_t tgt_lit;
+static uint8_t top_lit, load_lit;
+static uint8_t tgt_cool[N_TARGETS];
+static uint8_t flash[5];                      /* Bumper 0-2, Slingshots 3-4 */
+static uint8_t prev_state, prev_l, prev_r, hold;
+static int16_t prev_y;
+static uint8_t lamp_shown[N_LAMPS];
+
+/* Lampenfarben: aus, an */
+static const uint8_t LAMP_RGB[N_LAMPS][2][3] = {
+  {{34, 84, 108}, {80, 200, 255}}, {{34, 84, 108}, {80, 200, 255}}, {{34, 84, 108}, {80, 200, 255}},
+  {{50, 100, 58}, {120, 240, 140}}, {{50, 100, 58}, {120, 240, 140}},
+  {{50, 100, 58}, {120, 240, 140}}, {{50, 100, 58}, {120, 240, 140}},
+  {{106, 50, 92}, {255, 120, 220}}, {{106, 50, 92}, {255, 120, 220}}, {{106, 50, 92}, {255, 120, 220}},
+  {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
+  {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
+  {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
+  {{200, 32, 46}, {255, 244, 210}}, {{200, 32, 46}, {255, 244, 210}}, {{200, 32, 46}, {255, 244, 210}},
+  {{216, 48, 64}, {255, 236, 120}}, {{216, 48, 64}, {255, 236, 120}},
+};
+_Static_assert(N_LAMPS == 22, "Lampentabelle passt nicht zur Palette");
+
+char *fmt_points(char *p, uint32_t v) {
+  char tmp[12];
+  char *e = dmd_num(tmp, v, 0);
+  uint8_t n = (uint8_t)(e - tmp);
+  for (uint8_t i = 0; i < n; i++) {
+    *p++ = tmp[i];
+    uint8_t rest = (uint8_t)(n - 1 - i);
+    if (rest && rest % 3 == 0) *p++ = '.';
+  }
+  *p = 0;
+  return p;
+}
+
+static void message(const char *a, uint32_t pts) {
+  dmd_put(msg1, a);
+  fmt_points(msg2, pts);
+  msg_timer = 100;
+}
+
+static void add(uint16_t pts) { score += pts; }
+
+static void lamps_apply(void) {
+  for (uint8_t n = 0; n < N_LAMPS; n++) {
+    uint8_t on;
+    if (n < 10) on = (tgt_lit >> n) & 1;
+    else if (n < 13) on = (top_lit >> (n - 10)) & 1;
+    else if (n < 17) on = (load_lit >> (n - 13)) & 1;
+    else on = flash[n - 17] != 0;
+    if (on == lamp_shown[n]) continue;
+    lamp_shown[n] = on;
+    const uint8_t *c = LAMP_RGB[n][on];
+    set_color((uint8_t)(C_LAMP0 + n), c[0], c[1], c[2]);
+  }
+}
+
+void game_new(void) {
+  score = 0;
+  ball_no = 1;
+  mult = 1;
+  bonus = 0;
+  game_over = 0;
+  tgt_lit = 0;
+  top_lit = load_lit = 0;
+  msg_timer = 0;
+  prev_state = state;
+  for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
+  lamps_apply();
+}
+
+void game_input(input_t *in) {
+  if (game_over && in->plunger && !hold) {
+    game_new();
+    snd_play(SND_START);
+    hold = 1;
+  }
+  /* Nach Spielende und bis zum Loslassen nach dem Neustart kein Abschuss */
+  if (hold && !in->plunger) hold = 0;
+  if (game_over || hold) in->plunger = 0;
+}
+
+/* Ziel i getroffen */
+static void target_hit(uint8_t i) {
+  static const uint16_t GROUP_MASK[3] = { 0x007, 0x078, 0x380 };
+  static const char *GROUP_NAME[3] = { "VIC-II READY", "6510 READY", "SID READY" };
+  static const uint16_t GROUP_PTS[3] = { 10000, 20000, 10000 };
+  uint16_t bit = (uint16_t)1 << i;
+  snd_play(SND_TARGET);
+  if (tgt_lit & bit) { add(100); return; }
+  tgt_lit |= bit;
+  add(500);
+  bonus++;
+  for (uint8_t g = 0; g < 3; g++)
+    if ((tgt_lit & GROUP_MASK[g]) == GROUP_MASK[g]) {
+      tgt_lit &= (uint16_t)~GROUP_MASK[g];
+      add(GROUP_PTS[g]);
+      message(GROUP_NAME[g], GROUP_PTS[g]);
+      snd_play(SND_COMPLETE);
+    }
+}
+
+static void top_lane(uint8_t i) {
+  uint8_t bit = (uint8_t)(1 << i);
+  snd_play(SND_LANE);
+  if (top_lit & bit) { add(200); return; }
+  top_lit |= bit;
+  add(1000);
+  bonus++;
+  if (top_lit == 7) {
+    top_lit = 0;
+    if (mult < 5) mult++;
+    add(5000);
+    char *p = dmd_put(msg1, "C64 BONUS ");
+    p = dmd_num(p, mult, 0);
+    dmd_put(p, "X");
+    fmt_points(msg2, 5000);
+    msg_timer = 100;
+    snd_play(SND_COMPLETE);
+  }
+}
+
+static void low_lane(uint8_t i) {
+  uint8_t bit = (uint8_t)(1 << i);
+  snd_play(SND_LANE);
+  if (load_lit & bit) { add(500); return; }
+  load_lit |= bit;
+  add(2000);
+  bonus++;
+  if (load_lit == 15) {
+    load_lit = 0;
+    add(25000);
+    message("PRESS PLAY ON TAPE", 25000);
+    snd_play(SND_COMPLETE);
+  }
+}
+
+void game_update(const input_t *in) {
+  /* Lane-Wechsel und Flipperklang beim Druecken */
+  if (in->left && !prev_l) {
+    top_lit = (uint8_t)((top_lit >> 1) | ((top_lit & 1) << 2));
+    load_lit = (uint8_t)((load_lit >> 1) | ((load_lit & 1) << 3));
+    snd_play(SND_FLIPPER);
+  }
+  if (in->right && !prev_r) {
+    top_lit = (uint8_t)(((top_lit << 1) & 7) | (top_lit >> 2));
+    load_lit = (uint8_t)(((load_lit << 1) & 15) | (load_lit >> 3));
+    snd_play(SND_FLIPPER);
+  }
+  prev_l = in->left;
+  prev_r = in->right;
+
+  int16_t x = (int16_t)(ball.x >> 16), y = (int16_t)(ball.y >> 16);
+  if (state == ST_PLAY) {
+    for (uint8_t i = 0; i < 3; i++)
+      if (ev_bumper & (1 << i)) { add(100); flash[i] = 5; snd_play(SND_BUMPER); }
+    for (uint8_t i = 0; i < 2; i++)
+      if (ev_sling & (1 << i)) { add(10); flash[3 + i] = 5; snd_play(SND_SLING); }
+    if (ev_target)
+      for (uint8_t i = 0; i < N_TARGETS; i++)
+        if ((ev_target & ((uint16_t)1 << i)) && !tgt_cool[i]) { tgt_cool[i] = 15; target_hit(i); }
+    /* Rollover: Ball ueberquert die Zaehllinie */
+    if ((prev_y < TOPLANE_Y) != (y < TOPLANE_Y) && x > TOPLANE_X0 && x < TOPLANE_X0 + 72)
+      top_lane(x < TOPLANE_X0 + 24 ? 0 : x < TOPLANE_X0 + 48 ? 1 : 2);
+    if (prev_y < LOWLANE_Y && y >= LOWLANE_Y) {
+      if (x < 40) low_lane(0);
+      else if (x < 64) low_lane(1);
+      else if (x > 260 && x < 290) low_lane(3);
+      else if (x > 236 && x <= 260) low_lane(2);
+    }
+  }
+  prev_y = y;
+
+  /* Ballende: Bonus; neuer Ball oder Spielende */
+  if (state == ST_DRAIN && prev_state != ST_DRAIN) {
+    uint32_t b = (uint32_t)bonus * 1000u * mult;
+    score += b;
+    char *p = dmd_put(msg1, "BONUS ");
+    p = dmd_num(p, mult, 0);
+    dmd_put(p, "X");
+    fmt_points(msg2, b);
+    msg_timer = 50;
+    snd_play(SND_DRAIN);
+  }
+  if (state == ST_PLUNGER && prev_state == ST_DRAIN) {
+    bonus = 0;
+    mult = 1;
+    if (ball_no < BALLS_PER_GAME) ball_no++;
+    else game_over = 1;
+  }
+  prev_state = state;
+
+  for (uint8_t i = 0; i < N_TARGETS; i++) if (tgt_cool[i]) tgt_cool[i]--;
+  for (uint8_t i = 0; i < 5; i++) if (flash[i]) flash[i]--;
+  if (msg_timer) msg_timer--;
+  lamps_apply();
+  snd_update();
+}

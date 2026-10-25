@@ -62,12 +62,16 @@ typedef struct {
 } flipper_t;
 
 typedef struct {
-  uint8_t left, right, plunger, test, reset;
+  uint8_t left, right, plunger, test, reset, diag;
   uint8_t tune_toggle, tune_next, tune_down, tune_up;   /* F1, F3, F5, F7 */
 } input_t;
 
 extern ball_t ball;
-extern flipper_t flip[2];
+#define N_FLIP 3                 /* links unten, rechts unten, rechts oben */
+extern flipper_t flip[N_FLIP];
+/* Ereignisse des letzten Bildes fuer die Spielregeln (game.c), Bit = Nummer */
+extern uint8_t ev_bumper, ev_sling;
+extern uint16_t ev_target;
 extern uint8_t state, pull;
 extern uint16_t bumper_hits, sling_hits, collisions;
 extern uint8_t test_active;

@@ -6,7 +6,8 @@ struct host_vic { uint8_t bordercol; };
 extern struct host_vic VICIV;
 uint32_t host_reg(void *p);
 #define CPUADDR(p) host_reg(p)
-extern uint8_t host_rowbuf[2560], host_colbuf[1344], host_maskwin[1920];
+extern uint8_t host_rowbuf[2560], host_colbuf[1344], host_maskwin[1920], host_clswin[280];
+#define CLSWIN  host_clswin
 #define ROWBUF  host_rowbuf
 #define COLBUF  host_colbuf
 #define MASKWIN host_maskwin

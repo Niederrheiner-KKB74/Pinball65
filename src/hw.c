@@ -70,6 +70,11 @@ uint8_t dma_trans_ok(void) {
   return 1;
 }
 
+void sid_poke(uint8_t reg, uint8_t value) {
+  *(volatile uint8_t *)(0xD400u + reg) = value;
+  *(volatile uint8_t *)(0xD440u + reg) = value;
+}
+
 /* Paletten-Register erwarten vertauschte Nybbles */
 static uint8_t nyb_swap(uint8_t v) { return (uint8_t)((v << 4) | (v >> 4)); }
 void set_color(uint8_t i, uint8_t r, uint8_t g, uint8_t b) {

@@ -10,7 +10,7 @@
 #include "fixmath.h"
 
 struct sim_vic VICIV;
-uint8_t sim_rowbuf[2560], sim_colbuf[1344], sim_maskwin[1920];
+uint8_t sim_rowbuf[2560], sim_colbuf[1344], sim_maskwin[1920], sim_clswin[280];
 unsigned long sim_jobs;
 
 void sim_fail(const char *what, uint32_t a, uint32_t b) {
@@ -26,6 +26,7 @@ static void check_cpu(uint32_t a, uint16_t n) {
   if (p >= rb && p + n <= rb + sizeof sim_rowbuf) return;
   if (p >= cb && p + n <= cb + sizeof sim_colbuf) return;
   if (p >= mb && p + n <= mb + sizeof sim_maskwin) return;
+  if (p >= (uint16_t)sim_clswin && p + n <= (uint16_t)sim_clswin + sizeof sim_clswin) return;
   sim_fail("DMA ausserhalb der CPU-Puffer", a, n);
 }
 
@@ -36,7 +37,9 @@ static void check_cpu(uint32_t a, uint16_t n) {
 #endif
 static uint8_t colram_mask[25600 - SIM_MASK_FROM * 40];
 static uint8_t sim_dummy[2000];
+static uint8_t cls_mem[3200];
 static uint8_t *far_ptr_mask(uint32_t a, uint16_t n) {
+  if (a >= CLS_FAR && a + n <= CLS_FAR + sizeof cls_mem) return cls_mem + (uint16_t)(a - CLS_FAR);
   const uint32_t base = 0xFF81000UL + SIM_MASK_FROM * 40UL;
   if (a >= base && a + n <= base + sizeof colram_mask) return colram_mask + (uint16_t)(a - base);
   if (a >= 0xFF81000UL && a < base && n <= sizeof sim_dummy) return sim_dummy;   /* oberer Teil: leer */
@@ -68,7 +71,8 @@ void dma_copy(uint32_t s, uint32_t d, uint16_t n) {
   else if (d < 0x10000UL) memset((void *)(uint16_t)d, 0, n);   /* aus Fernspeicher: leer */
 }
 void dma_copy_trans(uint32_t s, uint32_t d, uint16_t n) { dma_copy(s, d, n); }
-uint8_t dma_trans_ok(void) { return 0; }   /* Simulator: CPU-Weg pruefen */
+uint8_t dma_trans_ok(void) { return 0; }
+void sid_poke(uint8_t r, uint8_t v) { (void)r; (void)v; }   /* Simulator: CPU-Weg pruefen */
 void dma_fill(uint32_t d, uint8_t v, uint16_t n) {
   sim_jobs++;
   check_cpu(d, n);

@@ -31,6 +31,7 @@
 #define MAP_B       0x5D400UL   /* Bildschirmkarte B */
 #define DMD_TPL     0x5DC00UL   /* Vorlage: eine Display-Zeichenzeile, alle Punkte aus */
 #define TRANS_TEST  0x5E600UL   /* 64 Byte fuer den Transparenz-Selbsttest */
+#define CLS_FAR     0x5F000UL   /* Klassenraster der Kollisionsmaske, 80 x 40 Byte */
 #define FB_A_CHAR   0x1000u     /* = FB_A / 64 */
 #define FB_B_CHAR   0x1348u     /* = FB_B / 64 */
 #define DISP_CHAR   0x1690u     /* = DISP_ADDR / 64 */
@@ -47,6 +48,7 @@
 #define ROWBUF      ((uint8_t *)0x0800)  /* 2560 Byte: eine Zeichenzeile */
 #define COLBUF      ((uint8_t *)0x1200)  /* 1344 Byte: eine Bildschirmspalte */
 #define MASKWIN     ((uint8_t *)0x1740)  /* 1920 Byte: 48 Maskenzeilen */
+#define CLSWIN      ((uint8_t *)0x1EC0)  /* 280 Byte: 7 Zeilen Klassenraster */
 #endif
 
 /* 28-Bit-Adresse eines CPU-Puffers (Bank 0) fuer DMA-Auftraege */
@@ -61,6 +63,8 @@ void dma_fill(uint32_t dst, uint8_t value, uint16_t count);
 /* Kopie, bei der Quellbytes mit Wert 0 das Ziel nicht ueberschreiben */
 void dma_copy_trans(uint32_t src, uint32_t dst, uint16_t count);
 uint8_t dma_trans_ok(void);
+/* SID-Register reg (0..$18) in den linken ($D400) und rechten ($D440) SID */
+void sid_poke(uint8_t reg, uint8_t value);
 void set_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void show_buffer(uint8_t b);
 uint16_t raster_line(void);

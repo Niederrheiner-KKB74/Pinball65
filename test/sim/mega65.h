@@ -4,7 +4,8 @@
 #include <stdint.h>
 struct sim_vic { uint8_t bordercol; };
 extern struct sim_vic VICIV;
-extern uint8_t sim_rowbuf[2560], sim_colbuf[1344], sim_maskwin[1920];
+extern uint8_t sim_rowbuf[2560], sim_colbuf[1344], sim_maskwin[1920], sim_clswin[280];
+#define CLSWIN  sim_clswin
 #define ROWBUF  sim_rowbuf
 #define COLBUF  sim_colbuf
 #define MASKWIN sim_maskwin

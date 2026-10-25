@@ -10,7 +10,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | 0 | Toolchain- und Hardware-Test: Build, D81, Hardware-Multiplizierer | bestanden (MEGA65 und Xemu, 23.10.2026) |
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
 | 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bestanden (25.10.2026), v2.10 |
-| 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | geplant |
+| 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | läuft; v3.0 zum Test |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | geplant |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
 | 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
@@ -92,6 +92,32 @@ Ergebnis: `build\pinball65.d81` mit dem Programm `PINBALL65`.
 
 In Xemu: `xmega65 -8 build\pinball65.d81`, danach ebenfalls `RUN "PINBALL65"`.
 
+### Meilenstein 3: Bedienung und Test
+
+Ein Spiel hat 3 Bälle. Der Plunger (Leertaste oder Feuerknopf halten und loslassen) schießt ab. Nach dem dritten Ball zeigt das Display `?OUT OF DATA  ERROR` und die Punkte; Leertaste oder Feuer startet ein neues Spiel.
+
+Neu:
+- **Dritter Flipper** oben rechts bei (282, 300), er schlägt mit dem rechten Flipperknopf. Er nutzt dieselben vorgezeichneten Bilder wie der rechte untere Flipper.
+- **Punkte**: Bumper 100, Slingshot 10, Target 500 (schon leuchtend: 100), obere Lane 1.000 (leuchtend: 200), Lanes L O A D 2.000 (leuchtend: 500).
+- **Gruppen**: VIC-II komplett 10.000, 6510 komplett 20.000, SID komplett 10.000. Obere Lanes C 6 4 komplett: 5.000 und Bonus-Multiplikator +1 (bis 5X). L O A D komplett: 25.000 (`PRESS PLAY ON TAPE`).
+- **Bonus**: Jedes neu angeschaltete Target und jede neu angeschaltete Lane zählt 1.000, am Ballende mal Multiplikator.
+- **Lane-Wechsel**: Ein Druck auf den linken oder rechten Flipperknopf schiebt die leuchtenden Lampen der oberen Lanes und von L O A D eine Stelle weiter.
+- **Lampen**: Jede Lampe hat einen eigenen Paletteneintrag. Ein- und Ausschalten ändert nur die Farbe, das kostet keine Zeichenzeit. Bumper und Slingshot-Gummis blitzen bei einem Treffer auf.
+- **Klang**: einfache SID-Effekte für Bumper, Slingshot, Target, Lane, Flipper, Gruppe komplett, Ballverlust und Spielstart, links und rechts gleich.
+- **Taste D**: schaltet im Spiel zwischen Punkteanzeige und der Messwert-Aufteilung (P, S, Z, D) um.
+
+| Zustand | Zeile 1 | Zeile 2 |
+|---|---|---|
+| Ball in der Abschussbahn | Punkte (vor dem ersten Punkt `LOAD"*",8,1`) | `BALL n`, `L`, `MAX`, `DMA`/`CPU` |
+| Ball im Spiel | Punkte | `BALL n`, Multiplikator, `L`, `MAX` |
+| Ball im Spiel, Taste D | `L`, `MAX` | `P`, `S`, `Z`, `D` wie in Meilenstein 2 |
+| Gruppe komplett, Ballende | Meldung, z. B. `VIC-II READY` oder `BONUS 2X` | Punkte dafür |
+| Spielende | `?OUT OF DATA  ERROR` | Endstand |
+
+**Gleichheitstest:** unverändert `TEST X 07457637` und `TEST Y 21572962` (der Testball erreicht den dritten Flipper in 120 Bildern nicht).
+
+**Was zu prüfen ist:** ob die Lampen richtig an- und ausgehen, ob die Effekte zu hören sind (auf beiden Kanälen), wie sich der dritte Flipper spielt und wie hoch MAX im Spiel steigt.
+
 ### Meilenstein 2: Bedienung und Test
 
 Nach dem Start zeigt das Display `SEARCHING FOR *` und den Fortschritt (`MASKE nn/14`, dann `GRAFIK nn/80`), während der MEGA65 Kollisionsmaske und Tischgrafik berechnet. Das dauert einige Sekunden. Eine Prüfsumme über den Programmcode wird nach jedem Schritt und im Spiel alle 5 Sekunden kontrolliert; ändert sich der Code, hält das Programm mit `?CODE CHANGED  ERROR` und rotem Rahmen. Danach erscheint der Tisch, das Bild folgt dem Ball pixelgenau.
@@ -163,14 +189,15 @@ prototype/   Physik-Prototyp im Browser (HTML-Datei direkt öffnen)
 src/         C-Quellcode für den MEGA65
 tools/       Hilfsprogramme: mkd81.py (Diskettenimage), gen_tables.py (Sinus/atan),
              gen_font.py (5x7-Schrift fürs Display)
-test/host/   PC-Test: derselbe C-Code mit simuliertem Speicher und DMA, schreibt Bilder
+test/host/   PC-Test: derselbe C-Code mit simuliertem Speicher und DMA, schreibt Bilder,
+             prüft die Spielregeln und lässt mit BOT=n einen Spielroboter n Bilder spielen
 build.bat    Build unter Windows
 Makefile     Build mit make
 ```
 
 ## PC-Test
 
-Unter Linux oder in WSL: `make -C test/host run`. Das Programm führt das Spiel ohne MEGA65 aus, protokolliert die Ballbahn und schreibt Bilder (`.ppm`), die aus dem simulierten Zeichenspeicher so gelesen werden wie vom VIC-IV. Das Timing und die echten Register prüft nur die Hardware.
+Unter Linux oder in WSL: `make -C test/host run`. Mit `BOT=300000 ./hosttest` spielt zusätzlich ein einfacher Roboter und meldet Stellen, an denen der Ball liegen bleibt (v3.0: 169 Spiele, kein Hängenbleiben). Das Programm führt das Spiel ohne MEGA65 aus, protokolliert die Ballbahn und schreibt Bilder (`.ppm`), die aus dem simulierten Zeichenspeicher so gelesen werden wie vom VIC-IV. Das Timing und die echten Register prüft nur die Hardware.
 
 ## LOADTEST
 
@@ -188,6 +215,7 @@ Auf der Diskette liegt neben dem Spiel das Programm `LOADTEST` (`RUN "LOADTEST"`
 - **Flipper**: sich drehende Kapseln mit Oberflächengeschwindigkeit am Treffpunkt.
 - **Grafik**: Full-Colour-Charakter-Modus (CHR16, 256 Farben pro Pixel), 40 × 25 Zeichen. Zeilen 0–3 sind das Display, Zeilen 4–24 der Tischausschnitt (168 Pixel).
 - **Scrolling**: Die Zeichen des Tischausschnitts sind spaltenweise nummeriert, eine Bildschirmspalte ist ein zusammenhängender Block von 1344 Byte. Die Tischgrafik liegt als 40 Spaltenstreifen (640 × 8 Byte) im Attic-RAM ab `$8000000`. Bewegt sich die Kamera, füllt je ein DMA-Auftrag pro Spalte den Bildpuffer, auf jede Pixelzeile genau. Steht sie still, werden nur die Stellen erneuert, an denen Flipper und Ball waren.
-- **Speicher (Chip-RAM)**: Bildpuffer A `$40000`, B `$4D200`, Display `$5A400`, Bildschirmkarten `$5CC00` und `$5D400`. CPU-Puffer fest bei `$0800` (Zeichenzeile), `$1200` (Bildschirmspalte), `$1740` (Maskenfenster, 48 Zeilen).
+- **Speicher (Chip-RAM)**: Bildpuffer A `$40000`, B `$4D200`, Display `$5A400`, Bildschirmkarten `$5CC00` und `$5D400`. CPU-Puffer fest bei `$0800` (Zeichenzeile), `$1200` (Bildschirmspalte), `$1740` (Maskenfenster, 48 Zeilen), `$1EC0` (Klassenfenster, 7 Zeilen). Das Klassenraster der Maske liegt seit v3.0 im Chip-RAM ab `$5F000`, im Attic-RAM ab `$8040000` die vorgezeichneten Flipper und der Ball.
+- **Hauptspeicher ist knapp**: Programm und Variablen enden bei v3.0 bei `$CD00`, darüber bleiben 768 Byte für den Stack bis `$D000`. Für die nächsten Meilensteine müssen weitere Tabellen oder Programmteile ausgelagert werden.
 - **Tischdesign-Regel aus dem PC-Test**: Die Schwerkraft wirkt senkrecht, deshalb ist jede waagerechte Fläche und jede Lücke in Ballbreite ein möglicher Ruheplatz. Targetreihen sind deshalb schräg und lückenlos. Ein Einwegtor oben im linken Orbit lenkt von oben kommende Bälle aufs Spielfeld, sonst liefen abgeschossene Bälle direkt in die linke Outlane.
 - **Kollisionsmaske**: 25 KB im Farb-RAM ab `$FF81000`; die CPU arbeitet mit einem Fenster von 48 Zeilen, das per DMA nachgeladen wird.

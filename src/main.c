@@ -1,5 +1,5 @@
 /*
- * Pinball65 – Meilenstein 2: ganzer Tisch mit Scrolling und Display
+ * Pinball65 – Meilenstein 3: Spielelemente, Punkte, Lampen, Klang
  *
  * - Hardware wird komplett uebernommen (kein KERNAL nach dem Start)
  * - Full-Colour-Charakter-Modus, zwei Bildpuffer (kein Flackern)
@@ -8,7 +8,8 @@
  * - Physik aus dem Browser-Prototyp, 8 Substeps pro Bild, 50 Hz
  *
  * Tasten: Shift links / A = linker Flipper, Shift rechts / L = rechter Flipper,
- * Leertaste halten = Plunger, T = Testabschuss, B = Ball zurueck.
+ * Leertaste halten = Plunger, T = Testabschuss, B = Ball zurueck,
+ * D = Messwerte im Display an/aus.
  * Joystick Port 2: links/rechts = Flipper, Feuer oder unten = Plunger.
  * F1 = Einstellmodus an/aus, F3 = naechster Wert, F5 = weniger, F7 = mehr.
  */
@@ -19,6 +20,8 @@
 #include "render.h"
 #include "dmd.h"
 #include "tables.h"
+#include "game.h"
+#include "sound.h"
 
 /* Taste mit Wiederholung: sofort, dann nach 15 Bildern alle 3 Bilder */
 static uint8_t repeat(uint8_t down, uint8_t *cnt) {
@@ -30,7 +33,7 @@ static uint8_t repeat(uint8_t down, uint8_t *cnt) {
 }
 
 static void read_input(input_t *in) {
-  static uint8_t prev_t, prev_b, prev_f1, prev_f3, rep_f5, rep_f7;
+  static uint8_t prev_t, prev_b, prev_d, prev_f1, prev_f3, rep_f5, rep_f7;
   uint8_t c0 = key_col(0);
   uint8_t f1 = (c0 & 0x10) != 0, f3 = (c0 & 0x20) != 0;
   in->tune_toggle = f1 && !prev_f1;
@@ -47,7 +50,9 @@ static void read_input(input_t *in) {
   uint8_t t = (c2 & 0x40) != 0, b = (c3 & 0x10) != 0;       /* T, B */
   in->test = t && !prev_t;
   in->reset = b && !prev_b;
-  prev_t = t; prev_b = b;
+  uint8_t d = (c2 & 0x04) != 0;                             /* D */
+  in->diag = d && !prev_d;
+  prev_t = t; prev_b = b; prev_d = d;
 }
 
 /* Display-Text je nach Spielzustand (Texte im C64-Stil, Debugwerte unten) */
@@ -55,12 +60,23 @@ static void read_input(input_t *in) {
 enum { T_PHYS, T_SCROLL, T_DRAW, T_DMD, T_N };
 static uint16_t tmax[T_N], tmax_run[T_N];
 
+static uint8_t diag_on;
+
+/* Zeile 2 mit den Messwerten L und MAX */
+static char *put_load(char *p, uint16_t load, uint16_t lmax) {
+  p = dmd_put(p, "L");
+  p = dmd_num(p, load, 3);
+  p = dmd_put(p, " MAX");
+  return dmd_num(p, lmax, 3);
+}
+
 static void update_display(uint16_t load, uint16_t lmax) {
   static char l1[DMD_COLS + 1], l2[DMD_COLS + 1];
   static uint8_t last_mode = 0xFF, tick;
   char *p;
   /* Zahlen nur alle 10 Bilder (5 Mal pro Sekunde), Wechsel des Zustands sofort */
-  uint8_t mode = (uint8_t)(tune_on ? 10 + tune_sel : test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 : 3 + state);
+  uint8_t mode = (uint8_t)(tune_on ? 10 + tune_sel : test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
+                           msg_timer ? 7 : game_over ? 8 : 3 + state + (diag_on ? 30 : 0));
   if (mode == last_mode && ++tick < 10) return;
   last_mode = mode;
   tick = 0;
@@ -77,21 +93,33 @@ static void update_display(uint16_t load, uint16_t lmax) {
     dmd_num(p, (uint32_t)snap_x, 8);
     p = dmd_put(l2, "TEST Y ");
     dmd_num(p, (uint32_t)snap_y, 8);
+  } else if (msg_timer) {
+    dmd_put(l1, msg1);
+    dmd_put(l2, msg2);
+  } else if (game_over) {
+    dmd_put(l1, "?OUT OF DATA  ERROR");
+    fmt_points(l2, score);
   } else if (state == ST_PLUNGER) {
-    dmd_put(l1, "LOAD\"*\",8,1");
-    p = dmd_put(l2, "L");
-    p = dmd_num(p, load, 3);
-    p = dmd_put(p, " MAX");
-    p = dmd_num(p, lmax, 3);
+    if (score) fmt_points(l1, score);
+    else dmd_put(l1, "LOAD\"*\",8,1");
+    p = dmd_put(l2, "BALL ");
+    p = dmd_num(p, ball_no, 0);
+    p = dmd_put(p, "  ");
+    p = put_load(p, load, lmax);
     dmd_put(p, render_uses_dma() ? " DMA" : " CPU");
   } else if (state == ST_DRAIN) {
     dmd_put(l1, "?BALL LOST  ERROR");
     dmd_put(l2, "READY.");
+  } else if (!diag_on) {
+    fmt_points(l1, score);
+    p = dmd_put(l2, "BALL ");
+    p = dmd_num(p, ball_no, 0);
+    p = dmd_put(p, " ");
+    p = dmd_num(p, mult, 0);
+    p = dmd_put(p, "X  ");
+    put_load(p, load, lmax);
   } else {
-    p = dmd_put(l1, "L");
-    p = dmd_num(p, load, 3);
-    p = dmd_put(p, " MAX");
-    dmd_num(p, lmax, 3);
+    put_load(l1, load, lmax);
     p = dmd_put(l2, "P");
     p = dmd_num(p, tmax[T_PHYS], 3);
     p = dmd_put(p, " S");
@@ -168,7 +196,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.10");
+  dmd_text("SEARCHING FOR *", "LOADING  V3.0");
   dmd_flush();
   code_check("NACH ATTIC-TEST");
 
@@ -176,6 +204,8 @@ int main(void) {
   table_build_art();
   phys_init();
   render_init();
+  snd_init();
+  game_new();
   VICIV.bordercol = 0;
   code_check("NACH AUFBAU");
 
@@ -188,7 +218,10 @@ int main(void) {
     uint16_t t0 = raster_line();
     show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */
     read_input(&in);
+    if (in.diag) diag_on ^= 1;
+    game_input(&in);
     game_frame(&in);
+    game_update(&in);
     int16_t cam = camera_update();
     uint16_t t1 = raster_line();
     uint8_t back = front ^ 1;

@@ -11,7 +11,7 @@
 
 int16_t win_y0 = -1000;
 const uint8_t MASK_BIT[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
-uint8_t cls_grid[(TH / 8) * 40];
+uint8_t cls_r0;
 
 const int16_t BUMPERS[N_BUMPERS][3] = { {124, 140, 13}, {196, 140, 13}, {160, 188, 13} };
 
@@ -21,6 +21,10 @@ void mask_load(int16_t y0) {
   if (y0 < 0) y0 = 0;
   win_y0 = y0;
   dma_copy(MASK_FAR + (uint32_t)(uint16_t)y0 * 40, CPUADDR(MASKWIN), WIN_ROWS * 40);
+  uint8_t r0 = (uint8_t)(y0 >> 3);
+  if (r0 > TH / 8 - CLS_ROWS) r0 = TH / 8 - CLS_ROWS;
+  cls_r0 = r0;
+  dma_copy(CLS_FAR + (uint16_t)r0 * 40, CPUADDR(CLSWIN), CLS_ROWS * 40);
 }
 
 /* Wandsegmente: x0, y0, x1, y1, Klasse */
@@ -68,8 +72,8 @@ static void set_px(int16_t x, int16_t y, uint8_t c) {
   if (x < 0 || x >= TW || y < band_y0 || y >= band_y1) return;
   uint16_t yy = (uint16_t)(y - band_y0);
   MASKWIN[(yy << 5) + (yy << 3) + ((uint16_t)x >> 3)] |= MASK_BIT[x & 7];
-  uint16_t r = (uint16_t)y >> 3;
-  uint8_t *g = &cls_grid[(r << 5) + (r << 3) + ((uint16_t)x >> 3)];
+  uint16_t r = (uint8_t)(((uint16_t)y >> 3) - cls_r0);
+  uint8_t *g = &CLSWIN[(r << 5) + (r << 3) + ((uint16_t)x >> 3)];
   if (c > *g) *g = c;
 }
 
@@ -140,15 +144,18 @@ static void build_band(void) {
 }
 
 void table_build_mask(void) {
-  for (uint16_t i = 0; i < (TH / 8) * 40; i++) cls_grid[i] = 0;
   for (uint16_t i = 0; i <= 160; i++) SQ[i] = i * i;
   for (band_y0 = 0; band_y0 < TH; band_y0 += WIN_ROWS) {
     band_y1 = band_y0 + WIN_ROWS;
     if (band_y1 > TH) band_y1 = TH;
     for (uint16_t i = 0; i < WIN_ROWS * 40; i++) MASKWIN[i] = 0;
+    for (uint16_t i = 0; i < CLS_ROWS * 40; i++) CLSWIN[i] = 0;
+    cls_r0 = (uint8_t)(band_y0 >> 3);
     build_band();
     dma_copy(CPUADDR(MASKWIN), MASK_FAR + (uint32_t)(uint16_t)band_y0 * 40,
              (uint16_t)(band_y1 - band_y0) * 40);
+    dma_copy(CPUADDR(CLSWIN), CLS_FAR + (uint16_t)cls_r0 * 40,
+             (uint16_t)(band_y1 - band_y0) * 5);   /* /8 Zeilen * 40 Byte */
     build_progress(0, (uint8_t)(band_y0 / WIN_ROWS));
   }
   win_y0 = -1000;                       /* Fenster ungueltig, naechster Zugriff laedt neu */
@@ -208,13 +215,11 @@ static uint8_t on_rubber(const int16_t *t, int16_t x, int16_t y) {
 static uint8_t art_px(int16_t x, int16_t y) {
   if (mask_solid(x, y)) {
     if (y >= 458 && y <= 528) {
-      if (x <= 96 && on_rubber(SLING_TRI[0], x, y)) return C_RUBBER;
-      if (x >= 204 && on_rubber(SLING_TRI[1], x, y)) return C_RUBBER;
+      if (x <= 96 && on_rubber(SLING_TRI[0], x, y)) return C_SLING0;
+      if (x >= 204 && on_rubber(SLING_TRI[1], x, y)) return C_SLING0 + 1;
     }
     uint8_t k = mask_class(x, y);
-    if (k >= M_TARGET + TGT_SID) return C_TARGET_SID;
-    if (k >= M_TARGET + TGT_6510) return C_TARGET_6510;
-    if (k >= M_TARGET) return C_TARGET_VIC;
+    if (k >= M_TARGET) return (uint8_t)(C_TGT0 + (k - M_TARGET));
     if (y > 0 && !mask_solid(x, y - 1)) return C_CHROME_HI;
     if (x > 0 && !mask_solid(x - 1, y)) return C_CHROME_MID;
     return C_CHROME_DK;
@@ -293,7 +298,7 @@ static void band_overlays(uint8_t *b) {
   for (uint8_t i = 0; i < N_BUMPERS; i++) {
     int16_t x = BUMPERS[i][0], y = BUMPERS[i][1];
     if (y + 14 < band_y0 || y - 14 >= band_y1) continue;
-    band_disc(b, x, y, 13, C_BUMPER_RING);
+    band_disc(b, x, y, 13, (uint8_t)(C_BUMP0 + i));
     band_disc(b, x, y, 9, C_C64_DARK);
     band_rect(b, x - 6, y - 3, 3, 5, C_C64_LIGHT);   /* "READY."-Andeutung */
     band_rect(b, x - 2, y - 3, 3, 5, C_C64_LIGHT);
@@ -305,6 +310,9 @@ static void band_overlays(uint8_t *b) {
     band_text(b, 149, 50, "6", 1, C_LABEL);
     band_text(b, 173, 50, "4", 1, C_LABEL);
   }
+  /* Lampen der oberen Lanes */
+  if (band_y0 < 66 && band_y1 > 56)
+    for (uint8_t i = 0; i < 3; i++) band_disc(b, 126 + 24 * i, 61, 4, (uint8_t)(C_TOP0 + i));
   /* Kick-Out-Hole "1541" */
   if (band_y0 < 254 && band_y1 > 220) {
     band_disc(b, 226, 232, 10, C_HOLE_RING);
@@ -319,7 +327,7 @@ static void band_overlays(uint8_t *b) {
     static const int16_t LX[4] = { 25, 52, 248, 275 };
     static const char *LL[4] = { "L", "O", "A", "D" };
     for (uint8_t i = 0; i < 4; i++) {
-      band_disc(b, LX[i], 460, 5, C_LAMP);
+      band_disc(b, LX[i], 460, 5, (uint8_t)(C_LOAD0 + i));
       band_text(b, LX[i] - 1, 458, LL[i], 1, C_BG);
     }
   }

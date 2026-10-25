@@ -25,8 +25,8 @@
  * einen von zwei kleinen Puffern geholt (je Flipper einer), das spart 4,4 KB. */
 #define SPAN_BYTES (4 * SROWS)
 #define SPAN_ADDR(p) (ATTIC_SPR + 0x38000UL + (uint16_t)(p) * SPAN_BYTES)
-static int8_t spb[2][SPAN_BYTES];
-static uint8_t spb_ph[2];
+static int8_t spb[N_FLIP][SPAN_BYTES];
+static uint8_t spb_ph[N_FLIP];
 static int8_t ph_row0[NPH], ph_row1[NPH];
 
 static const int8_t *span_get(uint8_t slot, uint8_t p) {
@@ -79,7 +79,7 @@ static void spans_init(void) {
     }
     dma_copy(CPUADDR(spb[0]), SPAN_ADDR(p), SPAN_BYTES);
   }
-  spb_ph[0] = spb_ph[1] = 0xFF;
+  for (uint8_t i = 0; i < N_FLIP; i++) spb_ph[i] = 0xFF;
 }
 
 static uint8_t phase_of(const flipper_t *f) {
@@ -115,7 +115,7 @@ static void draw_flipper_ph(const flipper_t *f, uint8_t p) {
   if (ya > ye) return;
   /* x-Bereich der Spalte relativ zum Drehpunkt (in Flipperrichtung gemessen) */
   int16_t c0 = cx0 - f->px, c7 = c0 + 7;
-  const int8_t *s0 = span_get(f != &flip[0], p), *s1 = s0 + SROWS, *i0 = s0 + 2 * SROWS, *i1 = s0 + 3 * SROWS;
+  const int8_t *s0 = span_get((uint8_t)(f - flip), p), *s1 = s0 + SROWS, *i0 = s0 + 2 * SROWS, *i1 = s0 + 3 * SROWS;
   uint8_t *row = COLBUF + ((uint16_t)(ya - ty0) << 3);
   for (int16_t y = ya; y <= ye; y++, row += 8) {
     uint8_t j = (uint8_t)(y - yb);
@@ -166,7 +166,7 @@ static int16_t buf_cam[2];
 static uint8_t need_r0[40], need_r1[40];
 /* Was steht in welchem Puffer? Damit muessen ruhende Flipper nicht in jedem
  * Bild neu gezeichnet werden. */
-static uint8_t drawn_phase[2][2];          /* gezeichnete Flipperphase, NONE = keine */
+static uint8_t drawn_phase[2][N_FLIP];          /* gezeichnete Flipperphase, NONE = keine */
 static uint8_t drawn_ball_on[2];
 static int16_t drawn_ball[2][4];           /* x0, y0, x1, y1 in Tischkoordinaten */
 
@@ -234,8 +234,12 @@ static void sprites_build(void) {
     }
 }
 
-static void blit_flipper(uint8_t i, uint8_t p, uint32_t fb, int16_t cam) {
-  const flipper_t *f = &flip[i];
+/* Der dritte Flipper nutzt die Bilder des rechten unteren (gleiche Form,
+ * gleiche Lage innerhalb der Zeichenspalte) */
+_Static_assert(((FLIP_R_X - 44) & 7) == ((FLIP3_X - 44) & 7), "Flipper 3 braucht dieselbe x-Lage mod 8");
+static void blit_flipper(uint8_t n, uint8_t p, uint32_t fb, int16_t cam) {
+  const flipper_t *f = &flip[n];
+  uint8_t i = f->side > 0 ? 0 : 1;
   int16_t xa = f->side > 0 ? f->px - 8 : f->px - 44;
   int16_t yt = f->py - 24, s0 = yt, s1 = yt + 47;
   if (s0 < cam) s0 = cam;
@@ -300,8 +304,8 @@ void render_frame(uint8_t b, int16_t cam) {
   int16_t bx = (int16_t)(ball.x >> 16), by = (int16_t)(ball.y >> 16);
   uint8_t ball_on = state != ST_DRAIN;
   int16_t nb[4] = { bx - 5, by - 5, bx + 5, by + 5 };
-  uint8_t redraw[2], phase[2];
-  for (uint8_t i = 0; i < 2; i++) {
+  uint8_t redraw[N_FLIP], phase[N_FLIP];
+  for (uint8_t i = 0; i < N_FLIP; i++) {
     phase[i] = phase_of(&flip[i]);
     redraw[i] = full || phase[i] != drawn_phase[b][i] ||
                 (drawn_ball_on[b] && overlaps(drawn_ball[b], &flip[i])) ||
@@ -318,7 +322,7 @@ void render_frame(uint8_t b, int16_t cam) {
     need_clear();
     if (drawn_ball_on[b])
       need_rect(drawn_ball[b][0], drawn_ball[b][1], drawn_ball[b][2], drawn_ball[b][3], cam);
-    for (uint8_t i = 0; i < 2; i++)
+    for (uint8_t i = 0; i < N_FLIP; i++)
       if (redraw[i]) { int16_t x0 = fb_x0(&flip[i]), y0 = flip[i].py - 24; need_rect(x0, y0, x0 + 52, y0 + 47, cam); }
     for (uint8_t c = 0; c < 40; c++) {
       uint8_t r0 = need_r0[c];
@@ -332,14 +336,14 @@ void render_frame(uint8_t b, int16_t cam) {
 
   /* 2./3. DMA-Weg: vorgezeichnete Bilder transparent einsetzen */
   if (use_dma) {
-    if (redraw[0]) blit_flipper(0, phase[0], fb, cam);
-    if (redraw[1]) blit_flipper(1, phase[1], fb, cam);
+    for (uint8_t i = 0; i < N_FLIP; i++)
+      if (redraw[i]) blit_flipper(i, phase[i], fb, cam);
     if (ball_on) blit_ball(bx, by, fb, cam);
   } else {
 
   /* 2. Was muss gezeichnet werden? */
   need_clear();
-  for (uint8_t i = 0; i < 2; i++) {
+  for (uint8_t i = 0; i < N_FLIP; i++) {
     if (!redraw[i]) continue;
     int16_t yb = flip[i].py - 24, xa = fb_x0(&flip[i]);
     need_rect(xa, yb + ph_row0[phase[i]], xa + 52, yb + ph_row1[phase[i]], cam);
@@ -356,15 +360,15 @@ void render_frame(uint8_t b, int16_t cam) {
     cx0 = (int16_t)c * 8;
     ty0 = cam + (int16_t)r0 * 8;
     ty1 = cam + (int16_t)r1 * 8 + 7;
-    if (redraw[0]) draw_flipper_col(&flip[0]);
-    if (redraw[1]) draw_flipper_col(&flip[1]);
+    for (uint8_t i = 0; i < N_FLIP; i++)
+      if (redraw[i]) draw_flipper_col(&flip[i]);
     if (ball_on) draw_ball_col(bx, by);
     dma_copy(CPUADDR(COLBUF), addr, len);
   }
   }
 
   /* 4. Merken, was jetzt in diesem Puffer steht */
-  for (uint8_t i = 0; i < 2; i++) drawn_phase[b][i] = phase[i];
+  for (uint8_t i = 0; i < N_FLIP; i++) drawn_phase[b][i] = phase[i];
   drawn_ball_on[b] = ball_on;
   for (uint8_t k = 0; k < 4; k++) drawn_ball[b][k] = nb[k];
 }
