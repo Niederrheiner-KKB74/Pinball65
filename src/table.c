@@ -81,8 +81,10 @@ static const int16_t SEGS[][5] = {
   {114, 34, 114, 70, M_WALL}, {138, 34, 138, 70, M_WALL},      /* Lanes C 6 4 */
   {162, 34, 162, 70, M_WALL}, {186, 34, 186, 70, M_WALL},
   {36, 258, 36, 420, M_WALL},             /* Fuehrung linker Orbit */
-  {40, 444, 40, 519, M_WALL}, {40, 519, 101, 557, M_WALL},     /* Inlane links */
-  {260, 444, 260, 519, M_WALL}, {260, 519, 199, 557, M_WALL},  /* Inlane rechts */
+  /* Inlanes (v4.2): Fuehrung endet knapp hinter dem Drehpunkt, sonst blieb der
+   * Ball oben auf dem Drehpunkt liegen und der Flipper traf ihn kaum */
+  {40, 444, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
+  {260, 444, 260, 519, M_WALL}, {260, 519, 191, 560, M_WALL},  /* Inlane rechts */
   {100, 567, 72, 640, M_WALL},
   {200, 567, 228, 640, M_WALL},
   {64, 462, 64, 504, M_WALL}, {64, 504, 92, 524, M_WALL},      /* Slingshot links */
@@ -94,6 +96,9 @@ static const int16_t SEGS[][5] = {
   {88, 308, 72, 268, M_WALL},             /* rechts */
   {36, 258, 72, 268, M_WALL},             /* oben zu: setzt das Einwegtor des Orbits nach rechts unten fort,
                                              sonst bildeten Tor und Deckel eine Mulde (Spielroboter) */
+  {88, 308, 110, 320, M_WALL},            /* Trichter der Einfahrt (v4.2): rechts weit ausgestellt ... */
+  {63, 317, 56, 330, M_WALL},             /* ... links etwas */
+  {38, 316, 46, 326, M_WALL},             /* Dach ueber den VIC-II-Targets (wie bei SID) */
   {290, 314, 280, 326, M_WALL},           /* Dach ueber den SID-Targets: sonst blieb der Ball unter
                                              dem dritten Flipper auf dem obersten Target liegen */
   {12, 236, 34, 256, M_GATE_UP},          /* Einwegtor linker Orbit */
@@ -111,9 +116,10 @@ static const int16_t SLING_TRI[2][6] = {
  * senkrecht wirkt (im PC-Test blieb der Ball zwischen zwei Targets liegen).
  */
 static const int16_t TARGETS[N_TARGETS][4] = {
-  {88, 228, 96, 242}, {97, 244, 106, 259}, {107, 261, 116, 276},     /* VIC-II */
-  {112, 306, 126, 302}, {128, 301, 142, 297}, {144, 296, 158, 292},  /* 6510 */
-  {160, 291, 174, 287},
+  /* VIC-II (v4.2): links, genau gegenueber den SID-Targets */
+  {46, 328, 46, 344}, {46, 356, 46, 372}, {46, 384, 46, 400},
+  /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
+  {200, 266, 206, 275}, {207, 276, 213, 285}, {213, 287, 219, 296}, {220, 297, 226, 306},
   {280, 328, 280, 344}, {280, 356, 280, 372}, {280, 384, 280, 400},  /* SID */
 };
 
@@ -353,8 +359,8 @@ static void band_overlays(uint8_t *b) {
   }
   /* Spinner quer in der schraegen Einfahrt: vier Streifen, deren Farben wandern */
   if (band_y0 < SPIN_Y + 14 && band_y1 > SPIN_Y - 14) band_spinner(b);
-  if (band_y0 < 290 && band_y1 > 280) band_text(b, 96, 282, "VIC-II", 1, C_TARGET_VIC);
-  if (band_y0 < 318 && band_y1 > 308) band_text(b, 136, 310, "6510", 1, C_TARGET_6510);
+  if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
+  if (band_y0 < 290 && band_y1 > 280) band_text(b, 178, 282, "6510", 1, C_TARGET_6510);
   if (band_y0 < 420 && band_y1 > 408) band_text(b, 272, 410, "SID", 1, C_TARGET_SID);
   /* Lampen L O A D */
   if (band_y0 < 470 && band_y1 > 450) {

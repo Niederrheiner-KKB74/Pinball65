@@ -273,6 +273,34 @@ static void flipper_sweep(void) {
   }
 }
 
+/* Realistischer: Ball auf dem hochgehaltenen rechten Flipper fangen, loslassen,
+ * nach T Bildern schlagen (der Ball rollt dabei Richtung Spitze) */
+static void cradle_sweep(int left) {
+  input_t in;
+  char line[48]; int k = 0, hits = 0;
+  int hist[16] = {0};
+  for (int T = 0; T < 40; T++) {
+    phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+    ball.x = (left ? 120L : 180L) << 16; ball.y = 500L << 16; ball.vx = ball.vy = 0;
+    int got = 0;
+    for (int f = 0; f < 400 && state == ST_PLAY; f++) {
+      memset(&in, 0, sizeof in);
+      int hold = f < 80 || (f >= 80 + T && f < 92 + T);
+      if (left) in.left = (uint8_t)hold; else in.right = (uint8_t)hold;
+      fix16 py0 = ball.y;
+      game_frame(&in);
+      if (on_ramp) { got = 1; break; }
+      if (getenv("CTRACE") && T == atoi(getenv("CTRACE")) && (f % 4) == 0 && f > 60 && f < 160)
+        printf("      f=%d x=%ld y=%ld vx=%.2f vy=%.2f fl=%d\n", f, (long)(ball.x >> 16), (long)(ball.y >> 16), ball.vx / 65536.0, ball.vy / 65536.0, flip[left ? 0 : 1].ang >> 8);
+      if (f > 80 && py0 >= (310L << 16) && ball.y < (310L << 16)) { int b = (int)(ball.x >> 16) / 20; if (b >= 0 && b < 16) hist[b]++; }
+    }
+    hits += got; line[k++] = got ? '#' : '.';
+  }
+  line[k] = 0;
+  printf("   %s Flipper gefangen, Schlag nach T=0..39: %s (%d Treffer)\n", left ? "linker " : "rechter", line, hits);
+  printf("   ueber y 310 nach x:"); for (int b = 0; b < 16; b++) printf(" %d", hist[b]); printf("\n");
+}
+
 extern int host_no_trans;
 #include <stdlib.h>
 #include <math.h>
@@ -333,6 +361,8 @@ int main(void) {
   for (double v = 0.6; v <= 3.6; v += 0.4) ramp_shot(v);
   kick_test();
   flipper_sweep();
+  cradle_sweep(0);
+  cradle_sweep(1);
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);
