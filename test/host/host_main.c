@@ -45,6 +45,7 @@ int main(void) {
   tables_init();
   hw_init();
   table_build_palette();
+  dmd_init();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES);
   dma_fill(FB_B, C_BG, 40 * COL_BYTES);
   dmd_text("SEARCHING FOR *", "LOADING");

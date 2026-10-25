@@ -90,6 +90,12 @@ void wait_vblank(void) {
   while (raster_line() < 251) {}
 }
 
+/* Das Flag in $D019 wird gesetzt, wenn der Raster die Vergleichszeile 251
+ * erreicht, auch bei gesperrten Interrupts. Damit erkennen wir Bilder, die
+ * laenger als 312 Zeilen dauern (der Rasterzaehler allein laeuft dabei ueber). */
+void frame_mark(void) { VICIV.irr = 0x01; }
+uint8_t frame_overran(void) { return VICIV.irr & 0x01; }
+
 uint8_t key_col(uint8_t col) {
   CIA1.ddra = 0xFF;
   CIA1.pra = (uint8_t)~(1u << col);
@@ -145,6 +151,11 @@ void hw_init(void) {
                                       : (uint16_t)(base + c * VIEW_ROWS + (r - DISP_ROWS));
     dma_copy(CPUADDR(ROWBUF), buf ? MAP_B : MAP_A, 2000);
   }
+
+  /* Raster-Vergleich auf Zeile 251 (Bit 8 = 0), Interrupts bleiben aus */
+  VICIV.imr = 0;
+  VICIV.ctrl1 &= 0x7F;
+  VICIV.rasterline = 251;
 
   CIA1.ddra = 0xFF;
   CIA1.ddrb = 0x00;

@@ -106,9 +106,25 @@ static uint16_t code_sum(void) {
   return sum;
 }
 
+/* Im Spiel: 512 Byte pro Bild pruefen statt alles auf einmal (keine Spitze) */
+static void code_check_fail(const char *where);
+static void code_check_step(void) {
+  static const uint8_t *p;
+  static uint16_t sum;
+  if (!p) { p = (const uint8_t *)0x2001; sum = 0; }
+  for (uint16_t n = 0; n < 512 && p < (const uint8_t *)__data_start; n++, p++)
+    sum = (uint16_t)((sum << 1) | (sum >> 15)) ^ *p;
+  if (p >= (const uint8_t *)__data_start) {
+    if (sum != code_sum0) code_check_fail("IM SPIEL");
+    p = 0;
+  }
+}
+
 /* Haelt das Programm an, wenn der Code veraendert wurde */
 static void code_check(const char *where) {
-  if (code_sum() == code_sum0) return;
+  if (code_sum() != code_sum0) code_check_fail(where);
+}
+static void code_check_fail(const char *where) {
   VICIV.bordercol = 2;
   dmd_text("?CODE CHANGED  ERROR", where);
   dmd_flush();
@@ -131,6 +147,7 @@ int main(void) {
   tables_init();
   hw_init();
   table_build_palette();
+  dmd_init();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES); /* Tischbereich dunkel */
   dma_fill(FB_B, C_BG, 40 * COL_BYTES);
   dma_fill(DISP_ADDR, C_DMD_BG, DISP_ROWS * ROW_BYTES);
@@ -142,7 +159,7 @@ int main(void) {
     VICIV.bordercol = 2;
     for (;;) {}
   }
-  dmd_text("SEARCHING FOR *", "LOADING  V2.5");
+  dmd_text("SEARCHING FOR *", "LOADING  V2.6");
   dmd_flush();
   code_check("NACH ATTIC-TEST");
 
@@ -154,12 +171,12 @@ int main(void) {
   code_check("NACH AUFBAU");
 
   uint8_t front = 0;
-  uint8_t check_tick = 0;
   uint16_t load = 0, lmax = 0, lmax_run = 0, bgmax = 0, bgmax_run = 0;
   uint8_t max_tick = 0;
   input_t in;
   for (;;) {
     wait_vblank();
+    frame_mark();
     show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */
     read_input(&in);
     game_frame(&in);
@@ -168,10 +185,11 @@ int main(void) {
     render_frame(back, cam);
     update_display(load, lmax, bgmax);
     dmd_render();                       /* jedes Bild hoechstens eine Zeichenzeile */
-    if (++check_tick == 250) { check_tick = 0; code_check("IM SPIEL"); }   /* alle 5 s */
+    code_check_step();
     front = back;
     uint16_t l = raster_line();         /* Auslastung: Rasterzeilen seit Zeile 251 */
     load = l >= 251 ? l - 251 : l + 312 - 251;
+    if (frame_overran()) load += 312;    /* Bild dauerte laenger als 312 Zeilen */
     /* Hoechstwerte der letzten Sekunde (50 Bilder) */
     if (load > lmax_run) lmax_run = load;
     if (render_bg_lines > bgmax_run) bgmax_run = render_bg_lines;

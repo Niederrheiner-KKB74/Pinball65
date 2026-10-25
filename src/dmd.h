@@ -14,6 +14,8 @@
 
 extern const uint8_t FONT5X7[59][7];
 
+/* Legt die leere Punktzeile im Chip-RAM an (einmal nach hw_init) */
+void dmd_init(void);
 /* Setzt beide Zeilen (NULL = leer); Text wird zentriert */
 void dmd_text(const char *l1, const char *l2);
 /* Zeichnet hoechstens eine geaenderte Zeichenzeile (fuer jedes Bild) */

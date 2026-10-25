@@ -29,6 +29,7 @@
 #define DISP_ADDR   0x5A400UL   /* Display: 4 x 40 Zeichen, zeilenweise */
 #define MAP_A       0x5CC00UL   /* Bildschirmkarte A (1000 x 2 Byte) */
 #define MAP_B       0x5D400UL   /* Bildschirmkarte B */
+#define DMD_TPL     0x5DC00UL   /* Vorlage: eine Display-Zeichenzeile, alle Punkte aus */
 #define FB_A_CHAR   0x1000u     /* = FB_A / 64 */
 #define FB_B_CHAR   0x1348u     /* = FB_B / 64 */
 #define DISP_CHAR   0x1690u     /* = DISP_ADDR / 64 */
@@ -59,6 +60,9 @@ void set_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void show_buffer(uint8_t b);
 uint16_t raster_line(void);
 void wait_vblank(void);
+/* Ueberlauf-Erkennung: Raster-Vergleichsflag bei Zeile 251 */
+void frame_mark(void);          /* direkt nach wait_vblank aufrufen */
+uint8_t frame_overran(void);    /* 1 = Zeile 251 wurde seitdem erneut erreicht */
 
 /* Tastaturmatrix (C64-Belegung): Spalte 0..7, liefert gedrueckte Zeilen als Bits */
 uint8_t key_col(uint8_t col);
