@@ -46,12 +46,14 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 3.1 (Lader) | – | hängt im KERNAL bei PC=$E65A beim Nachladen |
 | 25.10.2026 | Meilenstein 3.2 (Lader) | – | Rahmen weiß (= Farbe 5 unserer Palette, also im Laden), hängt wieder bei $E65A |
 | 25.10.2026 | Meilenstein 3.3 (Lader) | – | Rahmen grün, hängt weiter bei $E65A |
+| 25.10.2026 | Meilenstein 3.4 (Lader) | Nachladen funktioniert | Nachladen funktioniert |
 | 25.10.2026 | Meilenstein 3.0 | Effekte zu hören, Lampen richtig, dritter Flipper gut spielbar, MAX bis 258 | – |
 | 25.10.2026 | Meilenstein 2.7 | L 499, MAX 452, UEB 49; P 9, S 59, Z 15, D 57 – Überlauf-Meldung falsch, echte Last höchstens etwa 190 Zeilen | – |
 
 Erkenntnisse:
 - Nicht nach `$00` schreiben, um 40 MHz einzuschalten. Im C65-Modus ist das bereits der Standard.
 - llvm-mos belegt die Zeropage von BASIC, daher kehrt das Programm nicht ins BASIC zurück.
+- **KERNAL aus eigenen Programmen aufrufen** (v3.1–3.4): Das KERNAL braucht seine ganze Zeropage, den Bereich $1000–$15FF, Z = 0 und den DMA-Baustein im F018A-Format. Erst als der Lader Zeropage und $0800–$1FFF sicherte und vor dem LOAD zurückschrieb, lief das Nachladen (Hinweis auf $1000–$15FF aus dem Vyper-Projekt).
 - Der Hardware-Multiplizierer liefert sofort korrekte Ergebnisse, ohne Warten.
 - Die Physik rechnet auf MEGA65, Xemu und PC bitgleich. Damit lassen sich Physikänderungen im PC-Test vorab prüfen.
 - Ein Bild braucht etwa 100 von 312 Rasterzeilen, also rund ein Drittel der verfügbaren Zeit.
