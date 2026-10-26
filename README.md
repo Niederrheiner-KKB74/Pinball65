@@ -12,7 +12,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bestanden (25.10.2026), v2.10 |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | bestanden (25.10.2026), v3.0 |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | bestanden (26.10.2026), v4.3 |
-| 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
+| 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | läuft; v5.0 zum Test |
 | 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
 
 ## Testumgebung
@@ -103,6 +103,18 @@ Ergebnis: `build\pinball65.d81` mit den Programmen `PINBALL65` (Lader), `PB65GAM
 2. Am MEGA65 eingeben: `RUN "PINBALL65"`
 
 In Xemu: `xmega65 -8 build\pinball65.d81`, danach ebenfalls `RUN "PINBALL65"`.
+
+### Meilenstein 5: Bedienung und Test
+
+Plan (abgestimmt am 26.10.2026): v5.0 Tischänderung L/D und Messung, v5.1 Missionen, v5.2 Multiball „RUN/STOP“, v5.3 Display-Animationen, SID-Musik, Highscore.
+
+Missionen: Die oberen Lanes C 6 4 komplett machen `MISSION READY`, das Kick-Out-Hole startet die nächste Mission (45 Sekunden): „FORMAT DISK“ (dreimal Kick-Out-Hole), „SYS 64738“ (dreimal Rampe), „PEEK & POKE“ (Kick-Out-Hole und Spinner im Wechsel), „LOAD ERROR“ (L O A D komplett). Multiball, wenn VIC-II, 6510 und SID je einmal komplett waren.
+
+Neu in v5.0:
+- **L O A D**: L und D sind jetzt Einzel-Targets auf dem Tisch (links bei x 92–102, rechts bei x 218–228, y 372–386), O und A bleiben die Inlanes. Die Out-Lanes zählen nicht mehr, L O A D ist ohne Ballverlust zu schaffen. Die L O A D-Lampen wandern nicht mehr mit den Flipperknöpfen (nur noch C 6 4).
+- **Rampenende**: Der Ball fällt jetzt senkrecht auf den dritten Flipper und rollt über dessen Spitze nach links unten zum linken Flipper (mit dem schrägen Abwurf aus v4.3 hätte er das D-Target getroffen und wäre in die rechte Out-Lane gesprungen).
+- **Messwerte (Taste D)**: feiner aufgeteilt. Zeile 1: `L`, `MAX`, `P` Physik (Eingabe, Bewegung, Kamera), `R` Regeln (Punkte, Lampen, Klang). Zeile 2: `S` Hintergrund, `Z` Flipper und Ball, `T` Displaytext, `D` Display zeichnen, `C` Prüfsumme. Damit lässt sich vor dem Multiball sehen, wo die Zeit hingeht.
+- **Schnellere Physik**, Ergebnis bitgleich: ruhende Flipper werden übersprungen, Flipper und Bumper haben eine schnelle Vorprüfung in ganzen Pixeln. Im 6502-Simulator (Profil mit `make -C test/sim prof`) kostet die Physik im Mittel rund 90.000 Zyklen pro Bild ohne Multiplikation.
 
 ### Meilenstein 4: Bedienung und Test
 

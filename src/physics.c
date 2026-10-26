@@ -153,7 +153,10 @@ static void collide_mask(void) {
 
 /* ---------- Bumper ---------- */
 static void collide_bumpers(void) {
+  int16_t px = (int16_t)(ball.x >> 16), py = (int16_t)(ball.y >> 16);
   for (uint8_t i = 0; i < N_BUMPERS; i++) {
+    int16_t q = BALL_R + BUMPERS[i][2] + 1, ex16 = px - BUMPERS[i][0], ey16 = py - BUMPERS[i][1];
+    if (ex16 > q || ex16 < -q - 1 || ey16 > q || ey16 < -q - 1) continue;   /* wie unten, nur schneller */
     fix16 bx = (fix16)BUMPERS[i][0] << 16, by = (fix16)BUMPERS[i][1] << 16;
     int16_t rr = BALL_R + BUMPERS[i][2];
     fix16 dx = ball.x - bx, dy = ball.y - by;
@@ -182,6 +185,8 @@ uint8_t flip_dir(const flipper_t *f) {
 }
 
 static void update_flipper(flipper_t *f) {
+  /* Ruhender Flipper (haeufigster Fall): Ergebnis waere unveraendert */
+  if (!f->pressed && f->ang == F_REST * 256) { f->w = 0; return; }
   int16_t prev = f->ang;
   if (f->pressed) { f->ang -= FLIP_SPEED; if (f->ang < F_UP * 256) f->ang = F_UP * 256; }
   else { f->ang += FLIP_DOWN; if (f->ang > F_REST * 256) f->ang = F_REST * 256; }
@@ -189,6 +194,10 @@ static void update_flipper(flipper_t *f) {
 }
 
 static void collide_flipper(const flipper_t *f) {
+  /* Schnelle Vorpruefung in ganzen Pixeln (16 Bit); sie verwirft nur, was die
+   * genaue Pruefung darunter ebenfalls verwerfen wuerde */
+  int16_t ex16 = (int16_t)(ball.x >> 16) - f->px, ey16 = (int16_t)(ball.y >> 16) - f->py;
+  if (ex16 > 49 || ex16 < -50 || ey16 > 49 || ey16 < -50) return;
   fix16 pX = (fix16)f->px << 16, pY = (fix16)f->py << 16;
   fix16 ex = ball.x - pX, ey = ball.y - pY;
   const fix16 lim = (fix16)(F_LEN + F_R0 + BALL_R + 2) << 16;
@@ -252,7 +261,7 @@ static void ramp_step(void) {
     on_ramp = 0;
     ball.x = RAMP_EXIT_X;
     ball.y = RAMP_EXIT_Y;
-    ball.vx = -16384L;                     /* faellt sanft auf den dritten Flipper */
+    ball.vx = 0;                           /* faellt sanft auf den dritten Flipper */
     ball.vy = 16384L;
     ev_ramp |= EV_RAMP_DONE;
   } else ramp_place();

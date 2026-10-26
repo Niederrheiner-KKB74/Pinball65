@@ -8,7 +8,8 @@
  *          L O A D komplett: 25.000.
  * Bonus:   jedes neu angeschaltete Target oder jede Lane 1.000, am Ballende
  *          mal Multiplikator.
- * Flipperknopf: Lampen der oberen Lanes und L O A D wandern (Lane-Wechsel).
+ * Flipperknopf: Lampen der oberen Lanes wandern (Lane-Wechsel).
+ * L O A D (v5.0): L und D sind Einzel-Targets, O und A die Inlanes.
  * Meilenstein 4:
  *          Rampe "FAST LOADER": 5.000, 10.000, ... bis 25.000 je Ball.
  *          Kick-Out-Hole "1541": haelt den Ball (Laufwerksgeraeusch), dann 3.000.
@@ -126,7 +127,9 @@ void game_input(input_t *in) {
 }
 
 /* Ziel i getroffen */
+static void low_lane(uint8_t i);
 static void target_hit(uint8_t i) {
+  if (i >= TGT_LD) { low_lane(i == TGT_LD ? 0 : 3); return; }   /* Targets L und D */
   static const uint16_t GROUP_MASK[3] = { 0x007, 0x078, 0x380 };
   static const char *GROUP_NAME[3] = { "VIC-II READY", "6510 READY", "SID READY" };
   static const uint16_t GROUP_PTS[3] = { 10000, 20000, 10000 };
@@ -184,12 +187,10 @@ void game_update(const input_t *in) {
   /* Lane-Wechsel und Flipperklang beim Druecken */
   if (in->left && !prev_l) {
     top_lit = (uint8_t)((top_lit >> 1) | ((top_lit & 1) << 2));
-    load_lit = (uint8_t)((load_lit >> 1) | ((load_lit & 1) << 3));
     snd_play(SND_FLIPPER);
   }
   if (in->right && !prev_r) {
     top_lit = (uint8_t)(((top_lit << 1) & 7) | (top_lit >> 2));
-    load_lit = (uint8_t)(((load_lit << 1) & 15) | (load_lit >> 3));
     snd_play(SND_FLIPPER);
   }
   prev_l = in->left;
@@ -238,9 +239,8 @@ void game_update(const input_t *in) {
     if ((prev_y < TOPLANE_Y) != (y < TOPLANE_Y) && x > TOPLANE_X0 && x < TOPLANE_X0 + 72)
       top_lane(x < TOPLANE_X0 + 24 ? 0 : x < TOPLANE_X0 + 48 ? 1 : 2);
     if (prev_y < LOWLANE_Y && y >= LOWLANE_Y) {
-      if (x < 40) low_lane(0);
-      else if (x < 64) low_lane(1);
-      else if (x > 260 && x < 290) low_lane(3);
+      /* v5.0: O und A an den Inlanes; L und D sind Targets, die Out-Lanes zaehlen nicht */
+      if (x >= 40 && x < 64) low_lane(1);
       else if (x > 236 && x <= 260) low_lane(2);
     }
   }

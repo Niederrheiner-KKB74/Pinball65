@@ -8,6 +8,7 @@
 #include <string.h>
 #include "hw.h"
 #include "fixmath.h"
+#include "table.h"
 
 struct sim_vic VICIV;
 uint8_t sim_rowbuf[2560], sim_colbuf[1344], sim_maskwin[1920], sim_clswin[280];
@@ -88,7 +89,18 @@ uint8_t attic_ok(void) { return 1; }
 uint8_t key_col(uint8_t c) { (void)c; return 0; }
 uint8_t joy2(void) { return 0; }
 
-fix16 fmul(fix16 a, fix16 b) { return fmul_sw(a, b); }
-int32_t mul32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a * (uint32_t)b); }
+/* Zaehler fuer das Laufzeitprofil (prof_main.c): Zeit in der Software-
+ * Multiplikation, die auf dem MEGA65 die Hardware erledigt */
+uint32_t fmul_cycles, fmul_calls, mul32_calls;
+static uint32_t cyc(void) {
+  volatile uint8_t *c = (uint8_t *)0xFFF0;
+  return c[0] | ((uint32_t)c[1] << 8) | ((uint32_t)c[2] << 16) | ((uint32_t)c[3] << 24);
+}
+fix16 fmul(fix16 a, fix16 b) {
+  uint32_t t = cyc(); fix16 r = fmul_sw(a, b); fmul_cycles += cyc() - t; fmul_calls++; return r;
+}
+int32_t mul32(int32_t a, int32_t b) {
+  uint32_t t = cyc(); int32_t r = (int32_t)((uint32_t)a * (uint32_t)b); fmul_cycles += cyc() - t; mul32_calls++; return r;
+}
 void build_progress(uint8_t phase, uint8_t step) { (void)phase; (void)step; }
 uint16_t raster_diff(uint16_t a, uint16_t b) { return b >= a ? b - a : b + 312 - a; }

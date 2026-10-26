@@ -9,4 +9,11 @@ run: simtest
 	mos-sim simtest
 clean:
 	rm -f simtest simtest.elf
-.PHONY: run clean
+# Laufzeitprofil der Physik (Kollisionsmaske ab Tischzeile 400 nachgebildet)
+PROF_SRC := prof_main.c $(filter-out sim_main.c,$(SRC))
+proftest: $(PROF_SRC) $(wildcard ../../src/*.h) mega65.h
+	$(CC) -Oz -DSIM_COLRAM -DSIM_MASK_FROM=400 -DPB_BUILDER -I . -I ../../src -include mega65.h -o $@ $(PROF_SRC)
+prof: proftest
+	mos-sim --profile proftest 2> profile.txt
+	python3 ../../tools/sim_profile.py proftest.elf profile.txt | head -30
+.PHONY: run clean prof

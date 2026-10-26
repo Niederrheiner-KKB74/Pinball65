@@ -57,7 +57,9 @@ static void read_input(input_t *in) {
 
 /* Display-Text je nach Spielzustand (Texte im C64-Stil, Debugwerte unten) */
 /* Messwerte: Aufteilung des langsamsten Bildes der letzten Sekunde (Rasterzeilen) */
-enum { T_PHYS, T_SCROLL, T_DRAW, T_DMD, T_N };
+/* P Physik (Eingabe, game_frame, Kamera), R Regeln (game_update, Lampen, Klang),
+ * S Hintergrund, Z Flipper/Ball, T Displaytext, D Display zeichnen, C Pruefsumme */
+enum { T_PHYS, T_RULES, T_SCROLL, T_DRAW, T_TEXT, T_DMD, T_CHK, T_N };
 static uint16_t tmax[T_N], tmax_run[T_N];
 
 static uint8_t diag_on;
@@ -119,15 +121,14 @@ static void update_display(uint16_t load, uint16_t lmax) {
     p = dmd_put(p, "X  ");
     put_load(p, load, lmax);
   } else {
-    put_load(l1, load, lmax);
-    p = dmd_put(l2, "P");
-    p = dmd_num(p, tmax[T_PHYS], 3);
-    p = dmd_put(p, " S");
-    p = dmd_num(p, tmax[T_SCROLL], 3);
-    p = dmd_put(p, " Z");
-    p = dmd_num(p, tmax[T_DRAW], 3);
-    p = dmd_put(p, " D");
-    dmd_num(p, tmax[T_DMD], 3);
+    /* Zeile 1: L MAX P R, Zeile 2: S Z T D C (langsamstes Bild der letzten Sekunde) */
+    static const char LET[T_N] = { 'P', 'R', 'S', 'Z', 'T', 'D', 'C' };
+    p = put_load(l1, load, lmax);
+    for (uint8_t k = 0; k < T_N; k++) {
+      if (k == T_SCROLL) p = l2; else *p++ = ' ';
+      *p++ = LET[k];
+      p = dmd_num(p, tmax[k], 3);
+    }
   }
   dmd_text(l1, l2);
 }
@@ -217,21 +218,27 @@ int main(void) {
     if (in.diag) diag_on ^= 1;
     game_input(&in);
     game_frame(&in);
-    game_update(&in);
     int16_t cam = camera_update();
+    uint16_t ta = raster_line();
+    game_update(&in);
     uint16_t t1 = raster_line();
     uint8_t back = front ^ 1;
     render_frame(back, cam);
     uint16_t t2 = raster_line();
     update_display(load, lmax);
+    uint16_t tb = raster_line();
     dmd_render();                       /* jedes Bild hoechstens eine Zeichenzeile */
+    uint16_t tc = raster_line();
     code_check_step();
     uint16_t t3 = raster_line();
     uint16_t sect[T_N];
-    sect[T_PHYS] = raster_diff(t0, t1);
+    sect[T_PHYS] = raster_diff(t0, ta);
+    sect[T_RULES] = raster_diff(ta, t1);
+    sect[T_TEXT] = raster_diff(t2, tb);
+    sect[T_CHK] = raster_diff(tc, t3);
     sect[T_SCROLL] = render_bg_lines;
     sect[T_DRAW] = raster_diff(t1, t2) - render_bg_lines;
-    sect[T_DMD] = raster_diff(t2, t3);
+    sect[T_DMD] = raster_diff(tb, tc);
     front = back;
     /* Auslastung: Summe der Abschnitte, jeder innerhalb eines Bildes gemessen.
      * (v2.6/2.7 nutzten das Raster-Vergleichsflag; das loeste auf dem VIC-IV

@@ -93,6 +93,12 @@ static void rules_test(void) {
   in.right = 1; game_update(&in); in.right = 0; game_update(&in);
   check("nach rechts: Lampe 6 an", pal[C_TOP0 + 1][0], 255);
   check("nach rechts: Lampe C aus", pal[C_TOP0][0], 100);
+  /* L und D sind Targets (v5.0), die Out-Lanes zaehlen nicht mehr */
+  ev_target = 1u << TGT_LD; game_update(&in); ev_target = 0;
+  check("Target L: Lampe L an", pal[C_LOAD0][0], 255);
+  ball.x = 20L << 16; ball.y = 460L << 16; game_update(&in);
+  ball.y = 480L << 16; game_update(&in);
+  check("Out-Lane zaehlt nicht: D bleibt aus", pal[C_LOAD0 + 3][0], 100);
   /* Ballende: Bonus = Zaehler * 1000 * Multiplikator */
   uint32_t s1 = score; uint16_t b = bonus; uint8_t m = mult;
   state = ST_DRAIN; game_update(&in);
@@ -188,6 +194,7 @@ static void ramp_shot(double v) {
     if (ev_ramp & EV_RAMP_DONE) done = (int)f;
     if (ev_ramp & EV_RAMP_BACK) back = (int)f;
     game_update(&in);
+    if (done && getenv("RTRACE") && (f - done) % 4 == 0 && (f - done) < 120) printf("      +%ld: %ld %ld\n", f - done, (long)(ball.x >> 16), (long)(ball.y >> 16));
     if (done && xs < 0 && (ball.y >> 16) >= 540) { xs = (int16_t)(ball.x >> 16); break; }
     if (back && (ball.y >> 16) > 420) break;
     if (state != ST_PLAY) break;
