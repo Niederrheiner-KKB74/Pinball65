@@ -28,7 +28,8 @@
 #define TGT_VIC   0           /* 3 Targets V, I, C */
 #define TGT_6510  3           /* 4 Targets 6, 5, 1, 0 */
 #define TGT_SID   7           /* 3 Targets S, I, D */
-#define N_TARGETS 10
+#define TGT_LD    10          /* 2 Einzel-Targets L und D (v5.0, vorher Out-Lanes) */
+#define N_TARGETS 12
 
 /* Flipper */
 #define F_LEN   36
