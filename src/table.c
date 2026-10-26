@@ -123,8 +123,6 @@ static const int16_t TARGETS[N_TARGETS][4] = {
   /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
   {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
   {280, 328, 280, 344}, {280, 356, 280, 372}, {280, 384, 280, 400},  /* SID */
-  /* L und D (v5.0): Einzel-Targets, schraeg zum gegenueberliegenden Flipper gerichtet */
-  {92, 386, 102, 372}, {228, 386, 218, 372},
 };
 
 /* Beim Aufbau: Band, in das gerade gezeichnet wird */
@@ -245,7 +243,6 @@ static uint8_t art_px(int16_t x, int16_t y) {
       if (x >= 204 && on_rubber(SLING_TRI[1], x, y)) return C_SLING0 + 1;
     }
     uint8_t k = mask_class(x, y);
-    if (k >= M_TARGET + TGT_LD) return (uint8_t)(k == M_TARGET + TGT_LD ? C_LOAD0 : C_LOAD0 + 3);
     if (k >= M_TARGET) return (uint8_t)(C_TGT0 + (k - M_TARGET));
     if (y > 0 && !mask_solid(x, y - 1)) return C_CHROME_HI;
     if (x > 0 && !mask_solid(x - 1, y)) return C_CHROME_MID;
@@ -367,12 +364,13 @@ static void band_overlays(uint8_t *b) {
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
   if (band_y0 < 420 && band_y1 > 408) band_text(b, 272, 410, "SID", 1, C_TARGET_SID);
-  /* Lampen L O A D: O und A an den Inlanes, L und D neben ihren Targets (v5.0) */
+  /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */
   {
-    static const int16_t LX[4] = { 84, 52, 248, 236 }, LY[4] = { 396, 460, 460, 396 };
+    static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_Y, 460, 460, ROLL_Y };
     static const char *LL[4] = { "L", "O", "A", "D" };
     for (uint8_t i = 0; i < 4; i++) {
       if (band_y0 >= LY[i] + 6 || band_y1 <= LY[i] - 6) continue;
+      if (i == 0 || i == 3) band_disc(b, LX[i], LY[i], ROLL_R, C_CHROME_MID);   /* Chromring */
       band_disc(b, LX[i], LY[i], 5, (uint8_t)(C_LOAD0 + i));
       band_text(b, LX[i] - 1, LY[i] - 2, LL[i], 1, C_BG);
     }

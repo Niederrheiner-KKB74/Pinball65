@@ -9,7 +9,7 @@
  * Bonus:   jedes neu angeschaltete Target oder jede Lane 1.000, am Ballende
  *          mal Multiplikator.
  * Flipperknopf: Lampen der oberen Lanes wandern (Lane-Wechsel).
- * L O A D (v5.0): L und D sind Einzel-Targets, O und A die Inlanes.
+ * L O A D: L und D sind Roll-Over-Kontakte auf dem Tisch (v5.1), O und A die Inlanes.
  * Meilenstein 4:
  *          Rampe "FAST LOADER": 5.000, 10.000, ... bis 25.000 je Ball.
  *          Kick-Out-Hole "1541": haelt den Ball (Laufwerksgeraeusch), dann 3.000.
@@ -129,7 +129,6 @@ void game_input(input_t *in) {
 /* Ziel i getroffen */
 static void low_lane(uint8_t i);
 static void target_hit(uint8_t i) {
-  if (i >= TGT_LD) { low_lane(i == TGT_LD ? 0 : 3); return; }   /* Targets L und D */
   static const uint16_t GROUP_MASK[3] = { 0x007, 0x078, 0x380 };
   static const char *GROUP_NAME[3] = { "VIC-II READY", "6510 READY", "SID READY" };
   static const uint16_t GROUP_PTS[3] = { 10000, 20000, 10000 };
@@ -235,6 +234,17 @@ void game_update(const input_t *in) {
       snd_play(SND_BUMPER);
     }
     if (kick_timer && (kick_timer & 7) == 0) snd_play(SND_DRIVE);
+    /* Roll-Over-Kontakte L und D: zaehlen beim Hineinrollen, erst wieder nach Verlassen */
+    {
+      static uint8_t inside;
+      uint8_t now = 0;
+      if (!on_ramp && y > ROLL_Y - ROLL_R && y < ROLL_Y + ROLL_R) {
+        if (x > ROLL_LX - ROLL_R && x < ROLL_LX + ROLL_R) now = 1;
+        else if (x > ROLL_DX - ROLL_R && x < ROLL_DX + ROLL_R) now = 2;
+      }
+      if (now && now != inside) low_lane(now == 1 ? 0 : 3);
+      inside = now;
+    }
     /* Rollover: Ball ueberquert die Zaehllinie */
     if ((prev_y < TOPLANE_Y) != (y < TOPLANE_Y) && x > TOPLANE_X0 && x < TOPLANE_X0 + 72)
       top_lane(x < TOPLANE_X0 + 24 ? 0 : x < TOPLANE_X0 + 48 ? 1 : 2);

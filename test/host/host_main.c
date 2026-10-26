@@ -94,8 +94,8 @@ static void rules_test(void) {
   check("nach rechts: Lampe 6 an", pal[C_TOP0 + 1][0], 255);
   check("nach rechts: Lampe C aus", pal[C_TOP0][0], 100);
   /* L und D sind Targets (v5.0), die Out-Lanes zaehlen nicht mehr */
-  ev_target = 1u << TGT_LD; game_update(&in); ev_target = 0;
-  check("Target L: Lampe L an", pal[C_LOAD0][0], 255);
+  ball.x = (long)ROLL_LX << 16; ball.y = (long)ROLL_Y << 16; game_update(&in);
+  check("Roll-Over L: Lampe L an", pal[C_LOAD0][0], 255);
   ball.x = 20L << 16; ball.y = 460L << 16; game_update(&in);
   ball.y = 480L << 16; game_update(&in);
   check("Out-Lane zaehlt nicht: D bleibt aus", pal[C_LOAD0 + 3][0], 100);

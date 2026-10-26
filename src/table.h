@@ -28,8 +28,12 @@
 #define TGT_VIC   0           /* 3 Targets V, I, C */
 #define TGT_6510  3           /* 4 Targets 6, 5, 1, 0 */
 #define TGT_SID   7           /* 3 Targets S, I, D */
-#define TGT_LD    10          /* 2 Einzel-Targets L und D (v5.0, vorher Out-Lanes) */
-#define N_TARGETS 12
+#define N_TARGETS 10
+/* L und D (v5.1): Roll-Over-Kontakte auf dem Tisch, der Ball rollt darueber */
+#define ROLL_LX   97
+#define ROLL_DX   223
+#define ROLL_Y    379
+#define ROLL_R    7
 
 /* Flipper */
 #define F_LEN   36

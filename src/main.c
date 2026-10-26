@@ -59,6 +59,7 @@ static void read_input(input_t *in) {
 /* Messwerte: Aufteilung des langsamsten Bildes der letzten Sekunde (Rasterzeilen) */
 /* P Physik (Eingabe, game_frame, Kamera), R Regeln (game_update, Lampen, Klang),
  * S Hintergrund, Z Flipper/Ball, T Displaytext, D Display zeichnen, C Pruefsumme */
+#define SPARE_FROM 200     /* bis hierher (Rasterzeilen) duerfen Display und Pruefsumme noch laufen */
 enum { T_PHYS, T_RULES, T_SCROLL, T_DRAW, T_TEXT, T_DMD, T_CHK, T_N };
 static uint16_t tmax[T_N], tmax_run[T_N];
 
@@ -144,13 +145,13 @@ static uint16_t code_sum(void) {
   return sum;
 }
 
-/* Im Spiel: 512 Byte pro Bild pruefen statt alles auf einmal (keine Spitze) */
+/* Im Spiel: 128 Byte pro Bild pruefen statt alles auf einmal (v5.0 mit 512 Byte: 24 Rasterzeilen) */
 static void code_check_fail(const char *where);
 static void code_check_step(void) {
   static const uint8_t *p;
   static uint16_t sum;
   if (!p) { p = (const uint8_t *)0x2001; sum = 0; }
-  for (uint16_t n = 0; n < 512 && p < (const uint8_t *)__data_start; n++, p++)
+  for (uint16_t n = 0; n < 128 && p < (const uint8_t *)__data_start; n++, p++)
     sum = (uint16_t)((sum << 1) | (sum >> 15)) ^ *p;
   if (p >= (const uint8_t *)__data_start) {
     if (sum != code_sum0) code_check_fail("IM SPIEL");
@@ -225,11 +226,14 @@ int main(void) {
     uint8_t back = front ^ 1;
     render_frame(back, cam);
     uint16_t t2 = raster_line();
-    update_display(load, lmax);
+    /* Displaytext, Display und Pruefsumme duerfen warten: nur, wenn in diesem
+     * Bild noch Zeit ist (v5.1). Sonst kommen sie im naechsten Bild dran. */
+    uint8_t spare = raster_diff(t0, t2) < SPARE_FROM;
+    if (spare) update_display(load, lmax);
     uint16_t tb = raster_line();
-    dmd_render();                       /* jedes Bild hoechstens eine Zeichenzeile */
+    if (spare) dmd_render();            /* hoechstens eine Zeichenzeile */
     uint16_t tc = raster_line();
-    code_check_step();
+    if (spare) code_check_step();
     uint16_t t3 = raster_line();
     uint16_t sect[T_N];
     sect[T_PHYS] = raster_diff(t0, ta);
