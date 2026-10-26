@@ -46,6 +46,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 3.1 (Lader) | – | hängt im KERNAL bei PC=$E65A beim Nachladen |
 | 25.10.2026 | Meilenstein 3.2 (Lader) | – | Rahmen weiß (= Farbe 5 unserer Palette, also im Laden), hängt wieder bei $E65A |
 | 25.10.2026 | Meilenstein 3.3 (Lader) | – | Rahmen grün, hängt weiter bei $E65A |
+| 26.10.2026 | Meilenstein 4.2 | Testabschuss richtig; Ball bleibt auf dem Drehpunkt des dritten Flippers liegen; Wunsch: 1541 links, Rampenende weiter rechts über dem dritten Flipper | – |
 | 25.10.2026 | Meilenstein 4.1 | Rampe nie getroffen; Wunsch: Trichter, VIC-II gegenüber SID, 6510 links vom geraden Rampenteil | – |
 | 25.10.2026 | Meilenstein 4.0 | Rampe nicht zu erreichen (Einfahrt senkrecht), MAX bis 243 | – |
 | 25.10.2026 | Meilenstein 3.4 (Lader) | Nachladen funktioniert | Nachladen funktioniert |
@@ -104,11 +105,12 @@ In Xemu: `xmega65 -8 build\pinball65.d81`, danach ebenfalls `RUN "PINBALL65"`.
 
 ### Meilenstein 4: Bedienung und Test
 
-Neu in v4.0, Einfahrt in v4.1 und Tischaufbau in v4.2 geändert:
+Neu in v4.0, Einfahrt in v4.1 und Tischaufbau in v4.2 und v4.3 geändert:
 - **Rampe „FAST LOADER“**: Die Einfahrt liegt links oberhalb der Mitte (Start bei y 275, v4.0: y 352) und ist um 21° schräg gestellt: Sie öffnet sich nach rechts unten und zielt auf den rechten Flipper (v4.0 zeigte sie senkrecht nach unten und war nicht zu treffen). Die Rampe steigt links hoch, führt als Brücke hinten quer über den Tisch (unterhalb der Lanes C 6 4) und rechts wieder herunter. Sie endet links unterhalb des dritten Flippers, der Ball rollt zum linken Flipper. Der Ball braucht in der Einfahrt mindestens etwa 1,6 Pixel pro Substep (13 Pixel pro Bild), sonst rollt er zurück. Der Deckel über der Einfahrt setzt das Einwegtor des linken Orbits nach rechts unten fort. Punkte: 5.000, 10.000, … bis 25.000 je Ball. Auf der Rampe folgt der Ball einem festen Weg (zweite Ebene); unter der Brücke liegt die Rampe sichtbar über dem Ball (halb durchsichtiger Boden).
 - **Spinner** in der Einfahrt: dreht sich je nach Tempo des Balls, 100 Punkte pro Umdrehung, die Streifen wechseln die Helligkeit.
 - **Kick-Out-Hole „1541“**: fängt einen nicht zu schnellen Ball, hält ihn 1,5 Sekunden (`SEARCHING FOR *` / `LOADING`, Laufwerksgeräusch), wirft ihn nach links unten aus und gibt 3.000 Punkte (`READY.`).
 - **v4.2**: Einfahrt als Trichter (rechts weit, links etwas ausgestellt, Öffnung etwa 50 statt 22 Pixel). VIC-II-Targets links genau gegenüber den SID-Targets (x 46, y 328–400, mit Dach wie bei SID). 6510-Targets schräg links vom geraden Abstieg der Rampe zwischen Kick-Out-Hole und Rampenende, zum linken Flipper gerichtet. Die Inlane-Führungen enden jetzt knapp hinter den Flipper-Drehpunkten: Vorher blieb ein Ball aus der Inlane oben auf dem Drehpunkt liegen, und der Flipper traf ihn kaum.
+- **v4.3** (nach Mock-up vom 26.10.2026): Kick-Out-Hole „1541“ links (x 112, y 222), Auswurf nach rechts unten. 6510-Targets schräg links vom geraden Abstieg der Rampe (y 196–236). Rampe: Abstieg weiter rechts (x 262), Ende über dem dritten Flipper, der Ball fällt sanft darauf. Schräge Führung über dem Drehpunkt des dritten Flippers (der Ball blieb dort oben liegen).
 - Neue Wandstücke: rechte Schiene der Einfahrt, ein schräger Deckel darüber und ein schräges Dach über den SID-Targets (der Spielroboter fand dort unter dem dritten Flipper einen Ruheplatz).
 
 Im PC-Test: Schüsse in die Rampe ab 1,8 Pixel pro Substep schaffen sie und kommen bei x 122–126 am linken Flipper an; der Spielroboter schaffte mit v4.1 in 122 Spielen 60 Rampen und 60 Kick-Outs; liegen blieb der Ball nur einmal auf dem Drehpunkt des rechten Flippers (ein Flipperdruck löst ihn). Der Testabschuss liefert unverändert `TEST X 07457637` und `TEST Y 21572962`.
