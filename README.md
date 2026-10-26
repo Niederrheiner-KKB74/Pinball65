@@ -11,7 +11,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | 1 | Statischer Tisch, Ball, zwei Flipper, Kollisionsmaske | bestanden (24.10.2026), aktuell v1.2 |
 | 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bestanden (25.10.2026), v2.10 |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | bestanden (25.10.2026), v3.0 |
-| 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | läuft; v4.0 zum Test |
+| 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | bestanden (26.10.2026), v4.3 |
 | 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | geplant |
 | 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
 
@@ -46,6 +46,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 3.1 (Lader) | – | hängt im KERNAL bei PC=$E65A beim Nachladen |
 | 25.10.2026 | Meilenstein 3.2 (Lader) | – | Rahmen weiß (= Farbe 5 unserer Palette, also im Laden), hängt wieder bei $E65A |
 | 25.10.2026 | Meilenstein 3.3 (Lader) | – | Rahmen grün, hängt weiter bei $E65A |
+| 26.10.2026 | Meilenstein 4.3 | Ball bleibt nirgends liegen; Rampe mit gutem Timing zu treffen; Kick-Out-Hole genau richtig; MAX bis 263 | – |
 | 26.10.2026 | Meilenstein 4.2 | Testabschuss richtig; Ball bleibt auf dem Drehpunkt des dritten Flippers liegen; Wunsch: 1541 links, Rampenende weiter rechts über dem dritten Flipper | – |
 | 25.10.2026 | Meilenstein 4.1 | Rampe nie getroffen; Wunsch: Trichter, VIC-II gegenüber SID, 6510 links vom geraden Rampenteil | – |
 | 25.10.2026 | Meilenstein 4.0 | Rampe nicht zu erreichen (Einfahrt senkrecht), MAX bis 243 | – |

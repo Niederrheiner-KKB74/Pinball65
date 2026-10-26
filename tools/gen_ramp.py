@@ -2,17 +2,16 @@
 """Erzeugt src/ramp_path.h und src/ramp_path.c: den Weg der Rampe als Kette
 kurzer gerader Stuecke (Festkomma 16.16).
 
-Verlauf (Wunsch vom 25.10.2026): Einfahrt links etwa in der Mitte des Tisches,
-hinten als Bruecke um den Tisch herum, rechts herunter und Ende unterhalb des
-dritten Flippers, so dass der Ball zum linken Flipper rollt.
+Verlauf (Wuensche vom 25. und 26.10.2026, Stand v4.3): Einfahrt links,
+hinten als Bruecke um den Tisch herum, rechts herunter und Ende ueber dem
+dritten Flipper, auf den der Ball faellt.
 
   Einfahrt      schraeg (21 Grad), Start (61,275), oeffnet nach rechts unten
   Bogen r=40    auf senkrecht, dann Gerade hoch bei x 45 bis y 122
   Bogen r=40    nach rechts -> (85,82)
-  Gerade        (91,82)  -> (200,82)   Bruecke hinter den Bumpern
-  Bogen r=40    nach unten, Mittelpunkt (200,122)  -> (240,122)
-  Gerade runter (240,122) -> (240,300)
-  Bogen r=40    nach links unten (45 Grad), Mittelpunkt (200,300) -> Ende
+  Gerade        (85,82)  -> (222,82)   Bruecke hinter den Bumpern
+  Bogen r=40    nach unten, Mittelpunkt (222,122) -> (262,122)
+  Gerade runter (262,122) -> (262,252) Ende ueber dem dritten Flipper
 """
 import math, os
 
