@@ -252,8 +252,8 @@ static void ramp_step(void) {
     on_ramp = 0;
     ball.x = RAMP_EXIT_X;
     ball.y = RAMP_EXIT_Y;
-    ball.vx = -32768L;                     /* rollt zum linken Flipper */
-    ball.vy = 32768L;
+    ball.vx = -16384L;                     /* faellt sanft auf den dritten Flipper */
+    ball.vy = 16384L;
     ev_ramp |= EV_RAMP_DONE;
   } else ramp_place();
 }
@@ -365,8 +365,8 @@ void game_frame(const input_t *in) {
   ev_target = 0;
   ev_ramp = ev_kick = 0;
   if (kick_cool) kick_cool--;
-  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach links unten */
-    ball.vx = -65536L;
+  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach rechts unten */
+    ball.vx = 65536L;
     ball.vy = 19661L;
     kick_cool = 30;
     ev_kick |= EV_KICK_OUT;

@@ -46,8 +46,8 @@
 #define FLIP3_Y  300
 
 /* Kick-Out-Hole "1541" und Rampe (Meilenstein 4) */
-#define KICK_X    218
-#define KICK_Y    236
+#define KICK_X    112           /* v4.3: linke Tischseite (vorher 218, 236) */
+#define KICK_Y    222
 #define RAMP_LANE_X0 47           /* Einfahrt: Breite der Gasse auf Hoehe RAMP_Y0 (275) */
 #define RAMP_LANE_X1 75
 #define SPIN_Y    294             /* Spinner quer in der Einfahrt ... */

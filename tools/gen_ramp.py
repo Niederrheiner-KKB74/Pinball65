@@ -43,10 +43,9 @@ arc(c1[0], c1[1], R, a_start, 180, 6)            # Richtung dreht auf senkrecht 
 xu = c1[0] - R                                   # senkrechte Gerade bei x = 45,2
 line(None, None, xu, 122)
 arc(xu + R, 122, R, 180, 270, 16)                # von hoch nach rechts
-line(None, None, 200, 82)
-arc(200, 122, 40, 270, 360, 16)                  # von rechts nach unten
-line(None, None, 240, 300)
-arc(200, 300, 40, 0, 45, 8)                      # nach links unten, Ende unter dem dritten Flipper
+line(None, None, 222, 82)
+arc(222, 122, 40, 270, 360, 16)                  # von rechts nach unten
+line(None, None, 262, 252)                       # v4.3: Ende ueber dem dritten Flipper, Ball faellt darauf
 
 # Waende der Einfahrt (fuer table.c): Muendung 40 Pixel unterhalb von C,
 # halbe Breite 13, oben 15 Pixel ueber C hinaus
@@ -75,7 +74,7 @@ for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
     s += L
 total = s
 climb_end = 140.0                          # erste 140 Pixel: Ball wird gebremst
-desc_start = segs[[i for i, g in enumerate(segs) if abs(g[0] - 240) < 1e-6 and abs(g[1] - 122) < 1e-6][0]][4]
+desc_start = segs[[i for i, g in enumerate(segs) if abs(g[0] - 262) < 1e-6 and abs(g[1] - 122) < 1e-6][0]][4]
 ex, ey = pts[-1]
 
 def f(v): return int(round(v * FIX))

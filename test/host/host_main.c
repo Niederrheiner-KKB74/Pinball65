@@ -301,6 +301,29 @@ static void cradle_sweep(int left) {
   printf("   ueber y 310 nach x:"); for (int b = 0; b < 16; b++) printf(" %d", hist[b]); printf("\n");
 }
 
+/* Ganzer Tisch mit Flippern (fuer Mock-ups): vier Ausschnitte uebereinander */
+static void dump_mockup(const char *name) {
+  phys_init(); state = ST_DRAIN;
+  FILE *f = fopen(name, "wb");
+  fprintf(f, "P6 320 640 255\n");
+  static const int16_t CAMS[4] = { 0, 168, 336, 472 };
+  static uint8_t img[640][320][3];
+  for (int k = 0; k < 4; k++) {
+    render_frame(0, CAMS[k]); render_frame(0, CAMS[k]);
+    const uint8_t *map = chip + MAP_A;
+    for (int y = 32; y < 200; y++)
+      for (int x = 0; x < 320; x++) {
+        int cell = (y >> 3) * 40 + (x >> 3);
+        uint32_t ch = map[cell * 2] | (map[cell * 2 + 1] << 8);
+        uint8_t v = chip[ch * 64 + (y & 7) * 8 + (x & 7)];
+        memcpy(img[CAMS[k] + y - 32][x], pal[v], 3);
+      }
+  }
+  fwrite(img, 1, sizeof img, f);
+  fclose(f);
+  state = ST_PLUNGER;
+}
+
 extern int host_no_trans;
 #include <stdlib.h>
 #include <math.h>
@@ -361,6 +384,7 @@ int main(void) {
   for (double v = 0.6; v <= 3.6; v += 0.4) ramp_shot(v);
   kick_test();
   flipper_sweep();
+  dump_mockup("mockup.ppm");
   cradle_sweep(0);
   cradle_sweep(1);
   pose("pose_under_bridge.ppm", 150, 84, 0);
