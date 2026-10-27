@@ -190,8 +190,8 @@ static void ramp_shot(double v) {
   input_t in; memset(&in, 0, sizeof in);
   phys_init(); game_new();
   state = ST_PLAY; in_lane_reset();
-  ball.x = 86L << 16; ball.y = 340L << 16;    /* unterhalb der schraegen Muendung */
-  ball.vx = (fix16)(-v * 0.358 * 65536); ball.vy = (fix16)(-v * 0.934 * 65536);
+  ball.x = 128L << 16; ball.y = 360L << 16;   /* unterhalb der Muendung */
+  ball.vx = 0; ball.vy = (fix16)(-v * 65536);
   int done = 0, back = 0, entered = 0; long f;
   int16_t xs = -1;
   for (f = 0; f < 600; f++) {
@@ -294,6 +294,8 @@ static void cradle_sweep(int left) {
   int hist[16] = {0};
   for (int T = 0; T < 40; T++) {
     phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+    if (getenv("FB")) { tune[T_FLIP_BOUNCE] = atol(getenv("FB")); tune_apply(); }
+    if (getenv("FS")) { tune[T_FLIP_SPEED] = atol(getenv("FS")); tune_apply(); }
     ball.x = (left ? 120L : 180L) << 16; ball.y = 500L << 16; ball.vx = ball.vy = 0;
     int got = 0;
     for (int f = 0; f < 400 && state == ST_PLAY; f++) {
@@ -305,7 +307,8 @@ static void cradle_sweep(int left) {
       if (on_ramp) { got = 1; break; }
       if (getenv("CTRACE") && T == atoi(getenv("CTRACE")) && (f % 4) == 0 && f > 60 && f < 160)
         printf("      f=%d x=%ld y=%ld vx=%.2f vy=%.2f fl=%d\n", f, (long)(ball.x >> 16), (long)(ball.y >> 16), ball.vx / 65536.0, ball.vy / 65536.0, flip[left ? 0 : 1].ang >> 8);
-      if (f > 80 && py0 >= (310L << 16) && ball.y < (310L << 16)) { int b = (int)(ball.x >> 16) / 20; if (b >= 0 && b < 16) hist[b]++; }
+      if (f > 80 && py0 >= (310L << 16) && ball.y < (310L << 16)) { int b = (int)(ball.x >> 16) / 20; if (b >= 0 && b < 16) hist[b]++;
+        if (getenv("SHOTX")) printf("      T=%2d x=%ld vx=%.2f vy=%.2f\n", T, (long)(ball.x >> 16), ball.vx / 65536.0, ball.vy / 65536.0); }
     }
     hits += got; line[k++] = got ? '#' : '.';
   }

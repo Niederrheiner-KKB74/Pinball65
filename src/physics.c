@@ -32,7 +32,7 @@ const tune_info_t TUNE_INFO[T_COUNT] = {
 int32_t p_gravity, p_rest_v, p_wall_imp, p_flip_imp, p_bumper_kick, p_sling_kick;
 int16_t p_flip_up, p_flip_down;
 
-static void tune_apply(void) {
+void tune_apply(void) {
   p_gravity = tune[T_GRAVITY];
   p_rest_v = p_gravity * 5;
   p_flip_up = (int16_t)tune[T_FLIP_SPEED];
@@ -248,7 +248,7 @@ static void ramp_place(void) {
 }
 
 static void ramp_step(void) {
-  if (ramp_s < RAMP_CLIMB_END) ramp_v -= GRAVITY;
+  if (ramp_s < RAMP_CLIMB_END) ramp_v -= GRAVITY >> 1;   /* v5.4: halbe Steigung, Rampe leichter */
   else if (ramp_s >= RAMP_DESC_START) { ramp_v += GRAVITY >> 1; if (ramp_v > MAX_V) ramp_v = MAX_V; }
   else { ramp_v -= ramp_v >> 9; if (ramp_v < RAMP_V_MIN) ramp_v = RAMP_V_MIN; }
   ramp_s += ramp_v;

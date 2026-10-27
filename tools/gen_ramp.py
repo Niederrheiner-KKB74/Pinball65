@@ -6,7 +6,8 @@ Verlauf (Wuensche vom 25. und 26.10.2026, Stand v4.3): Einfahrt links,
 hinten als Bruecke um den Tisch herum, rechts herunter und Ende ueber dem
 dritten Flipper, auf den der Ball faellt.
 
-  Einfahrt      schraeg (21 Grad), Start (61,275), oeffnet nach rechts unten
+  Einfahrt      senkrecht bei x 128, Start y 300 (v5.4), Muendung nach unten
+  Bogen r=40    nach links oben, Schraege am Kick-Out-Hole vorbei,
   Bogen r=40    auf senkrecht, dann Gerade hoch bei x 45 bis y 122
   Bogen r=40    nach rechts -> (85,82)
   Gerade        (85,82)  -> (222,82)   Bruecke hinter den Bumpern
@@ -27,42 +28,30 @@ def arc(cx, cy, r, a0, a1, n):
         a = math.radians(a0 + (a1 - a0) * i / n)
         pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
 
-# Einfahrt (v4.1): schraeg, oeffnet sich nach rechts unten und zielt auf den rechten Flipper.
-# Achse 21 Grad gegen die Senkrechte (verlaengert trifft sie y 548 bei x 166), Rampenstart C = (61, 275).
-ANG = math.radians(21)
-UX, UY = -math.sin(ANG), -math.cos(ANG)          # Fahrtrichtung bergauf (nach links oben)
-CX, CY = 61.0, 275.0
+# Einfahrt (v5.4): senkrecht, Muendung bei x 128 (dort fliegt der Standardschuss
+# des linken Flippers hin, im PC-Test x 121-136). Der Weg biegt nach links ab,
+# fuehrt schraeg am Kick-Out-Hole vorbei und trifft bei x 45 auf den Aufstieg.
+CX, CY = 128.0, 300.0
+UX, UY = 0.0, -1.0                               # Fahrtrichtung am Start: senkrecht nach oben
 R = 40.0
-p1 = (CX + 15 * UX, CY + 15 * UY)                # 15 Pixel gerade, dann Bogen nach oben
-nx, ny = -UY, UX                                 # rechte Normale (Bildschirm: y nach unten)
-c1 = (p1[0] + R * nx, p1[1] + R * ny)
-line(CX, CY, *p1)
-a_start = math.degrees(math.atan2(p1[1] - c1[1], p1[0] - c1[0]))
-arc(c1[0], c1[1], R, a_start, 180, 6)            # Richtung dreht auf senkrecht nach oben
-xu = c1[0] - R                                   # senkrechte Gerade bei x = 45,2
+line(CX, CY, CX, 285)
+arc(CX - R, 285, R, 0, -45, 6)                   # nach links oben (45 Grad)
+s45 = math.sqrt(0.5)
+p_end = (45 + R * (1 - s45), 0)                  # Bogen 2 endet senkrecht bei x 45
+start = pts[-1]
+L = (start[0] - p_end[0]) / s45                  # Laenge der Schraegen
+p2 = (start[0] - L * s45, start[1] - L * s45)
+line(None, None, *p2)
+c2 = (p2[0] + R * s45, p2[1] - R * s45)
+arc(c2[0], c2[1], R, 135, 180, 6)                # zurueck auf senkrecht nach oben
+xu = c2[0] - R                                   # 45
 line(None, None, xu, 122)
 arc(xu + R, 122, R, 180, 270, 16)                # von hoch nach rechts
 line(None, None, 222, 82)
 arc(222, 122, 40, 270, 360, 16)                  # von rechts nach unten
 line(None, None, 262, 252)                       # v4.3: Ende ueber dem dritten Flipper, Ball faellt darauf
 
-# Waende der Einfahrt (fuer table.c): Muendung 40 Pixel unterhalb von C,
-# halbe Breite 13, oben 15 Pixel ueber C hinaus
-px, py = -UY, UX                                 # Querrichtung
-mouth = (CX - 40 * UX, CY - 40 * UY)
-top = (CX + 15 * UX, CY + 15 * UY)
-lw = (mouth[0] - 13 * px, mouth[1] - 13 * py, top[0] - 13 * px, top[1] - 13 * py)
-rw = (mouth[0] + 13 * px, mouth[1] + 13 * py, top[0] + 13 * px, top[1] + 13 * py)
-print("linke Wand  %.1f %.1f -> %.1f %.1f" % lw)
-print("rechte Wand %.1f %.1f -> %.1f %.1f" % rw)
-print("Muendung %.1f %.1f" % mouth)
-spin = (CX - 20 * UX, CY - 20 * UY)
-print("Spinner Mitte %.1f %.1f  fix %d %d  P %d %d  U %d %d" % (spin[0], spin[1], round(spin[0]*65536), round(spin[1]*65536),
-      round(px*65536), round(py*65536), round(UX*65536), round(UY*65536)))
-def wall_x(w, y):
-    t = (w[1] - y) / (w[1] - w[3]); return w[0] + t * (w[2] - w[0])
-print("Gasse bei y %d: %.1f .. %.1f, bei Spinner y %.0f: %.1f .. %.1f" % (CY, wall_x(lw, CY), wall_x(rw, CY),
-      spin[1], wall_x(lw, spin[1]), wall_x(rw, spin[1])))
+print("Schraege von (%.1f, %.1f) nach (%.1f, %.1f), Aufstieg ab y %.1f" % (start[0], start[1], p2[0], p2[1], c2[1]))
 
 segs = []          # x0, y0, ux, uy, s0, len
 s = 0.0

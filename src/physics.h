@@ -32,6 +32,7 @@ typedef struct {
 } tune_info_t;
 extern const tune_info_t TUNE_INFO[T_COUNT];
 void tune_reset(void);
+void tune_apply(void);           /* nach Aenderung von tune[] */
 
 #ifndef MAX_V
 #define MAX_V        229376L     /* 3.5 px pro Substep */

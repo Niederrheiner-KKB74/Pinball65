@@ -87,8 +87,9 @@ static const int16_t SEGS[][5] = {
   {290, 318, 264, 336, M_WALL},           /* ... und der Gang hinter den SID-Targets auch oben */
   /* Inlanes (v4.2): Fuehrung endet knapp hinter dem Drehpunkt, sonst blieb der
    * Ball oben auf dem Drehpunkt liegen und der Flipper traf ihn kaum */
-  {40, 444, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
-  {260, 444, 260, 519, M_WALL}, {260, 519, 191, 560, M_WALL},  /* Inlane rechts */
+  /* v5.4: Trennwaende Inlane/Out-Lane 16 Pixel hoeher (vorher ab y 444): kleinerer Zugang */
+  {40, 428, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
+  {260, 428, 260, 519, M_WALL}, {260, 519, 191, 560, M_WALL},  /* Inlane rechts */
   {100, 567, 72, 640, M_WALL},
   {200, 567, 228, 640, M_WALL},
   {64, 462, 64, 504, M_WALL}, {64, 504, 92, 524, M_WALL},      /* Slingshot links */
@@ -96,12 +97,9 @@ static const int16_t SEGS[][5] = {
   {64, 462, 92, 524, M_SLING_L},
   {236, 462, 208, 524, M_SLING_R},
   {290, 90, 290, 138, M_GATE},            /* Einweg-Tor */
-  {63, 317, 44, 266, M_WALL},             /* Einfahrt der Rampe (schraeg, 21 Grad, zielt auf den rechten Flipper): links */
-  {88, 308, 72, 268, M_WALL},             /* rechts */
-  {36, 258, 72, 268, M_WALL},             /* oben zu: setzt das Einwegtor des Orbits nach rechts unten fort,
-                                             sonst bildeten Tor und Deckel eine Mulde (Spielroboter) */
-  {88, 308, 110, 320, M_WALL},            /* Trichter der Einfahrt (v4.2): rechts weit ausgestellt ... */
-  {63, 317, 56, 330, M_WALL},             /* ... links etwas */
+  /* Einfahrt der Rampe (v5.4): senkrecht bei x 128, Muendung mit kleinem Trichter */
+  {115, 300, 115, 330, M_WALL}, {141, 300, 141, 330, M_WALL},
+  {115, 330, 106, 344, M_WALL}, {141, 330, 150, 344, M_WALL},
   {38, 316, 46, 326, M_WALL},             /* Dach ueber den VIC-II-Targets (wie bei SID) */
   {290, 268, 279, 294, M_WALL},           /* v4.3: Fuehrung ueber dem Drehpunkt des dritten Flippers,
                                              sonst blieb der Ball oben auf dem Drehpunkt liegen */
@@ -110,7 +108,7 @@ static const int16_t SEGS[][5] = {
    * y 400; schraeges Dach von ihr zum obersten SID-Target */
   {264, 336, 264, 400, M_WALL},
   {264, 336, 254, 346, M_WALL},           /* v5.3 tiefer: sonst Mulde zwischen Spitze des dritten Flippers und Dach */
-  {12, 236, 34, 256, M_GATE_UP},          /* Einwegtor linker Orbit */
+  {12, 236, 34, 256, M_WALL},             /* Orbit-Abweiser (v5.4 feste Wand: der Kanal darunter ist seit v5.3 geschlossen) */
 };
 #define NSEGS (sizeof(SEGS) / sizeof(SEGS[0]))
 
@@ -131,7 +129,7 @@ static const int16_t TARGETS[N_TARGETS][4] = {
   {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
   {254, 348, 254, 362}, {254, 367, 254, 381}, {254, 386, 254, 400},  /* SID: gegenueber VIC-II */
   /* PLA (v5.3): links oben, senkrecht direkt rechts neben dem aufsteigenden Rampenstueck */
-  {60, 150, 60, 164}, {60, 169, 60, 183}, {60, 188, 60, 202},
+  {60, 120, 60, 134}, {60, 139, 60, 153}, {60, 158, 60, 172},
 };
 
 /* Beim Aufbau: Band, in das gerade gezeichnet wird */
@@ -327,10 +325,10 @@ static void band_rect(uint8_t *buf, int16_t x0, int16_t y0, int16_t w, int16_t h
 }
 
 /* Spinner: Strecke quer zur Einfahrt (Querrichtung P), 4 Streifen entlang
- * der Fahrtrichtung U (21 Grad), Mitte (68,2 / 293,7); Werte aus gen_ramp.py */
+ * der Fahrtrichtung U; seit v5.4 waagerecht in der senkrechten Einfahrt */
 static void band_spinner(uint8_t *b) {
-  const fix16 PX = 61183L, PY = -23486L, UXS = -23486L, UYS = -61183L;
-  const fix16 CXF = 4467416L, CYF = 19246063L;
+  const fix16 PX = 65536L, PY = 0, UXS = 0, UYS = -65536L;
+  const fix16 CXF = (fix16)128 << 16, CYF = (fix16)SPIN_Y << 16;
   for (int8_t t2 = -22; t2 <= 22; t2++)
     for (int8_t k2 = -3; k2 <= 3; k2++) {
       fix16 t = (fix16)t2 << 15, k = (fix16)k2 << 15;
@@ -373,7 +371,7 @@ static void band_overlays(uint8_t *b) {
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 238, 404, "SID", 1, C_TARGET_SID);
-  if (band_y0 < 214 && band_y1 > 204) band_text(b, 66, 206, "PLA", 1, C_TARGET_PLA);
+  if (band_y0 < 184 && band_y1 > 174) band_text(b, 66, 176, "PLA", 1, C_TARGET_PLA);
   /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */
   {
     static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_Y, 460, 460, ROLL_Y };
