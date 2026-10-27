@@ -137,6 +137,16 @@ static void rules_test(void) {
   check("neu gedrueckt: Abschuss frei", in.plunger, 1);
   char buf[20]; fmt_points(buf, 1234560); printf("   fmt_points: %s\n", buf);
   check("Tausenderpunkte", strcmp(buf, "1.234.560") == 0, 1);
+  /* v6.4: L in beiden Richtungen, aber nicht direkt nach dem Abschuss */
+  memset(&in, 0, sizeof in);
+  game_new(); state = ST_PLUNGER; game_update(&in); state = ST_PLAY; game_update(&in);
+  ball.x = 60L << 16; ball.y = 150L << 16; game_update(&in);
+  ball.x = (long)ROLL_LX << 16; ball.y = (long)ROLL_LY << 16; ball.vy = 65536L; game_update(&in);
+  check("L direkt nach Abschuss: aus", pal[C_LOAD0][0], 100);
+  ball.x = 60L << 16; ball.y = 150L << 16; game_update(&in);
+  LANE_PASS(126);                                   /* erste Lane: Abschussphase vorbei */
+  ball.x = (long)ROLL_LX << 16; ball.y = (long)ROLL_LY << 16; ball.vy = 65536L; game_update(&in); ball.vy = 0;
+  check("L abwaerts spaeter: an", pal[C_LOAD0][0], 255);
   /* v6.1: Skill-Shot */
   memset(&in, 0, sizeof in);
   game_new(); state = ST_PLUNGER; game_update(&in);

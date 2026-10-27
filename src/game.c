@@ -343,9 +343,12 @@ void game_update(const input_t *in) {
     {
       static uint8_t inside;
       uint8_t now = 0;
-      if (!on_ramp && ball.vy < 0) {          /* v6.1: nur aufwaerts (Orbit- bzw. Rampenschuss) */
-        if (y > ROLL_LY - ROLL_R && y < ROLL_LY + ROLL_R && x > ROLL_LX - ROLL_R && x < ROLL_LX + ROLL_R) now = 1;
-        else if (y > ROLL_DY - ROLL_R && y < ROLL_DY + ROLL_R && x > ROLL_DX - ROLL_R && x < ROLL_DX + ROLL_R) now = 2;
+      if (!on_ramp) {
+        /* v6.4: L in beiden Richtungen, nur nicht beim Abschuss (Skill-Shot-Zeit laeuft
+         * noch, der Ball hat also nach dem Abschuss noch keine Lane erreicht) */
+        if (!skill_t && y > ROLL_LY - ROLL_R && y < ROLL_LY + ROLL_R && x > ROLL_LX - ROLL_R && x < ROLL_LX + ROLL_R) now = 1;
+        /* D nur aufwaerts (Schuss zur Rampe, nicht der zurueckrollende Ball) */
+        else if (ball.vy < 0 && y > ROLL_DY - ROLL_R && y < ROLL_DY + ROLL_R && x > ROLL_DX - ROLL_R && x < ROLL_DX + ROLL_R) now = 2;
       }
       if (now && now != inside) low_lane(now == 1 ? 0 : 3);
       inside = now;
