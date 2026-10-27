@@ -137,6 +137,17 @@ static void rules_test(void) {
   check("neu gedrueckt: Abschuss frei", in.plunger, 1);
   char buf[20]; fmt_points(buf, 1234560); printf("   fmt_points: %s\n", buf);
   check("Tausenderpunkte", strcmp(buf, "1.234.560") == 0, 1);
+  /* v6.1: Skill-Shot */
+  memset(&in, 0, sizeof in);
+  game_new(); state = ST_PLUNGER; game_update(&in);
+  extern uint8_t skill_lane; uint8_t sl0 = skill_lane;
+  in.right = 1; game_update(&in); in.right = 0; game_update(&in);   /* eine Lane weiter */
+  check("Flipper verschiebt Skill-Lane", skill_lane, sl0 == 2 ? 0 : sl0 + 1);
+  state = ST_PLAY; game_update(&in);
+  { uint32_t s0 = score; LANE_PASS(126 + 24 * skill_lane); check("Skill-Shot in blinkender Lane", score - s0 >= 25000, 1); }
+  game_new(); state = ST_PLUNGER; game_update(&in); state = ST_PLAY; game_update(&in);
+  { uint32_t s0 = score; LANE_PASS(126 + 24 * ((skill_lane + 1) % 3)); check("falsche Lane: kein Skill-Shot", score - s0 < 25000, 1);
+    s0 = score; LANE_PASS(126 + 24 * skill_lane); check("nur die erste Lane zaehlt", score - s0 < 25000, 1); }
   printf("Regeltest: %s\n", fails ? "FEHLER" : "alles ok");
   (void)step;
 }

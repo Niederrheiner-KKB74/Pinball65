@@ -46,6 +46,11 @@ uint8_t msg_timer;
 
 static uint16_t tgt_lit;
 static uint8_t top_lit, load_lit;
+/* v6.1: Skill-Shot. Vor dem Abschuss blinkt eine der Lanes C 6 4 (mit den Flippern
+ * verschiebbar); faellt der Ball nach dem Abschuss als erstes in diese Lane, gibt es
+ * einen Bonus. skill_t: 255 = Ball in der Abschussbahn, sonst Restzeit in Bildern. */
+uint8_t skill_lane;                     /* fuer den PC-Test sichtbar */
+static uint8_t skill_t, blink_n;
 static uint8_t tgt_cool[N_TARGETS];
 static uint8_t flash[5];                      /* Bumper 0-2, Slingshots 3-4 */
 static uint8_t prev_state, prev_l, prev_r, hold;
@@ -93,7 +98,7 @@ static void lamps_apply(void) {
     uint8_t on;
     const uint8_t T = N_TARGETS;
     if (n < T) on = (tgt_lit >> n) & 1;
-    else if (n < T + 3) on = (top_lit >> (n - T)) & 1;
+    else if (n < T + 3) on = (skill_t && n - T == skill_lane) ? (blink_n >> 3) & 1 : (top_lit >> (n - T)) & 1;
     else if (n < T + 7) on = (load_lit >> (n - T - 3)) & 1;
     else on = flash[n - T - 7] != 0;
     if (on == lamp_shown[n]) continue;
@@ -228,6 +233,10 @@ static void target_hit(uint8_t i) {
 static void top_lane(uint8_t i) {
   uint8_t bit = (uint8_t)(1 << i);
   snd_play(SND_LANE);
+  if (skill_t && skill_t != 255) {
+    skill_t = 0;
+    if (i == skill_lane) { add(25000); message("SKILL SHOT", 25000); snd_play(SND_COMPLETE); }
+  }
   if (top_lit & bit) { add(200); return; }
   top_lit |= bit;
   add(1000);
@@ -267,6 +276,13 @@ static void low_lane(uint8_t i) {
 
 void game_update(const input_t *in) {
   /* Lane-Wechsel und Flipperklang beim Druecken */
+  if (state == ST_PLUNGER) {
+    if (skill_t != 255) { skill_t = 255; skill_lane = (uint8_t)(ball_no % 3); }
+    if (in->left && !prev_l) skill_lane = skill_lane ? skill_lane - 1 : 2;
+    if (in->right && !prev_r) skill_lane = skill_lane == 2 ? 0 : skill_lane + 1;
+  } else if (skill_t == 255) skill_t = 250;           /* 5 s nach dem Abschuss */
+  else if (skill_t) skill_t--;
+  blink_n++;
   if (in->left && !prev_l) {
     top_lit = (uint8_t)((top_lit >> 1) | ((top_lit & 1) << 2));
     snd_play(SND_FLIPPER);
