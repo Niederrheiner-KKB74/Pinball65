@@ -374,9 +374,9 @@ void game_frame(const input_t *in) {
   ev_target = 0;
   ev_ramp = ev_kick = 0;
   if (kick_cool) kick_cool--;
-  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach rechts unten */
-    ball.vx = 65536L;
-    ball.vy = 19661L;
+  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach unten zum linken Flipper */
+    ball.vx = 9830L;
+    ball.vy = 32768L;
     kick_cool = 30;
     ev_kick |= EV_KICK_OUT;
   }
