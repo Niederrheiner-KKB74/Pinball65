@@ -2,6 +2,16 @@
  * physics.c – Portierung der Prototyp-Physik nach C (Festkomma 16.16)
  */
 #include "physics.h"
+#define GATE_UP_V 16384L        /* 0,25 Pixel pro Substep */
+#ifndef KICK_UP_DY
+#define KICK_UP_DY 19          /* Auswurfpunkt hinter dem Dach des Scoops */
+#endif
+#ifndef KICK_UP_VX
+#define KICK_UP_VX 0L
+#endif
+#ifndef KICK_UP_VY
+#define KICK_UP_VY (-229376L)  /* 3,5 Pixel pro Substep (MAX_V) nach oben */
+#endif
 #include "table.h"
 #include "ramp_path.h"
 
@@ -89,7 +99,10 @@ static uint8_t sample(int16_t x, int16_t y) {
   if (x < 0 || x >= TW || y < 0) return M_WALL;
   if (!mask_solid(x, y)) return M_EMPTY;
   uint8_t c = mask_class(x, y);
-  if (c == M_GATE && in_lane) return M_EMPTY;
+  /* v6.1: Abschussbahn oben. Der Abschuss (schnell nach oben) geht durch das
+   * Einwegtor, das seitliche Tor bleibt dabei zu. Ein langsamer Ball oder einer, der
+   * von oben kommt, rollt auf dem Einwegtor durch das seitliche Tor hinaus. */
+  if (c == M_GATE && in_lane && ball.vy > -GATE_UP_V) return M_EMPTY;
   if (c == M_GATE_UP && ball.vy < 0) return M_EMPTY;
   return c;
 }
@@ -310,6 +323,12 @@ static void substep(void) {
     return;
   }
   if (bx > 291) in_lane = 1; else if (bx < 276) in_lane = 0;   /* v6: 291, sonst lag der Ball am Einwegtor fest */
+  /* v6.1: Ball, der in der Abschussbahn von oben kommt (Orbit) oder zu schwach
+   * abgeschossen wurde, verlaesst sie durch das Tor nach links zum dritten Flipper */
+  if (in_lane && ball.vy > -GATE_UP_V && ball.y > (176L << 16) && ball.y < (196L << 16)) {
+    if (ball.vy > 32768L) ball.vy = 32768L;
+    ball.vx = -98304L;
+  }
   collide_flipper(&flip[0]);
   collide_flipper(&flip[1]);
   collide_flipper(&flip[2]);
@@ -375,9 +394,11 @@ void game_frame(const input_t *in) {
   ev_target = 0;
   ev_ramp = ev_kick = 0;
   if (kick_cool) kick_cool--;
-  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach unten zum linken Flipper */
-    ball.vx = -10486L;              /* v6: aus dem Scoop zum linken Flipper (steiler prallt er an den Trichter) */
-    ball.vy = 32768L;
+  if (kick_timer && --kick_timer == 0) {
+    /* v6.1: senkrechter Auswurf (VUK) hinter dem Scoop nach oben zu den Bumpern */
+    ball.y = (fix16)(KICK_Y - KICK_UP_DY) << 16;
+    ball.vx = KICK_UP_VX;
+    ball.vy = KICK_UP_VY;
     kick_cool = 30;
     ev_kick |= EV_KICK_OUT;
   }

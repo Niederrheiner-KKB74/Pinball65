@@ -31,9 +31,10 @@
 #define TGT_PLA   10          /* 3 Targets P, L, A (v5.3, links oben) */
 #define N_TARGETS 13
 /* L und D (v5.1): Roll-Over-Kontakte auf dem Tisch, der Ball rollt darueber */
-#define ROLL_LX   97
-#define ROLL_DX   223
-#define ROLL_Y    379
+#define ROLL_LX   21            /* v6.1: L im Aufstieg des linken Orbits */
+#define ROLL_LY   200
+#define ROLL_DX   128           /* v6.1: D vor der Rampeneinfahrt */
+#define ROLL_DY   356
 #define ROLL_R    7
 
 /* Flipper */
@@ -44,7 +45,7 @@
 #define F_UP   (-22)
 #define FLIP_L_X 106
 #define FLIP_R_X 194
-#define FLIP_Y   562
+#define FLIP_Y   590           /* v6.1: 28 Pixel tiefer (vorher 562) */
 /* Dritter Flipper oben rechts (rechter Flipper, gleiche Form). Er muss in
  * derselben Pixelspalte innerhalb eines Zeichens liegen wie der rechte untere
  * Flipper (x mod 8 gleich), dann nutzt er dieselben vorgezeichneten Bilder. */
@@ -94,7 +95,7 @@ enum {
 /* Rollover-Lanes */
 #define TOPLANE_Y   52            /* Zaehllinie der oberen Lanes */
 #define TOPLANE_X0  114           /* Waende bei 114, 138, 162, 186 */
-#define LOWLANE_Y   470           /* Zaehllinie der Out- und Inlanes */
+#define LOWLANE_Y   498           /* Zaehllinie der Out- und Inlanes */
 
 
 /*

@@ -94,10 +94,10 @@ static void rules_test(void) {
   check("nach rechts: Lampe 6 an", pal[C_TOP0 + 1][0], 255);
   check("nach rechts: Lampe C aus", pal[C_TOP0][0], 100);
   /* L und D sind Targets (v5.0), die Out-Lanes zaehlen nicht mehr */
-  ball.x = (long)ROLL_LX << 16; ball.y = (long)ROLL_Y << 16; game_update(&in);
+  ball.x = (long)ROLL_LX << 16; ball.y = (long)ROLL_LY << 16; ball.vy = -65536L; game_update(&in); ball.vy = 0;
   check("Roll-Over L: Lampe L an", pal[C_LOAD0][0], 255);
-  ball.x = 20L << 16; ball.y = 460L << 16; game_update(&in);
-  ball.y = 480L << 16; game_update(&in);
+  ball.x = 20L << 16; ball.y = 488L << 16; game_update(&in);
+  ball.y = 508L << 16; game_update(&in);
   check("Out-Lane zaehlt nicht: D bleibt aus", pal[C_LOAD0 + 3][0], 100);
   /* Missionen: C 6 4 komplett -> bereit; Kick-Out startet FORMAT DISK; 3 Kick-Outs */
   for (int lane = 0; lane < 3; lane++) LANE_PASS(126 + 24 * lane);
@@ -169,8 +169,8 @@ static void bot_run(long frames) {
     /* Zufaellige Verzoegerung wie bei einem Menschen, sonst laeuft der
      * Roboter nach dem Kick-Out immer dieselbe Bahn (Endlosschleife) */
     if (state == ST_PLAY && !cool && !hold_l && !hold_r && !hold_3 && ((seed >> 16) % 3) != 0) {
-      if (y > 530 && y < 575 && x > 70 && x < 150 && ball.vy > 0) hold_l = 8;
-      if (y > 530 && y < 575 && x > 150 && x < 230 && ball.vy > 0) hold_r = 8;
+      if (y > 558 && y < 603 && x > 70 && x < 150 && ball.vy > 0) hold_l = 8;
+      if (y > 558 && y < 603 && x > 150 && x < 230 && ball.vy > 0) hold_r = 8;
       if (y > 285 && y < 325 && x > 240 && x < 290) hold_3 = 8;
       if (hold_l || hold_r || hold_3) cool = 25;
     }
@@ -179,6 +179,7 @@ static void bot_run(long frames) {
     game_input(&in);
     game_frame(&in);
     if (ev_target) tgt_hits++;
+    { extern uint8_t ev_bumper; static unsigned long nb; if (ev_bumper) nb++; if (f == frames - 1) printf("Roboter: Bumper-Treffer %lu, je Spiel %.1f\n", nb, games ? (double)nb / games : 0.0); }
     if (ev_ramp & EV_RAMP_DONE) n_ramp++;
     if (ev_ramp & EV_RAMP_BACK) n_back++;
     if (ev_kick & EV_KICK_IN) n_kick++;
@@ -279,9 +280,9 @@ static void flipper_sweep(void) {
   char line[64];
   for (int x = 160; x <= 230; x += 5) {
     int k = 0;
-    for (int yk = 520; yk <= 556; yk += 3) {
+    for (int yk = 548; yk <= 584; yk += 3) {
       phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
-      ball.x = (fix16)x << 16; ball.y = 470L << 16; ball.vx = 0; ball.vy = 0;
+      ball.x = (fix16)x << 16; ball.y = 498L << 16; ball.vx = 0; ball.vy = 0;
       int got = 0, pressed = 0;
       for (int f = 0; f < 250 && state == ST_PLAY; f++) {
         memset(&in, 0, sizeof in);
@@ -303,9 +304,9 @@ static void flipper_sweep(void) {
     printf("   Schuesse ueber y 310 nach x (je 20 px):"); for (int b = 0; b < 16; b++) printf(" %d", hist[b]); printf("\n"); }
   for (int x = 70; x <= 140; x += 5) {
     int k = 0;
-    for (int yk = 520; yk <= 556; yk += 3) {
+    for (int yk = 548; yk <= 584; yk += 3) {
       phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
-      ball.x = (fix16)x << 16; ball.y = 470L << 16; ball.vx = 0; ball.vy = 0;
+      ball.x = (fix16)x << 16; ball.y = 498L << 16; ball.vx = 0; ball.vy = 0;
       int got = 0, pressed = 0;
       for (int f = 0; f < 250 && state == ST_PLAY; f++) {
         memset(&in, 0, sizeof in);
@@ -331,7 +332,7 @@ static void cradle_sweep(int left) {
     phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
     if (getenv("FB")) { tune[T_FLIP_BOUNCE] = atol(getenv("FB")); tune_apply(); }
     if (getenv("FS")) { tune[T_FLIP_SPEED] = atol(getenv("FS")); tune_apply(); }
-    ball.x = (left ? 120L : 180L) << 16; ball.y = 500L << 16; ball.vx = ball.vy = 0;
+    ball.x = (left ? 120L : 180L) << 16; ball.y = 528L << 16; ball.vx = ball.vy = 0;
     int got = 0;
     for (int f = 0; f < 400 && state == ST_PLAY; f++) {
       memset(&in, 0, sizeof in);
@@ -433,8 +434,8 @@ static void shot_map(void) {
     for (int mode = 0; mode < 2; mode++)          /* 0: gefangen, 1: aus der Inlane */
       for (int T = 0; T < 40; T++) {
         phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
-        if (mode == 0) { ball.x = (fl ? 180L : 120L) << 16; ball.y = 500L << 16; }
-        else { ball.x = (fl ? 250L : 50L) << 16; ball.y = 460L << 16; }
+        if (mode == 0) { ball.x = (fl ? 180L : 120L) << 16; ball.y = 528L << 16; }
+        else { ball.x = (fl ? 250L : 50L) << 16; ball.y = 488L << 16; }
         ball.vx = ball.vy = 0;
         int t0 = mode == 0 ? 80 : 0, hit = -1;
         for (int f = 0; f < 400 && state == ST_PLAY; f++) {

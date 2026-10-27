@@ -79,45 +79,51 @@ void table_build_palette(void) {
 static const int16_t SEGS[][5] = {
   {10, 156, 10, 640, M_WALL},
   {310, 156, 310, 640, M_WALL},
-  {290, 138, 290, 640, M_WALL},           /* Innenwand Abschussbahn */
+  {290, 200, 290, 640, M_WALL},           /* Innenwand Abschussbahn */
   {114, 34, 114, 70, M_WALL}, {138, 34, 138, 70, M_WALL},      /* Lanes C 6 4 */
   {162, 34, 162, 70, M_WALL}, {186, 34, 186, 70, M_WALL},
-  {36, 297, 36, 400, M_WALL},             /* v6: Begrenzung links unter der Orbit-Einfahrt */
-  {46, 314, 10, 252, M_WALL},             /* v6: linker Orbit, untere Wand parallel zur Schusslinie */
-  {66, 293, 31, 233, M_WALL}, {31, 233, 31, 170, M_WALL},   /* v6: linker Orbit, obere Wand */
-  {304, 124, 292, 134, M_GATE_UP},       /* v6: Einwegtor oben in der Abschussbahn */
-  {162, 306, 170, 268, M_WALL}, {196, 306, 188, 268, M_WALL},  /* v6: Scoop 1541 */
+  /* v6.1: Orbit rundherum. Innenwaende parallel zum oberen Bogen, sie enden an
+   * den aeusseren Lane-Waenden: links vom Orbit-Aufstieg, rechts von der Abschussbahn */
+  {31, 170, 31, 146, M_WALL}, {31, 146, 35, 122, M_WALL}, {35, 122, 43, 99, M_WALL}, {43, 99, 56, 78, M_WALL}, {56, 78, 72, 60, M_WALL}, {72, 60, 92, 45, M_WALL}, {92, 45, 114, 34, M_WALL},
+  {186, 34, 207, 40, M_WALL}, {207, 40, 228, 49, M_WALL}, {228, 49, 246, 62, M_WALL}, {246, 62, 262, 78, M_WALL}, {262, 78, 275, 97, M_WALL}, {275, 97, 284, 118, M_WALL}, {284, 118, 290, 140, M_WALL},
+  /* v6.1: Tor nach unten zum dritten Flipper. Es ist offen, wenn der Ball in der
+   * Abschussbahn nicht schnell nach oben laeuft; physics.c lenkt ihn dann hinaus. */
+  {290, 140, 290, 172, M_WALL},
+  {290, 172, 290, 200, M_GATE},
+  {36, 297, 36, 428, M_WALL},             /* Begrenzung links unter der Orbit-Einfahrt */
+  {46, 314, 10, 252, M_WALL},             /* linker Orbit, untere Wand parallel zur Schusslinie */
+  {66, 293, 31, 233, M_WALL}, {31, 233, 31, 170, M_WALL},   /* linker Orbit, obere Wand */
+  {162, 306, 170, 268, M_WALL}, {196, 306, 188, 268, M_WALL},  /* Scoop 1541 */
   {170, 268, 179, 256, M_WALL}, {179, 256, 188, 268, M_WALL},
-  {10, 390, 36, 400, M_WALL},             /* v5.3: Out-Lane links oben zu (Ball flog ueber den Orbit zurueck) */
-  {290, 390, 264, 400, M_WALL},           /* v5.3: Out-Lane rechts oben zu ... */
+  /* v6.1: alles ab den Target-Reihen 28 Pixel tiefer (Flipper bei y 590) */
+  {10, 418, 36, 428, M_WALL},             /* Out-Lane links oben zu */
+  {290, 418, 264, 428, M_WALL},           /* Out-Lane rechts oben zu ... */
   {290, 318, 264, 336, M_WALL},           /* ... und der Gang hinter den SID-Targets auch oben */
-  /* Inlanes (v4.2): Fuehrung endet knapp hinter dem Drehpunkt, sonst blieb der
-   * Ball oben auf dem Drehpunkt liegen und der Flipper traf ihn kaum */
-  /* v5.4: Trennwaende Inlane/Out-Lane 16 Pixel hoeher (vorher ab y 444): kleinerer Zugang */
-  {40, 416, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
-  {260, 416, 260, 519, M_WALL}, {260, 519, 191, 560, M_WALL},  /* Inlane rechts */
-  {100, 567, 72, 640, M_WALL},
-  {200, 567, 228, 640, M_WALL},
-  {64, 462, 64, 504, M_WALL}, {64, 504, 92, 524, M_WALL},      /* Slingshot links */
-  {236, 462, 236, 504, M_WALL}, {236, 504, 208, 524, M_WALL},  /* Slingshot rechts */
-  {64, 462, 92, 524, M_SLING_L},
-  {236, 462, 208, 524, M_SLING_R},
-  {290, 90, 290, 138, M_GATE},            /* Einweg-Tor */
-  /* Einfahrt der Rampe (v5.4): senkrecht bei x 128, Muendung mit kleinem Trichter */
-  {115, 300, 115, 330, M_WALL}, {141, 300, 141, 330, M_WALL},
+  {264, 336, 264, 428, M_WALL},
+  /* Inlanes; v6.1: Trennwand ab y 452 (v6.0 entsprach 444, v5.7 456) */
+  {40, 452, 40, 547, M_WALL}, {40, 547, 109, 588, M_WALL},     /* Inlane links */
+  {260, 452, 260, 547, M_WALL}, {260, 547, 191, 588, M_WALL},  /* Inlane rechts */
+  {100, 595, 83, 640, M_WALL},
+  {200, 595, 217, 640, M_WALL},
+  {64, 490, 64, 532, M_WALL}, {64, 532, 92, 552, M_WALL},      /* Slingshot links */
+  {236, 490, 236, 532, M_WALL}, {236, 532, 208, 552, M_WALL},  /* Slingshot rechts */
+  {64, 490, 92, 552, M_SLING_L},
+  {236, 490, 208, 552, M_SLING_R},
+  /* Einfahrt der Rampe: senkrecht bei x 128, Muendung mit kleinem Trichter.
+   * v6.1: Seitenwaende bis y 282 und ein spitzes Dach dahinter (unter der Rampe):
+   * von hinten kommt der Ball nicht mehr durch die Einfahrt, und auf dem Dach
+   * kann er nicht liegen bleiben. Ein Ball in der Einfahrt ist ab y 300 auf der
+   * Rampe und beruehrt diese Waende nicht. */
+  {115, 282, 115, 330, M_WALL}, {141, 282, 141, 330, M_WALL},
+  {115, 282, 129, 272, M_WALL}, {129, 272, 141, 282, M_WALL},
   {115, 330, 106, 344, M_WALL}, {141, 330, 150, 344, M_WALL},
-  {290, 268, 279, 294, M_WALL},           /* v4.3: Fuehrung ueber dem Drehpunkt des dritten Flippers,
-                                             sonst blieb der Ball oben auf dem Drehpunkt liegen */
-  /* Rechte Seite gespiegelt zur linken (v5.2): Begrenzung hinter den SID-Targets
-   * bei x 264 (ueber der Trennwand Inlane/Out-Lane bei x 260), endet wie links bei
-   * y 400; schraeges Dach von ihr zum obersten SID-Target */
-  {264, 336, 264, 400, M_WALL},
+  {290, 268, 279, 294, M_WALL},           /* Fuehrung ueber dem Drehpunkt des dritten Flippers */
 };
 #define NSEGS (sizeof(SEGS) / sizeof(SEGS[0]))
 
 static const int16_t SLING_TRI[2][6] = {
-  {64, 462, 64, 504, 92, 524},
-  {236, 462, 236, 504, 208, 524},
+  {64, 490, 64, 532, 92, 552},
+  {236, 490, 236, 532, 208, 552},
 };
 /*
  * Targets als kurze Wandstuecke (Breite 5 wie Waende): x0, y0, x1, y1.
@@ -127,10 +133,10 @@ static const int16_t SLING_TRI[2][6] = {
  */
 static const int16_t TARGETS[N_TARGETS][4] = {
   /* VIC-II (v4.2): links, genau gegenueber den SID-Targets */
-  {54, 392, 61, 381}, {61, 381, 69, 369}, {69, 369, 76, 358},
+  {54, 420, 61, 409}, {61, 409, 69, 397}, {69, 397, 76, 386},
   /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
   {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
-  {246, 392, 239, 381}, {239, 381, 231, 369}, {231, 369, 224, 358},  /* SID: gegenueber VIC-II */
+  {246, 420, 239, 409}, {239, 409, 231, 397}, {231, 397, 224, 386},  /* SID: gegenueber VIC-II */
   /* PLA (v5.3): links oben, senkrecht direkt rechts neben dem aufsteigenden Rampenstueck */
   {60, 120, 60, 134}, {60, 139, 60, 153}, {60, 158, 60, 172},
 };
@@ -199,7 +205,7 @@ static void build_band(void) {
   }
   for (uint8_t s = 0; s < 2; s++) {
     const int16_t *t = SLING_TRI[s];
-    for (int16_t y = 460; y <= 526; y++) {
+    for (int16_t y = 488; y <= 554; y++) {
       if (y < band_y0 || y >= band_y1) continue;
       for (int16_t x = (s ? 206 : 62); x <= (s ? 238 : 94); x++)
         if (in_tri(t, x, y)) set_px(x, y, M_WALL);
@@ -248,7 +254,7 @@ static uint8_t on_rubber(const int16_t *t, int16_t x, int16_t y) {
 
 static uint8_t art_px(int16_t x, int16_t y) {
   if (mask_solid(x, y)) {
-    if (y >= 458 && y <= 528) {
+    if (y >= 486 && y <= 556) {
       if (x <= 96 && on_rubber(SLING_TRI[0], x, y)) return C_SLING0;
       if (x >= 204 && on_rubber(SLING_TRI[1], x, y)) return C_SLING0 + 1;
     }
@@ -258,14 +264,14 @@ static uint8_t art_px(int16_t x, int16_t y) {
     if (x > 0 && !mask_solid(x - 1, y)) return C_CHROME_MID;
     return C_CHROME_DK;
   }
-  if (y >= 460 && y <= 526) {
+  if (y >= 488 && y <= 554) {
     if (x >= 62 && x <= 94 && in_tri(SLING_TRI[0], x, y)) return C_SLING_BODY;
     if (x >= 206 && x <= 238 && in_tri(SLING_TRI[1], x, y)) return C_SLING_BODY;
   }
   if (x >= 293 && x <= 307 && y >= 100) return C_LANE;
-  if (y >= 567) {                        /* Apron zwischen den schraegen Blechen */
-    int16_t d = y - 567;
-    if (x > 100 - (d * 28) / 73 && x < 200 + (d * 28) / 73) return C_LANE;
+  if (y >= 595) {                        /* Apron zwischen den schraegen Blechen */
+    int16_t d = y - 595;
+    if (x > 100 - (d * 17) / 45 && x < 200 + (d * 17) / 45) return C_LANE;
   }
   /* Leiterbahnen als Grundmuster: senkrechte und waagerechte Bahnen */
   if (((x + 4) & 31) == 0 && ((y >> 5) & 1)) return C_TRACE;
@@ -371,13 +377,13 @@ static void band_overlays(uint8_t *b) {
   }
   /* Spinner quer in der schraegen Einfahrt: vier Streifen, deren Farben wandern */
   if (band_y0 < SPIN_Y + 14 && band_y1 > SPIN_Y - 14) band_spinner(b);
-  if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
+  if (band_y0 < 440 && band_y1 > 430) band_text(b, 50, 432, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
-  if (band_y0 < 412 && band_y1 > 402) band_text(b, 238, 404, "SID", 1, C_TARGET_SID);
+  if (band_y0 < 440 && band_y1 > 430) band_text(b, 238, 432, "SID", 1, C_TARGET_SID);
   if (band_y0 < 184 && band_y1 > 174) band_text(b, 66, 176, "PLA", 1, C_TARGET_PLA);
   /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */
   {
-    static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_Y, 460, 460, ROLL_Y };
+    static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_LY, 488, 488, ROLL_DY };
     static const char *LL[4] = { "L", "O", "A", "D" };
     for (uint8_t i = 0; i < 4; i++) {
       if (band_y0 >= LY[i] + 6 || band_y1 <= LY[i] - 6) continue;
@@ -387,12 +393,12 @@ static void band_overlays(uint8_t *b) {
     }
   }
   /* Kickback "FIRE" in der linken Outlane */
-  if (band_y0 < 604 && band_y1 > 588) { band_rect(b, 18, 590, 14, 10, C_KICKBACK); }
+  if (band_y0 < 632 && band_y1 > 616) { band_rect(b, 18, 618, 14, 10, C_KICKBACK); }
   /* Apron: Einschaltbild */
-  if (band_y0 < 632 && band_y1 > 586) {
-    band_text(b, 119, 588, "READY.", 2, C_C64_LIGHT);
-    band_rect(b, 167, 588, 6, 10, C_C64_LIGHT);
-    band_text(b, 106, 606, "38911 BASIC BYTES FREE", 1, C_C64_LIGHT);
+  if (band_y0 < 640 && band_y1 > 610) {   /* v6.1: tiefer, Reihenfolge wie beim Einschalten */
+    band_text(b, 106, 615, "38911 BASIC BYTES FREE", 1, C_C64_LIGHT);
+    band_text(b, 119, 626, "READY.", 2, C_C64_LIGHT);
+    band_rect(b, 167, 626, 6, 10, C_C64_LIGHT);
   }
 }
 
