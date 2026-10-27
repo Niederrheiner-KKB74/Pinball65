@@ -127,7 +127,7 @@ static const int16_t TARGETS[N_TARGETS][4] = {
   /* VIC-II (v4.2): links, genau gegenueber den SID-Targets */
   {46, 328, 46, 344}, {46, 356, 46, 372}, {46, 384, 46, 400},
   /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
-  {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
+  {226, 128, 231, 137}, {232, 138, 238, 146}, {238, 148, 244, 156}, {245, 157, 250, 166},   /* v5.6 hoeher und weiter rechts */
   {254, 348, 254, 362}, {254, 367, 254, 381}, {254, 386, 254, 400},  /* SID: gegenueber VIC-II */
   /* PLA (v5.3): links oben, senkrecht direkt rechts neben dem aufsteigenden Rampenstueck */
   {60, 120, 60, 134}, {60, 139, 60, 153}, {60, 158, 60, 172},
@@ -370,7 +370,7 @@ static void band_overlays(uint8_t *b) {
   /* Spinner quer in der schraegen Einfahrt: vier Streifen, deren Farben wandern */
   if (band_y0 < SPIN_Y + 14 && band_y1 > SPIN_Y - 14) band_spinner(b);
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
-  if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
+  if (band_y0 < 178 && band_y1 > 168) band_text(b, 206, 170, "6510", 1, C_TARGET_6510);
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 238, 404, "SID", 1, C_TARGET_SID);
   if (band_y0 < 184 && band_y1 > 174) band_text(b, 66, 176, "PLA", 1, C_TARGET_PLA);
   /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */

@@ -271,12 +271,13 @@ static void ramp_step(void) {
 static void check_kick(void) {
   if (kick_cool) return;
   fix16 dx = ball.x - ((fix16)KICK_X << 16), dy = ball.y - ((fix16)KICK_Y << 16);
-  const fix16 lim = 5L << 16;
+  /* v5.6: Fangbereich 8 statt 5 Pixel, Tempo bis 5 Pixel pro Substep (vorher 3) */
+  const fix16 lim = 8L << 16;
   if (dx > lim || dx < -lim || dy > lim || dy < -lim) return;
   int32_t a = dx >> 8, b = dy >> 8;
-  if (mul32(a, a) + mul32(b, b) >= 25L * 65536L) return;
+  if (mul32(a, a) + mul32(b, b) >= 64L * 65536L) return;
   fix16 sp = (ball.vx < 0 ? -ball.vx : ball.vx) + (ball.vy < 0 ? -ball.vy : ball.vy);
-  if (sp > 3L * 65536L) return;            /* zu schnell: rollt darueber */
+  if (sp > 5L * 65536L) return;            /* zu schnell: rollt darueber */
   ball.x = (fix16)KICK_X << 16;
   ball.y = (fix16)KICK_Y << 16;
   ball.vx = ball.vy = 0;

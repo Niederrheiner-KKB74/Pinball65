@@ -12,7 +12,8 @@
 extern uint32_t score;
 extern uint8_t ball_no, mult, game_over;
 extern uint16_t bonus;          /* Bonuspunkte in Tausend, vor Multiplikator */
-extern uint8_t ramps;           /* Rampen in diesem Ball */
+extern uint8_t ramps;
+extern uint16_t tgt_groups_done;           /* Rampen in diesem Ball */
 
 /* Missionen (v5.5): C 6 4 komplett -> bereit, Kick-Out-Hole startet die naechste */
 #define N_MISSIONS    4

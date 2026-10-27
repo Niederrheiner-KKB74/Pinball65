@@ -14,6 +14,12 @@
  *          Rampe "FAST LOADER": 5.000, 10.000, ... bis 25.000 je Ball.
  *          Kick-Out-Hole "1541": haelt den Ball (Laufwerksgeraeusch), dann 3.000.
  *          Spinner in der Einfahrt: 100 je Umdrehung.
+ * Meilenstein 5, Missionen (v5.5): C 6 4 oder (seit v5.6) eine Target-Gruppe
+ *          komplett macht MISSION READY (Ring des Kick-Out-Holes blinkt), der
+ *          naechste Ball im Kick-Out-Hole startet die naechste Mission (60 s):
+ *          FORMAT DISK (3x Kick-Out), SYS 64738 (3x Rampe), PEEK & POKE
+ *          (Spinner, Kick-Out, Spinner, Kick-Out), LOAD ERROR (L O A D).
+ *          Geschafft: 50.000 + 25.000 je bereits geschaffter Mission.
  */
 #include "game.h"
 #include "table.h"
@@ -25,6 +31,7 @@ uint32_t score;
 uint8_t ball_no, mult, game_over;
 uint16_t bonus;
 uint8_t ramps;
+uint16_t tgt_groups_done;       /* Zaehler fuer Tests */
 uint8_t mission_ready, mission_active, mission_cur, mission_prog, missions_done;
 uint16_t mission_timer;
 static const char *const MIS_NAME[N_MISSIONS] = { "FORMAT DISK", "SYS 64738", "PEEK & POKE", "LOAD ERROR" };
@@ -207,9 +214,14 @@ static void target_hit(uint8_t i) {
   for (uint8_t g = 0; g < 4; g++)
     if ((tgt_lit & GROUP_MASK[g]) == GROUP_MASK[g]) {
       tgt_lit &= (uint16_t)~GROUP_MASK[g];
+      tgt_groups_done++;
       add(GROUP_PTS[g]);
       message(GROUP_NAME[g], GROUP_PTS[g]);
       snd_play(SND_COMPLETE);
+      if (!mission_active && !mission_ready) {   /* v5.6: auch Target-Gruppen machen die Mission bereit */
+        mission_ready = 1;
+        dmd_put(msg2, "MISSION READY");
+      }
     }
 }
 

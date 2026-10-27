@@ -151,7 +151,7 @@ static void bot_run(long frames) {
   uint8_t pulling = 0, target_pull = 0, hold_l = 0, hold_r = 0, hold_3 = 0, cool = 0;
   unsigned long best = 0, tgt_hits = 0, n_ramp = 0, n_back = 0, n_kick = 0;
   int kick_trace = 0;
-  long d_left = 0, d_mid = 0, d_right = 0, mis_done = 0, mis_start = 0;
+  long d_left = 0, d_mid = 0, d_right = 0, mis_done = 0, mis_start = 0, n_lane = 0, n_grp = 0;
   game_new(); phys_init();
   for (long f = 0; f < frames; f++) {
     memset(&in, 0, sizeof in);
@@ -182,6 +182,9 @@ static void bot_run(long frames) {
     if (ev_ramp & EV_RAMP_DONE) n_ramp++;
     if (ev_ramp & EV_RAMP_BACK) n_back++;
     if (ev_kick & EV_KICK_IN) n_kick++;
+    { static int16_t py; int16_t yy = (int16_t)(ball.y >> 16), xx = (int16_t)(ball.x >> 16);
+      if ((py < 52) != (yy < 52) && xx > 114 && xx < 186 && state == ST_PLAY) n_lane++; py = yy; }
+    { static uint16_t pt; if (tgt_groups_done != pt) n_grp += (uint16_t)(tgt_groups_done - pt); pt = tgt_groups_done; }
     { static uint8_t was_act; if (mission_active && !was_act) mis_start++; was_act = mission_active; }
     { static uint8_t was; static int16_t lastx;
       if (state == ST_PLAY) lastx = (int16_t)(ball.x >> 16);
@@ -200,6 +203,7 @@ static void bot_run(long frames) {
   }
   printf("Roboter: %ld Bilder, %ld Spiele, bestes Ergebnis %lu, Target-Bilder %lu, haengen %ld\n",
          frames, games, best, tgt_hits, stuck);
+  printf("Roboter: obere Lanes %ld, Target-Gruppen komplett %ld\n", n_lane, n_grp);
   printf("Roboter: Missionen gestartet %ld, geschafft %ld\n", mis_start, mis_done);
   printf("Roboter: Ballverluste links %ld, Mitte %ld, rechts %ld\n", d_left, d_mid, d_right);
   printf("Roboter: Rampe %lu geschafft, %lu zurueckgerollt, Kick-Out %lu\n", n_ramp, n_back, n_kick);
@@ -360,6 +364,30 @@ static void dump_mockup(const char *name) {
   state = ST_PLUNGER;
 }
 
+/* Dritter Flipper: Ball faellt wie vom Rampenende auf ihn, Schlag nach T Bildern.
+ * Zaehlt Treffer der oberen Lanes C 6 4 und zeigt, wo der Ball y 200 kreuzt. */
+static void flip3_sweep(void) {
+  input_t in;
+  char line[48]; int k = 0, hits = 0;
+  for (int T = 0; T < 40; T++) {
+    phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+    ball.x = 262L << 16; ball.y = 252L << 16; ball.vx = 0; ball.vy = 16384;
+    int got = 0, cx = -1;
+    for (int f = 0; f < 300 && state == ST_PLAY; f++) {
+      memset(&in, 0, sizeof in);
+      if (f >= T && f < T + 12) in.right = 1;
+      fix16 py0 = ball.y;
+      game_frame(&in);
+      if (py0 >= (200L << 16) && ball.y < (200L << 16) && cx < 0) cx = (int)(ball.x >> 16);
+      if (py0 >= (52L << 16) && ball.y < (52L << 16) && (ball.x >> 16) > 114 && (ball.x >> 16) < 186) got = 1;
+      if ((ball.y >> 16) > 500) break;
+    }
+    hits += got; line[k++] = got ? '#' : (cx < 0 ? '.' : (char)('a' + cx / 20));
+  }
+  line[k] = 0;
+  printf("   dritter Flipper -> C 6 4: %s (%d Treffer; Buchstabe = x/20 bei y 200)\n", line, hits);
+}
+
 extern int host_no_trans;
 #include <stdlib.h>
 #include <math.h>
@@ -423,6 +451,7 @@ int main(void) {
   dump_mockup("mockup.ppm");
   cradle_sweep(0);
   cradle_sweep(1);
+  flip3_sweep();
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);
