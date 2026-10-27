@@ -130,8 +130,8 @@ static const int16_t TARGETS[N_TARGETS][4] = {
   /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
   {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
   {254, 348, 254, 362}, {254, 367, 254, 381}, {254, 386, 254, 400},  /* SID: gegenueber VIC-II */
-  /* PLA (v5.3): links oben in der Rampenkurve, schraeg zum rechten Flipper gerichtet */
-  {66, 190, 75, 178}, {76, 176, 86, 164}, {87, 162, 96, 150},
+  /* PLA (v5.3): links oben, senkrecht direkt rechts neben dem aufsteigenden Rampenstueck */
+  {60, 150, 60, 164}, {60, 169, 60, 183}, {60, 188, 60, 202},
 };
 
 /* Beim Aufbau: Band, in das gerade gezeichnet wird */
@@ -373,7 +373,7 @@ static void band_overlays(uint8_t *b) {
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 238, 404, "SID", 1, C_TARGET_SID);
-  if (band_y0 < 192 && band_y1 > 182) band_text(b, 86, 184, "PLA", 1, C_TARGET_PLA);
+  if (band_y0 < 214 && band_y1 > 204) band_text(b, 66, 206, "PLA", 1, C_TARGET_PLA);
   /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */
   {
     static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_Y, 460, 460, ROLL_Y };

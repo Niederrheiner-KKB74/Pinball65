@@ -12,7 +12,7 @@ Eine Flippersimulation für den MEGA65 im Stil von Pinball Fantasies, mit einem 
 | 2 | Ganzer Tisch 320 × 640 mit Scrolling, Display oben, Platzhaltergrafik nach Entwurf | bestanden (25.10.2026), v2.10 |
 | 3 | Bumper, Slingshots, Targets, Lanes, dritter Flipper, Punkte, Lampen, erste Effekte | bestanden (25.10.2026), v3.0 |
 | 4 | Rampe mit Brücke, Spinner, Kick-Out-Hole | bestanden (26.10.2026), v4.3 |
-| 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | läuft; v5.2 zum Test |
+| 5 | Regeln, Missionen, Multiball, Display-Animationen, SID-Musik | läuft; v5.3 zum Test |
 | 6 | Grafik-Werkzeug, endgültige Grafik, Highscore | geplant |
 
 ## Testumgebung
@@ -46,6 +46,7 @@ Jeder Meilenstein wird auf echter Hardware geprüft, nicht nur im Emulator, weil
 | 25.10.2026 | Meilenstein 3.1 (Lader) | – | hängt im KERNAL bei PC=$E65A beim Nachladen |
 | 25.10.2026 | Meilenstein 3.2 (Lader) | – | Rahmen weiß (= Farbe 5 unserer Palette, also im Laden), hängt wieder bei $E65A |
 | 25.10.2026 | Meilenstein 3.3 (Lader) | – | Rahmen grün, hängt weiter bei $E65A |
+| 27.10.2026 | Meilenstein 5.2 | Seiten ausgewogen; Ball konnte aus der linken Out-Lane zurück auf den Tisch fliegen; Wunsch: PLA-Targets | – |
 | 27.10.2026 | Meilenstein 5.1 | MAX bis 234, Spielszene L098 MAX184 P080 R002 S061 Z009 T000 D026 C005; L/D gut, Display flüssig, Rampe erreichbar; linke Out-Lane kaum, rechte zu leicht erreichbar | – |
 | 26.10.2026 | Meilenstein 5.0 | MAX bis 248; z. B. L126 MAX235 P080 R002 S060 Z031 T009 D029 C024; L und D gut zu treffen, aber L versperrt die Rampe | – |
 | 26.10.2026 | Meilenstein 4.3 | Ball bleibt nirgends liegen; Rampe mit gutem Timing zu treffen; Kick-Out-Hole genau richtig; MAX bis 263 | – |
@@ -116,6 +117,7 @@ Neu in v5.0 und v5.1:
 - **L O A D**: L und D sind seit v5.1 Roll-Over-Kontakte auf dem Tisch (x 97 und 223, y 379): Der Ball rollt darüber und zählt beim Hineinrollen. In v5.0 waren es feste Targets, das linke versperrte den Weg zur Rampe. O und A bleiben die Inlanes. Die Out-Lanes zählen nicht mehr, L O A D ist ohne Ballverlust zu schaffen. Die L O A D-Lampen wandern nicht mehr mit den Flipperknöpfen (nur noch C 6 4).
 - **Rampenende**: Der Ball fällt jetzt senkrecht auf den dritten Flipper und rollt über dessen Spitze nach links unten zum linken Flipper (mit dem schrägen Abwurf aus v4.3 hätte er das D-Target getroffen und wäre in die rechte Out-Lane gesprungen).
 - **Messwerte (Taste D)**: feiner aufgeteilt. Zeile 1: `L`, `MAX`, `P` Physik (Eingabe, Bewegung, Kamera), `R` Regeln (Punkte, Lampen, Klang). Zeile 2: `S` Hintergrund, `Z` Flipper und Ball, `T` Displaytext, `D` Display zeichnen, `C` Prüfsumme. Damit lässt sich vor dem Multiball sehen, wo die Zeit hingeht.
+- **v5.3**: Neue Target-Reihe P L A links oben, senkrecht direkt rechts neben dem aufsteigenden Rampenstück (x 60, y 150–202), Gruppe komplett 15.000 (`PLA READY`). Beide Out-Lanes oberhalb der Öffnung geschlossen (links schräge Wand unter dem Orbit-Kanal, rechts der Gang hinter den SID-Targets oben und unten zu); vorher konnte ein Ball aus der linken Out-Lane über den Orbit zurück auf den Tisch fliegen. SID-Targets etwas tiefer (y 348–400), sonst Mulde unter der Spitze des dritten Flippers. Testabschuss jetzt `TEST X 11818570`, `TEST Y 21549792`.
 - **Out-Lanes symmetrisch (v5.2)**: Die Begrenzung hinter den VIC-II-Targets endet jetzt mit den Targets bei y 400 (vorher 420, der Durchgang zur linken Out-Lane war sehr schmal). Rechts gespiegelt: SID-Targets bei x 254 (vorher 280), dahinter eine Begrenzung bei x 264 bis y 400 über der Trennwand Inlane/Out-Lane; vorher fiel der Ball rechts sehr oft durch. Spielroboter: Ballverluste links 98, rechts 97, Mitte 188.
 - **Display und Prüfsumme warten (v5.1)**: Displaytext, Display und Prüfsumme laufen nur, wenn das Bild nach dem Zeichnen noch unter 200 Rasterzeilen liegt; sonst im nächsten Bild. Die Prüfsumme prüft 128 statt 512 Byte pro Bild (v5.0 kostete sie 24 Zeilen).
 - **Schnellere Physik**, Ergebnis bitgleich: ruhende Flipper werden übersprungen, Flipper und Bumper haben eine schnelle Vorprüfung in ganzen Pixeln. Im 6502-Simulator (Profil mit `make -C test/sim prof`) kostet die Physik im Mittel rund 90.000 Zyklen pro Bild ohne Multiplikation.
