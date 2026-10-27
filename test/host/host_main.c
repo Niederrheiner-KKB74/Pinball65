@@ -151,7 +151,7 @@ static void bot_run(long frames) {
   uint8_t pulling = 0, target_pull = 0, hold_l = 0, hold_r = 0, hold_3 = 0, cool = 0;
   unsigned long best = 0, tgt_hits = 0, n_ramp = 0, n_back = 0, n_kick = 0;
   int kick_trace = 0;
-  long d_left = 0, d_mid = 0, d_right = 0, mis_done = 0, mis_start = 0, n_lane = 0, n_grp = 0;
+  long d_kick = 0, d_left = 0, d_mid = 0, d_right = 0, mis_done = 0, mis_start = 0, n_lane = 0, n_grp = 0;
   game_new(); phys_init();
   for (long f = 0; f < frames; f++) {
     memset(&in, 0, sizeof in);
@@ -188,9 +188,11 @@ static void bot_run(long frames) {
     { static uint8_t was_act; if (mission_active && !was_act) mis_start++; was_act = mission_active; }
     { static uint8_t was; static int16_t lastx;
       if (state == ST_PLAY) lastx = (int16_t)(ball.x >> 16);
-      if (state == ST_DRAIN && was != ST_DRAIN) { if (lastx < 42) d_left++; else if (lastx > 258) d_right++; else d_mid++; }
+      if (state == ST_DRAIN && was != ST_DRAIN) { if (lastx < 42) d_left++; else if (lastx > 258) d_right++; else d_mid++;
+        if (kick_trace && kick_trace < 150) d_kick++; }
       was = state; }
     if (ev_kick & EV_KICK_OUT) kick_trace = 1;
+    if (ev_kick & EV_KICK_IN) kick_trace = 0;
     if (kick_trace && kick_trace < 200 && getenv("KTRACE") && n_kick < 4 && (kick_trace % 10) == 1)
       printf("   nach Auswurf %d: x=%d y=%d\n", kick_trace, x, y);
     if (kick_trace) kick_trace++;
@@ -205,7 +207,7 @@ static void bot_run(long frames) {
          frames, games, best, tgt_hits, stuck);
   printf("Roboter: obere Lanes %ld, Target-Gruppen komplett %ld\n", n_lane, n_grp);
   printf("Roboter: Missionen gestartet %ld, geschafft %ld\n", mis_start, mis_done);
-  printf("Roboter: Ballverluste links %ld, Mitte %ld, rechts %ld\n", d_left, d_mid, d_right);
+  printf("Roboter: Ballverluste links %ld, Mitte %ld, rechts %ld (davon bis 3 s nach Kick-Out-Auswurf: %ld)\n", d_left, d_mid, d_right, d_kick);
   printf("Roboter: Rampe %lu geschafft, %lu zurueckgerollt, Kick-Out %lu\n", n_ramp, n_back, n_kick);
 }
 
@@ -245,6 +247,7 @@ static void kick_test(void) {
     if ((ev_kick & EV_KICK_IN) && cap < 0) cap = (int)f;
     if ((ev_kick & EV_KICK_OUT) && out < 0) out = (int)f;
     game_update(&in);
+    if (out >= 0 && f > out && (f - out) % 10 == 0 && f - out <= 100 && getenv("KPATH")) printf("      +%ld: x=%ld y=%ld\n", f - out, (long)(ball.x >> 16), (long)(ball.y >> 16));
     if (out >= 0 && f == out + 60) printf("   60 Bilder nach dem Auswurf: x=%ld y=%ld\n", (long)(ball.x >> 16), (long)(ball.y >> 16));
   }
   printf("   Kick-Out: gefangen in Bild %d, ausgeworfen in Bild %d, Punkte %lu\n", cap, out, (unsigned long)score);
@@ -388,6 +391,31 @@ static void flip3_sweep(void) {
   printf("   dritter Flipper -> C 6 4: %s (%d Treffer; Buchstabe = x/20 bei y 200)\n", line, hits);
 }
 
+/* Abschuss mit verschiedenen Plunger-Staerken, ohne Flipper: Wie schnell und
+ * auf welchem Weg geht der Ball verloren? */
+static void plunge_test(void) {
+  input_t in;
+  int fast = 0, kicked = 0;
+  for (int p = 10; p <= PULL_MAX; p++) {
+    phys_init(); game_new();
+    int f, kick = 0;
+    for (f = 0; f < 1500; f++) {
+      memset(&in, 0, sizeof in);
+      if (f < p) in.plunger = 1;
+      game_frame(&in);
+      if (ev_kick & EV_KICK_IN) kick = 1;
+      game_update(&in);
+      if (state == ST_DRAIN) break;
+      if (getenv("PLTRACE") && f % 20 == 0 && f > 80) printf("      %d: %ld %ld\n", f, (long)(ball.x >> 16), (long)(ball.y >> 16));
+    }
+    if (f < 400) fast++;
+    kicked += kick;
+    if (getenv("PLTRACE")) printf("   Zug %2d: Ballverlust nach %4d Bildern%s\n", p, f, kick ? " (ueber Kick-Out)" : "");
+  }
+  printf("   Abschuesse ohne Flipper: %d von %d nach weniger als 8 s verloren, %d ueber das Kick-Out-Hole\n",
+         fast, PULL_MAX - 9, kicked);
+}
+
 extern int host_no_trans;
 #include <stdlib.h>
 #include <math.h>
@@ -452,6 +480,7 @@ int main(void) {
   cradle_sweep(0);
   cradle_sweep(1);
   flip3_sweep();
+  plunge_test();
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);

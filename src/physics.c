@@ -271,13 +271,13 @@ static void ramp_step(void) {
 static void check_kick(void) {
   if (kick_cool) return;
   fix16 dx = ball.x - ((fix16)KICK_X << 16), dy = ball.y - ((fix16)KICK_Y << 16);
-  /* v5.6: Fangbereich 8 statt 5 Pixel, Tempo bis 5 Pixel pro Substep (vorher 3) */
-  const fix16 lim = 8L << 16;
+  /* Fangbereich 6 Pixel, Tempo bis 4 Pixel pro Substep (v5.5: 5 und 3, v5.6: 8 und 5) */
+  const fix16 lim = 6L << 16;
   if (dx > lim || dx < -lim || dy > lim || dy < -lim) return;
   int32_t a = dx >> 8, b = dy >> 8;
-  if (mul32(a, a) + mul32(b, b) >= 64L * 65536L) return;
+  if (mul32(a, a) + mul32(b, b) >= 36L * 65536L) return;
   fix16 sp = (ball.vx < 0 ? -ball.vx : ball.vx) + (ball.vy < 0 ? -ball.vy : ball.vy);
-  if (sp > 5L * 65536L) return;            /* zu schnell: rollt darueber */
+  if (sp > 4L * 65536L) return;            /* zu schnell: rollt darueber */
   ball.x = (fix16)KICK_X << 16;
   ball.y = (fix16)KICK_Y << 16;
   ball.vx = ball.vy = 0;
@@ -375,8 +375,8 @@ void game_frame(const input_t *in) {
   ev_target = 0;
   ev_ramp = ev_kick = 0;
   if (kick_cool) kick_cool--;
-  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach unten zum linken Flipper */
-    ball.vx = 9830L;
+  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach unten in die linke Inlane */
+    ball.vx = -10486L;              /* v5.7: Inlane statt Slingshot */
     ball.vy = 32768L;
     kick_cool = 30;
     ev_kick |= EV_KICK_OUT;
