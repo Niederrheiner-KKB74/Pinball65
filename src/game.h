@@ -19,6 +19,7 @@ extern uint16_t tgt_groups_done;           /* Rampen in diesem Ball */
 #define N_MISSIONS    4
 #define MISSION_TIME  3000      /* 60 Sekunden (laeuft nicht, solange der Ball im Kick-Out-Hole liegt) */
 extern uint8_t mission_ready, mission_active, mission_cur, mission_prog, missions_done;
+extern uint8_t mb_ready;                  /* Multiball RUN/STOP bereit (Rampe startet ihn) */
 extern uint16_t mission_timer;
 /* Schreibt Name, Fortschritt und Restzeit der laufenden Mission ("FORMAT 1/3 38") */
 char *mission_status(char *p);

@@ -1,8 +1,6 @@
 /* Automatisch erzeugt von tools/gen_tables.py - nicht von Hand aendern */
 #include "tables.h"
 
-int32_t SIN_TAB[256];
-
 /* Viertelwelle sin(0..63), in 16.16 ohne Vorzeichen */
 static const uint16_t SIN_Q[64] = {
   0, 1608, 3216, 4821, 6424, 8022, 9616, 11204,
@@ -15,12 +13,12 @@ static const uint16_t SIN_Q[64] = {
   64277, 64571, 64827, 65043, 65220, 65358, 65457, 65516,
 };
 
-void tables_init(void) {
-  for (uint16_t i = 0; i < 256; i++) {
-    uint8_t k = (uint8_t)(i & 127);
-    int32_t v = k < 64 ? (int32_t)SIN_Q[k] : k == 64 ? 65536L : (int32_t)SIN_Q[128 - k];
-    SIN_TAB[i] = i < 128 ? v : -v;
-  }
+void tables_init(void) {}
+
+int32_t sin_tab(uint8_t i) {
+  uint8_t k = (uint8_t)(i & 127);
+  int32_t v = k < 64 ? (int32_t)SIN_Q[k] : k == 64 ? 65536L : (int32_t)SIN_Q[128 - k];
+  return i < 128 ? v : -v;
 }
 
 const uint8_t ATAN_TAB[65] = {

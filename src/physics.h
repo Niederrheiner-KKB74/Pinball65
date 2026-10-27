@@ -63,7 +63,7 @@ typedef struct {
 } flipper_t;
 
 typedef struct {
-  uint8_t left, right, plunger, test, reset, diag;
+  uint8_t left, right, plunger, test, reset, diag, mb;   /* mb: RUN/STOP startet Multiball (Test) */
   uint8_t tune_toggle, tune_next, tune_down, tune_up;   /* F1, F3, F5, F7 */
 } input_t;
 
@@ -90,6 +90,17 @@ extern uint16_t test_count;
 extern uint8_t snap_valid;
 extern uint8_t tune_on, tune_sel;
 extern fix16 snap_x, snap_y;
+
+/* Multiball (v6.4): ein zweiter Ball. Sein Zustand liegt in ball2; phys_swap
+ * tauscht ihn mit dem aktuellen Ball (ball, on_ramp, ...), damit derselbe Code
+ * beide bewegt und auswertet. ball_idx sagt, welcher gerade "ball" ist. */
+typedef struct { ball_t b; fix16 rs, rv; uint8_t onr, rseg, kt, kc, inl; } bctx_t;
+extern bctx_t ball2;
+extern uint8_t multi, ball_idx;
+extern uint8_t ev_saved;          /* Ball im Multiball zurueckgeholt (Ball-Save) */
+#define MB_SAVE 500              /* 10 s nach dem Start */
+void phys_swap(void);
+void phys_multiball(void);       /* zweiten Ball aus der Abschussbahn starten */
 
 void phys_init(void);
 void in_lane_reset(void);        /* nur fuer Tests: Ball nicht in der Abschussbahn */

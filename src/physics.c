@@ -1,6 +1,7 @@
 /*
  * physics.c – Portierung der Prototyp-Physik nach C (Festkomma 16.16)
  */
+#include <string.h>
 #include "physics.h"
 #define GATE_UP_V 16384L        /* 0,25 Pixel pro Substep */
 #ifndef KICK_UP_DY
@@ -23,6 +24,9 @@ uint8_t ev_ramp, ev_kick, on_ramp, kick_timer;
 fix16 ramp_s, ramp_v;
 static uint8_t ramp_seg, kick_cool;
 uint8_t state, pull, in_lane;
+bctx_t ball2;
+uint8_t multi, ball_idx, ev_saved;
+static uint16_t mb_save;          /* Bilder, in denen ein verlorener Ball zurueckkommt */
 uint16_t bumper_hits, sling_hits, collisions;
 uint8_t test_active;
 uint16_t test_count;
@@ -256,11 +260,11 @@ static void ramp_place(void) {
   while (ramp_seg > 0 && ramp_s < RAMP_SEGS[ramp_seg].s0) ramp_seg--;
   const ramp_seg_t *g = &RAMP_SEGS[ramp_seg];
   fix16 d = ramp_s - g->s0;
-  ball.x = g->x0 + fmul(g->ux, d);
-  ball.y = g->y0 + fmul(g->uy, d);
+  ball.x = RS_P(g->x0) + fmul(RS_U(g->ux), d);
+  ball.y = RS_P(g->y0) + fmul(RS_U(g->uy), d);
   /* Geschwindigkeit in Fahrtrichtung, damit Kamera und Anzeige stimmen */
-  ball.vx = fmul(g->ux, ramp_v);
-  ball.vy = fmul(g->uy, ramp_v);
+  ball.vx = fmul(RS_U(g->ux), ramp_v);
+  ball.vy = fmul(RS_U(g->uy), ramp_v);
 }
 
 static void ramp_step(void) {
@@ -285,7 +289,7 @@ static void ramp_step(void) {
 
 /* ---------- Kick-Out-Hole ---------- */
 static void check_kick(void) {
-  if (kick_cool) return;
+  if (kick_cool || (multi && ball2.kt)) return;
   fix16 dx = ball.x - ((fix16)KICK_X << 16), dy = ball.y - ((fix16)KICK_Y << 16);
   /* Fangbereich 6 Pixel, Tempo bis 4 Pixel pro Substep (v5.5: 5 und 3, v5.6: 8 und 5) */
   const fix16 lim = 6L << 16;
@@ -302,10 +306,7 @@ static void check_kick(void) {
 }
 
 /* ---------- Substep ---------- */
-static void substep(void) {
-  update_flipper(&flip[0]);
-  update_flipper(&flip[1]);
-  update_flipper(&flip[2]);
+__attribute__((noinline)) static void ball_step(void) {
   if (state == ST_DRAIN || kick_timer) return;
   if (on_ramp) { ramp_step(); return; }
   fix16 prev_y = ball.y;
@@ -321,7 +322,7 @@ static void substep(void) {
     on_ramp = 1;
     ramp_s = 0;
     ramp_seg = 0;
-    ramp_v = fmul(ball.vx, RAMP_SEGS[0].ux) + fmul(ball.vy, RAMP_SEGS[0].uy);   /* Tempo bergauf */
+    ramp_v = fmul(ball.vx, RS_U(RAMP_SEGS[0].ux)) + fmul(ball.vy, RS_U(RAMP_SEGS[0].uy));   /* Tempo bergauf */
     ramp_place();
     return;
   }
@@ -347,6 +348,71 @@ static void substep(void) {
 
 void in_lane_reset(void) { in_lane = 0; }
 
+void phys_swap(void) {
+  bctx_t t = ball2;
+  ball2.b = ball; ball2.rs = ramp_s; ball2.rv = ramp_v; ball2.onr = on_ramp;
+  ball2.rseg = ramp_seg; ball2.kt = kick_timer; ball2.kc = kick_cool; ball2.inl = in_lane;
+  ball = t.b; ramp_s = t.rs; ramp_v = t.rv; on_ramp = t.onr;
+  ramp_seg = t.rseg; kick_timer = t.kt; kick_cool = t.kc; in_lane = t.inl;
+  ball_idx ^= 1;
+}
+
+/* Zwei Baelle stossen zusammen: gleiche Masse, die Geschwindigkeiten entlang
+ * der Verbindungslinie werden getauscht */
+static void balls_collide(void) {
+  if (on_ramp || ball2.onr || kick_timer || ball2.kt) return;
+  fix16 dx = ball.x - ball2.b.x, dy = ball.y - ball2.b.y;
+  const fix16 lim = (fix16)(2 * BALL_R) << 16;
+  if (dx >= lim || dx <= -lim || dy >= lim || dy <= -lim) return;
+  int32_t a = dx >> 8, b = dy >> 8;
+  if (mul32(a, a) + mul32(b, b) >= (int32_t)(4 * BALL_R * BALL_R) * 65536L) return;
+  uint8_t ang = angle256(dx, dy);
+  fix16 nx = cosA(ang), ny = sinA(ang);
+  fix16 d = fmul(ball2.b.vx - ball.vx, nx) + fmul(ball2.b.vy - ball.vy, ny);
+  if (d <= 0) return;                      /* laufen schon auseinander */
+  ball.vx += fmul(d, nx); ball.vy += fmul(d, ny);
+  ball2.b.vx -= fmul(d, nx); ball2.b.vy -= fmul(d, ny);
+}
+
+static void ball2_launch(void) {
+  ball2.b.x = (fix16)LANE_X << 16;
+  ball2.b.y = (fix16)(PLUNGER_Y - BALL_R) << 16;
+  ball2.b.vx = 0;
+  ball2.b.vy = -(LAUNCH_MIN + ((LAUNCH_MAX - LAUNCH_MIN) * 38) / PULL_MAX);   /* wie Zug 38: ganz herum */
+  ball2.onr = ball2.kt = ball2.kc = 0;
+  ball2.inl = 1;
+  multi = 1;
+}
+
+void phys_multiball(void) {
+  ball2_launch();
+  mb_save = MB_SAVE;
+}
+
+/* Kick-Out-Hole: Haltezeit ablaufen lassen, dann auswerfen */
+static void kick_tick(void) {
+  if (kick_cool) kick_cool--;
+  if (kick_timer && --kick_timer == 0) {
+    /* v6.1: senkrechter Auswurf (VUK) hinter dem Scoop nach oben zu den Bumpern */
+    ball.y = (fix16)(KICK_Y - KICK_UP_DY) << 16;
+    ball.vx = KICK_UP_VX;
+    ball.vy = KICK_UP_VY;
+    kick_cool = 30;
+    ev_kick |= EV_KICK_OUT;
+  }
+}
+
+__attribute__((noinline)) static void run_substeps(void) {
+  for (uint8_t i = 0; i < SUBSTEPS; i++) {
+    update_flipper(&flip[0]);
+    update_flipper(&flip[1]);
+    update_flipper(&flip[2]);
+    ball_step();
+  }
+}
+
+static uint8_t drained(void) { return ball.y > ((fix16)(TH + 14) << 16); }
+
 static void new_ball(void) {
   ball.x = (fix16)LANE_X << 16;
   ball.y = (fix16)(PLUNGER_Y - BALL_R) << 16;
@@ -356,6 +422,7 @@ static void new_ball(void) {
   state = ST_PLUNGER;
   on_ramp = 0;
   kick_timer = 0;
+  multi = 0;
 }
 
 static void launch(uint8_t p) {
@@ -395,18 +462,12 @@ void game_frame(const input_t *in) {
   flip[2].pressed = in->right;
   ev_bumper = ev_sling = 0;
   ev_target = 0;
-  ev_ramp = ev_kick = 0;
-  if (kick_cool) kick_cool--;
-  if (kick_timer && --kick_timer == 0) {
-    /* v6.1: senkrechter Auswurf (VUK) hinter dem Scoop nach oben zu den Bumpern */
-    ball.y = (fix16)(KICK_Y - KICK_UP_DY) << 16;
-    ball.vx = KICK_UP_VX;
-    ball.vy = KICK_UP_VY;
-    kick_cool = 30;
-    ev_kick |= EV_KICK_OUT;
-  }
+  ev_ramp = ev_kick = ev_saved = 0;
+  kick_tick();
+  if (multi) { phys_swap(); kick_tick(); phys_swap(); }
 
   tune_input(in);
+  if (in->mb && state == ST_PLAY && !multi) phys_multiball();
   if (in->reset) { new_ball(); test_active = 0; }
   if (state == ST_PLUNGER) {
     if (in->test && !test_active) {
@@ -421,19 +482,53 @@ void game_frame(const input_t *in) {
   plunger_top = PLUNGER_Y - BALL_R + (int16_t)((pull * 7) / 20);
 
   collisions = 0;
-  for (uint8_t i = 0; i < SUBSTEPS; i++) substep();
+  /* Multiball: liegen die Baelle weit auseinander, laufen erst alle Substeps des
+   * einen, dann des anderen Balls (die Flipper bewegen sich dabei zweimal gleich).
+   * So wird das Maskenfenster nur einmal je Ball geladen statt in jedem Substep. */
+  fix16 dy = ball2.b.y - ball.y;
+  if (multi && (dy > (24L << 16) || dy < -(24L << 16))) {
+    flipper_t f0[N_FLIP];
+    memcpy(f0, flip, sizeof flip);
+    run_substeps();
+    memcpy(flip, f0, sizeof flip);
+    phys_swap(); run_substeps(); phys_swap();
+  } else
+  for (uint8_t i = 0; i < SUBSTEPS; i++) {
+    update_flipper(&flip[0]);
+    update_flipper(&flip[1]);
+    update_flipper(&flip[2]);
+    if (multi) {                           /* ein Fenster fuer beide Baelle */
+      int16_t y1 = (int16_t)(ball.y >> 16), y2 = (int16_t)(ball2.b.y >> 16);
+      if (y1 > y2) { int16_t t = y1; y1 = y2; y2 = t; }
+      if (y2 - y1 < 36 && y1 > 6 && y2 < TH - 6) mask_ensure(y1 - 6, y2 + 6);
+    }
+    ball_step();
+    if (multi) { phys_swap(); ball_step(); phys_swap(); balls_collide(); }
+  }
   ball.vx -= ball.vx >> 10;
   ball.vy -= ball.vy >> 10;
+  if (multi) {
+    ball2.b.vx -= ball2.b.vx >> 10;
+    ball2.b.vy -= ball2.b.vy >> 10;
+    /* Multiball endet, wenn einer der beiden Baelle verloren geht */
+    if (drained()) phys_swap();
+    phys_swap(); uint8_t d = drained(); phys_swap();
+    if (d) {
+      if (mb_save) { ball2_launch(); ev_saved = 1; }   /* in den ersten Sekunden: Ball kommt zurueck */
+      else multi = 0;
+    }
+    if (mb_save) mb_save--;
+  }
 
   /* Zu schwacher Abschuss: Ball liegt wieder auf dem Plunger -> neu abschiessen */
-  if (state == ST_PLAY && in_lane && (ball.x >> 16) > 292 &&
+  if (state == ST_PLAY && !multi && in_lane && (ball.x >> 16) > 292 &&
       ball.y >= ((fix16)plunger_top << 16) && ball.vy == 0)
     state = ST_PLUNGER;
 
   if (test_active && ++test_count == TEST_FRAMES) {
     snap_x = ball.x; snap_y = ball.y; snap_valid = 1; test_active = 0;
   }
-  if (state == ST_PLAY && ball.y > ((fix16)(TH + 14) << 16)) { state = ST_DRAIN; drain_timer = 50; }
+  if (state == ST_PLAY && drained()) { state = ST_DRAIN; drain_timer = 50; }
   if (state == ST_DRAIN && --drain_timer == 0) new_ball();
   if (sling_cool[0]) sling_cool[0]--;
   if (sling_cool[1]) sling_cool[1]--;

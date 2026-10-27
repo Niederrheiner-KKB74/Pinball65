@@ -3,7 +3,10 @@
 #define RAMP_PATH_H
 #include <stdint.h>
 
-typedef struct { int32_t x0, y0, ux, uy, s0; } ramp_seg_t;   /* 16.16 */
+/* v6.4 kompakt: x0, y0 in 12.4, ux, uy in 2.14, s0 in 16.16 (spart 392 Byte) */
+typedef struct { int16_t x0, y0, ux, uy; int32_t s0; } ramp_seg_t;
+#define RS_P(v) ((int32_t)(v) << 12)   /* Lage nach 16.16 */
+#define RS_U(v) ((int32_t)(v) << 2)    /* Richtung nach 16.16 */
 #define RAMP_NSEG       49
 #define RAMP_LEN        39420285L   /* 601.5 Pixel */
 #define RAMP_CLIMB_END  9175040L

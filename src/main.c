@@ -33,7 +33,7 @@ static uint8_t repeat(uint8_t down, uint8_t *cnt) {
 }
 
 static void read_input(input_t *in) {
-  static uint8_t prev_t, prev_b, prev_d, prev_f1, prev_f3, rep_f5, rep_f7;
+  static uint8_t prev_t, prev_b, prev_d, prev_f1, prev_f3, rep_f5, rep_f7, prev_rs;
   uint8_t c0 = key_col(0);
   uint8_t f1 = (c0 & 0x10) != 0, f3 = (c0 & 0x20) != 0;
   in->tune_toggle = f1 && !prev_f1;
@@ -52,7 +52,9 @@ static void read_input(input_t *in) {
   in->reset = b && !prev_b;
   uint8_t d = (c2 & 0x04) != 0;                             /* D */
   in->diag = d && !prev_d;
-  prev_t = t; prev_b = b; prev_d = d;
+  uint8_t rs = (c7 & 0x80) != 0;                            /* RUN/STOP: Multiball zum Testen */
+  in->mb = rs && !prev_rs;
+  prev_t = t; prev_b = b; prev_d = d; prev_rs = rs;
 }
 
 /* Display-Text je nach Spielzustand (Texte im C64-Stil, Debugwerte unten) */
@@ -205,6 +207,7 @@ int main(void) {
 
   phys_init();
   render_init();
+  if (!render_uses_dma()) halt("?DMA ERROR", "CORE 0.95 OR NEWER");
   snd_init();
   game_new();
   VICIV.bordercol = 0;

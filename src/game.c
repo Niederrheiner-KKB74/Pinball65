@@ -20,6 +20,10 @@
  *          FORMAT DISK (3x Kick-Out), SYS 64738 (3x Rampe), PEEK & POKE
  *          (Spinner, Kick-Out, Spinner, Kick-Out), LOAD ERROR (L O A D).
  *          Geschafft: 50.000 + 25.000 je bereits geschaffter Mission.
+ * v6.4, Multiball "RUN/STOP": bereit, wenn VIC-II, 6510 und SID je einmal komplett
+ *          waren (die Rampe blinkt); die naechste Rampe startet einen zweiten Ball aus
+ *          der Abschussbahn. 10 s Ball-Save, 1541 = JACKPOT 50.000, Ende beim ersten
+ *          verlorenen Ball. Taste RUN/STOP startet ihn zum Testen sofort.
  */
 #include "game.h"
 #include "table.h"
@@ -54,7 +58,12 @@ static uint8_t skill_t, blink_n;
 static uint8_t tgt_cool[N_TARGETS];
 static uint8_t flash[5];                      /* Bumper 0-2, Slingshots 3-4 */
 static uint8_t prev_state, prev_l, prev_r, hold;
-static int16_t prev_y;
+static int16_t prev_y[2];               /* je Ball (Multiball) */
+static uint8_t roll_in[2];
+/* Multiball "RUN/STOP" (v6.4): bereit, wenn VIC-II, 6510 und SID je einmal komplett
+ * waren; die naechste Rampe startet ihn. Im Multiball gibt das 1541 den Jackpot. */
+static uint8_t grp_mask;
+uint8_t mb_ready;
 static uint8_t lamp_shown[N_LAMPS];
 
 /* Lampenfarben: aus, an */
@@ -188,6 +197,7 @@ void game_new(void) {
   spin_v = 0;
   msg_timer = 0;
   mission_ready = mission_active = mission_cur = mission_prog = missions_done = 0;
+  grp_mask = mb_ready = 0;
   prev_state = state;
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
   lamps_apply();
@@ -220,12 +230,18 @@ static void target_hit(uint8_t i) {
     if ((tgt_lit & GROUP_MASK[g]) == GROUP_MASK[g]) {
       tgt_lit &= (uint16_t)~GROUP_MASK[g];
       tgt_groups_done++;
+      if (g < 3) grp_mask |= (uint8_t)(1 << g);
       add(GROUP_PTS[g]);
       message(GROUP_NAME[g], GROUP_PTS[g]);
       snd_play(SND_COMPLETE);
       if (!mission_active && !mission_ready) {   /* v5.6: auch Target-Gruppen machen die Mission bereit */
         mission_ready = 1;
         dmd_put(msg2, "MISSION READY");
+      }
+      if (grp_mask == 7 && !mb_ready && !multi) {
+        mb_ready = 1;
+        dmd_put(msg1, "RUN/STOP READY");
+        dmd_put(msg2, "SHOOT RAMP");
       }
     }
 }
@@ -274,6 +290,42 @@ static void low_lane(uint8_t i) {
   }
 }
 
+/* Regeln, die von der Lage des Balls abhaengen (im Multiball fuer beide Baelle) */
+static void ball_rules(void) {
+  int16_t x = (int16_t)(ball.x >> 16), y = (int16_t)(ball.y >> 16), py = prev_y[ball_idx];
+    /* Spinner: Ball kreuzt ihn in der Einfahrt, Drehung nach Tempo */
+    if ((py < SPIN_Y) != (y < SPIN_Y) && x >= SPIN_X0 && x <= SPIN_X1) {
+      int16_t d = y - py;
+      if (d < 0) d = -d;
+      if (d > 40) d = 0;                     /* Sprung (neuer Ball, Rampe): kein Drehen */
+      spin_v += (uint16_t)d * 8;
+      if (spin_v > 700) spin_v = 700;
+      if (d) mission_event(MS_SPIN);
+    }
+    /* Roll-Over-Kontakte L und D: zaehlen beim Hineinrollen, erst wieder nach Verlassen */
+    {
+      uint8_t now = 0;
+      if (!on_ramp) {
+        /* v6.4: L in beiden Richtungen, nur nicht beim Abschuss (Skill-Shot-Zeit laeuft
+         * noch, der Ball hat also nach dem Abschuss noch keine Lane erreicht) */
+        if (!skill_t && y > ROLL_LY - ROLL_R && y < ROLL_LY + ROLL_R && x > ROLL_LX - ROLL_R && x < ROLL_LX + ROLL_R) now = 1;
+        /* D nur aufwaerts (Schuss zur Rampe, nicht der zurueckrollende Ball) */
+        else if (ball.vy < 0 && y > ROLL_DY - ROLL_R && y < ROLL_DY + ROLL_R && x > ROLL_DX - ROLL_R && x < ROLL_DX + ROLL_R) now = 2;
+      }
+      if (now && now != roll_in[ball_idx]) low_lane(now == 1 ? 0 : 3);
+      roll_in[ball_idx] = now;
+    }
+    /* Rollover: Ball ueberquert die Zaehllinie */
+    if ((py < TOPLANE_Y) != (y < TOPLANE_Y) && x > TOPLANE_X0 && x < TOPLANE_X0 + 72)
+      top_lane(x < TOPLANE_X0 + 24 ? 0 : x < TOPLANE_X0 + 48 ? 1 : 2);
+    if (py < LOWLANE_Y && y >= LOWLANE_Y) {
+      /* v5.0: O und A an den Inlanes; L und D sind Targets, die Out-Lanes zaehlen nicht */
+      if (x >= 40 && x < 64) low_lane(1);
+      else if (x > 236 && x <= 260) low_lane(2);
+    }
+  prev_y[ball_idx] = y;
+}
+
 void game_update(const input_t *in) {
   /* Lane-Wechsel und Flipperklang beim Druecken */
   if (state == ST_PLUNGER) {
@@ -294,7 +346,6 @@ void game_update(const input_t *in) {
   prev_l = in->left;
   prev_r = in->right;
 
-  int16_t x = (int16_t)(ball.x >> 16), y = (int16_t)(ball.y >> 16);
   if (state == ST_PLAY) {
     for (uint8_t i = 0; i < 3; i++)
       if (ev_bumper & (1 << i)) { add(100); flash[i] = 5; snd_play(SND_BUMPER); }
@@ -303,15 +354,6 @@ void game_update(const input_t *in) {
     if (ev_target)
       for (uint8_t i = 0; i < N_TARGETS; i++)
         if ((ev_target & ((uint16_t)1 << i)) && !tgt_cool[i]) { tgt_cool[i] = 15; target_hit(i); }
-    /* Spinner: Ball kreuzt ihn in der Einfahrt, Drehung nach Tempo */
-    if ((prev_y < SPIN_Y) != (y < SPIN_Y) && x >= SPIN_X0 && x <= SPIN_X1) {
-      int16_t d = y - prev_y;
-      if (d < 0) d = -d;
-      if (d > 40) d = 0;                     /* Sprung (neuer Ball, Rampe): kein Drehen */
-      spin_v += (uint16_t)d * 8;
-      if (spin_v > 700) spin_v = 700;
-      if (d) mission_event(MS_SPIN);
-    }
     if (ev_ramp & EV_RAMP_DONE) {
       if (ramps < 5) ramps++;
       uint16_t pts = (uint16_t)ramps * 5000u;
@@ -320,14 +362,24 @@ void game_update(const input_t *in) {
       message("FAST LOADER", pts);
       snd_play(SND_RAMP);
       mission_event(MS_RAMP);
+      if (mb_ready) {
+        mb_ready = 0;
+        grp_mask = 0;
+        phys_multiball();
+        dmd_put(msg1, "RUN/STOP");
+        dmd_put(msg2, "MULTIBALL");
+        snd_play(SND_START);
+      }
     }
     if (ev_kick & EV_KICK_IN) {
       dmd_put(msg1, "SEARCHING FOR *");
       dmd_put(msg2, "LOADING");
       msg_timer = KICK_HOLD;
+      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); }
       if (mission_active) mission_event(MS_KICK);
-      else if (mission_ready) mission_start();
+      else if (mission_ready && !multi) mission_start();
     }
+    if (ev_saved) { dmd_put(msg1, "RUN/STOP RESTORE"); dmd_put(msg2, "BALL SAVED"); msg_timer = 75; }
     /* Missionszeit */
     if (mission_active && !kick_timer && --mission_timer == 0) mission_end(0);
     if (ev_kick & EV_KICK_OUT) {
@@ -339,30 +391,9 @@ void game_update(const input_t *in) {
       snd_play(SND_BUMPER);
     }
     if (kick_timer && (kick_timer & 7) == 0) snd_play(SND_DRIVE);
-    /* Roll-Over-Kontakte L und D: zaehlen beim Hineinrollen, erst wieder nach Verlassen */
-    {
-      static uint8_t inside;
-      uint8_t now = 0;
-      if (!on_ramp) {
-        /* v6.4: L in beiden Richtungen, nur nicht beim Abschuss (Skill-Shot-Zeit laeuft
-         * noch, der Ball hat also nach dem Abschuss noch keine Lane erreicht) */
-        if (!skill_t && y > ROLL_LY - ROLL_R && y < ROLL_LY + ROLL_R && x > ROLL_LX - ROLL_R && x < ROLL_LX + ROLL_R) now = 1;
-        /* D nur aufwaerts (Schuss zur Rampe, nicht der zurueckrollende Ball) */
-        else if (ball.vy < 0 && y > ROLL_DY - ROLL_R && y < ROLL_DY + ROLL_R && x > ROLL_DX - ROLL_R && x < ROLL_DX + ROLL_R) now = 2;
-      }
-      if (now && now != inside) low_lane(now == 1 ? 0 : 3);
-      inside = now;
-    }
-    /* Rollover: Ball ueberquert die Zaehllinie */
-    if ((prev_y < TOPLANE_Y) != (y < TOPLANE_Y) && x > TOPLANE_X0 && x < TOPLANE_X0 + 72)
-      top_lane(x < TOPLANE_X0 + 24 ? 0 : x < TOPLANE_X0 + 48 ? 1 : 2);
-    if (prev_y < LOWLANE_Y && y >= LOWLANE_Y) {
-      /* v5.0: O und A an den Inlanes; L und D sind Targets, die Out-Lanes zaehlen nicht */
-      if (x >= 40 && x < 64) low_lane(1);
-      else if (x > 236 && x <= 260) low_lane(2);
-    }
-  }
-  prev_y = y;
+    ball_rules();
+    if (multi) { phys_swap(); ball_rules(); phys_swap(); }
+  } else prev_y[ball_idx] = (int16_t)(ball.y >> 16);
 
   /* Ballende: Bonus; neuer Ball oder Spielende */
   if (state == ST_DRAIN && prev_state != ST_DRAIN && mission_active) {
@@ -408,6 +439,13 @@ void game_update(const input_t *in) {
     if (on != shown) {
       shown = on;
       if (on) set_color(C_KICK_RING, 255, 210, 60); else set_color(C_KICK_RING, 70, 50, 12);
+    }
+    /* Rampe blinkt, solange RUN/STOP bereit ist */
+    static uint8_t rshown = 0xFF;
+    uint8_t ron = !mb_ready || ((blink >> 3) & 1);
+    if (ron != rshown) {
+      rshown = ron;
+      if (ron) set_color(C_RAMP_RAIL, 220, 230, 255); else set_color(C_RAMP_RAIL, 255, 70, 60);
     }
   }
   snd_update();

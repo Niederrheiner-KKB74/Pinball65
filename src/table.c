@@ -417,13 +417,13 @@ static void ramp_stamp(uint8_t *buf) {
     while (seg + 1 < RAMP_NSEG && s >= RAMP_SEGS[seg + 1].s0) seg++;
     const ramp_seg_t *g = &RAMP_SEGS[seg];
     fix16 d = s - g->s0;
-    fix16 y = g->y0 + fmul(g->uy, d);
+    fix16 y = RS_P(g->y0) + fmul(RS_U(g->uy), d);
     int16_t yi = (int16_t)(y >> 16);
     if (yi < band_y0 - 8 || yi > band_y1 + 8) continue;
-    fix16 x = g->x0 + fmul(g->ux, d);
+    fix16 x = RS_P(g->x0) + fmul(RS_U(g->ux), d);
     for (int8_t o2 = -14; o2 <= 14; o2++) {
       fix16 o = (fix16)o2 << 15;
-      int16_t xx = (int16_t)((x - fmul(g->uy, o)) >> 16), yy = (int16_t)((y + fmul(g->ux, o)) >> 16);
+      int16_t xx = (int16_t)((x - fmul(RS_U(g->uy), o)) >> 16), yy = (int16_t)((y + fmul(RS_U(g->ux), o)) >> 16);
       if (yy < band_y0 || yy >= band_y1 || xx < 0 || xx >= TW) continue;
       uint8_t *p = &buf[((uint16_t)(xx >> 3) << 6) + ((yy - band_y0) << 3) + (xx & 7)];
       uint8_t ao = (uint8_t)(o2 < 0 ? -o2 : o2);

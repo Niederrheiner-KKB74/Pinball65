@@ -17,6 +17,12 @@
 
 /* ---------- Flipper: vorberechnete Spannen pro Winkelphase ---------- */
 #define NPH   25            /* Phasen im Abstand von 2 Winkeleinheiten */
+/* Zeichnen mit der CPU (ohne transparente DMA): im Lader fuer die vorgezeichneten
+ * Bilder und in den Tests; im Spiel seit v6.4 nicht mehr (spart rund 1 KB fuer den
+ * Multiball). Ein Core ohne transparente DMA meldet beim Start einen Fehler. */
+#if defined(PB_BUILDER) && !defined(CPU_DRAW)
+#define CPU_DRAW
+#endif
 #define SROWS 48            /* dy = -24 .. 23 */
 #define EMPTY 127
 /* Je Phase 192 Byte im Attic-RAM: Spanne x0[48], x1[48] und Innenbereich
@@ -25,9 +31,10 @@
  * einen von zwei kleinen Puffern geholt (je Flipper einer), das spart 4,4 KB. */
 #define SPAN_BYTES (4 * SROWS)
 #define SPAN_ADDR(p) (ATTIC_SPR + 0x38000UL + (uint16_t)(p) * SPAN_BYTES)
+#ifdef CPU_DRAW
+static int8_t ph_row0[NPH], ph_row1[NPH];
 static int8_t spb[N_FLIP][SPAN_BYTES];
 static uint8_t spb_ph[N_FLIP];
-static int8_t ph_row0[NPH], ph_row1[NPH];
 
 static const int8_t *span_get(uint8_t slot, uint8_t p) {
   if (spb_ph[slot] != p) {
@@ -36,6 +43,7 @@ static const int8_t *span_get(uint8_t slot, uint8_t p) {
   }
   return spb[slot];
 }
+#endif
 
 #ifdef PB_BUILDER
 static void spans_init(void) {
@@ -83,7 +91,9 @@ static void spans_init(void) {
   /* Zeilenbereiche je Phase hinter den Spannen ablegen, das Spiel liest sie */
   dma_copy(CPUADDR(ph_row0), SPAN_ADDR(NPH), NPH);
   dma_copy(CPUADDR(ph_row1), SPAN_ADDR(NPH) + NPH, NPH);
+#ifdef CPU_DRAW
   for (uint8_t i = 0; i < N_FLIP; i++) spb_ph[i] = 0xFF;
+#endif
 }
 
 #endif /* PB_BUILDER */
@@ -95,6 +105,7 @@ static uint8_t phase_of(const flipper_t *f) {
 }
 
 /* ---------- Ball ---------- */
+#ifdef CPU_DRAW
 static uint8_t ball_img[11][11];
 
 static void ball_init(void) {
@@ -165,6 +176,7 @@ static void draw_ball_col(int16_t bx, int16_t by) {
     }
   }
 }
+#endif /* CPU_DRAW */
 
 /* ---------- Bild zusammensetzen ---------- */
 #define NONE 0xFF
@@ -173,8 +185,8 @@ static uint8_t need_r0[40], need_r1[40];
 /* Was steht in welchem Puffer? Damit muessen ruhende Flipper nicht in jedem
  * Bild neu gezeichnet werden. */
 static uint8_t drawn_phase[2][N_FLIP];          /* gezeichnete Flipperphase, NONE = keine */
-static uint8_t drawn_ball_on[2];
-static int16_t drawn_ball[2][4];           /* x0, y0, x1, y1 in Tischkoordinaten */
+static uint8_t drawn_ball_on[2][2];        /* [Puffer][Ball], Ball 1 = zweiter Ball im Multiball */
+static int16_t drawn_ball[2][2][4];        /* x0, y0, x1, y1 in Tischkoordinaten */
 
 static void need_clear(void) {
   for (uint8_t c = 0; c < 40; c++) need_r0[c] = need_r1[c] = NONE;
@@ -299,18 +311,22 @@ static void blit_overlay(int16_t bx, int16_t by, uint32_t fb, int16_t cam) {
 uint8_t render_uses_dma(void) { return use_dma; }
 
 void render_init(void) {
+#ifdef CPU_DRAW
   ball_init();
   dma_copy(SPAN_ADDR(NPH), CPUADDR(ph_row0), NPH);
   dma_copy(SPAN_ADDR(NPH) + NPH, CPUADDR(ph_row1), NPH);
   for (uint8_t i = 0; i < N_FLIP; i++) spb_ph[i] = 0xFF;
+#endif
   use_dma = dma_trans_ok();
   buf_cam[0] = buf_cam[1] = -1;
-  drawn_ball_on[0] = drawn_ball_on[1] = 0;
+  drawn_ball_on[0][0] = drawn_ball_on[0][1] = drawn_ball_on[1][0] = drawn_ball_on[1][1] = 0;
 }
 
 int16_t camera_update(void) {
   static int16_t cam16 = (TH - VIEW_H) * 16;
-  int16_t target = (int16_t)(ball.y >> 16) - 100;
+  /* Multiball: der tiefere Ball bestimmt die Kamera */
+  fix16 fy = (multi && ball2.b.y > ball.y) ? ball2.b.y : ball.y;
+  int16_t target = (int16_t)(fy >> 16) - 100;
   if (target < 0) target = 0;
   if (target > TH - VIEW_H) target = TH - VIEW_H;
   int16_t diff = target * 16 - cam16;
@@ -332,15 +348,22 @@ void render_frame(uint8_t b, int16_t cam) {
   uint32_t bg = ATTIC_BG + (uint32_t)(uint16_t)cam * 8;
   uint8_t full = cam != buf_cam[b];
 
-  int16_t bx = (int16_t)(ball.x >> 16), by = (int16_t)(ball.y >> 16);
-  uint8_t ball_on = state != ST_DRAIN;
-  int16_t nb[4] = { bx - 5, by - 5, bx + 5, by + 5 };
+  int16_t bxs[2], bys[2], nb[2][4];
+  uint8_t on[2], onr[2];
+  bxs[0] = (int16_t)(ball.x >> 16); bys[0] = (int16_t)(ball.y >> 16);
+  bxs[1] = (int16_t)(ball2.b.x >> 16); bys[1] = (int16_t)(ball2.b.y >> 16);
+  on[0] = state != ST_DRAIN; on[1] = multi;
+  onr[0] = on_ramp; onr[1] = ball2.onr;
+  for (uint8_t k = 0; k < 2; k++) {
+    nb[k][0] = bxs[k] - 5; nb[k][1] = bys[k] - 5; nb[k][2] = bxs[k] + 5; nb[k][3] = bys[k] + 5;
+  }
   uint8_t redraw[N_FLIP], phase[N_FLIP];
   for (uint8_t i = 0; i < N_FLIP; i++) {
     phase[i] = phase_of(&flip[i]);
-    redraw[i] = full || phase[i] != drawn_phase[b][i] ||
-                (drawn_ball_on[b] && overlaps(drawn_ball[b], &flip[i])) ||
-                (ball_on && overlaps(nb, &flip[i]));
+    uint8_t r = full || phase[i] != drawn_phase[b][i];
+    for (uint8_t k = 0; k < 2; k++)
+      r |= (drawn_ball_on[b][k] && overlaps(drawn_ball[b][k], &flip[i])) || (on[k] && overlaps(nb[k], &flip[i]));
+    redraw[i] = r;
   }
 
   /* 1. Hintergrund: ganz (Kamera bewegt) oder nur die Stellen, die neu
@@ -351,8 +374,9 @@ void render_frame(uint8_t b, int16_t cam) {
     buf_cam[b] = cam;
   } else {
     need_clear();
-    if (drawn_ball_on[b])
-      need_rect(drawn_ball[b][0], drawn_ball[b][1], drawn_ball[b][2], drawn_ball[b][3], cam);
+    for (uint8_t k = 0; k < 2; k++)
+      if (drawn_ball_on[b][k])
+        need_rect(drawn_ball[b][k][0], drawn_ball[b][k][1], drawn_ball[b][k][2], drawn_ball[b][k][3], cam);
     for (uint8_t i = 0; i < N_FLIP; i++)
       if (redraw[i]) { int16_t x0 = fb_x0(&flip[i]), y0 = flip[i].py - 24; need_rect(x0, y0, x0 + 52, y0 + 47, cam); }
     for (uint8_t c = 0; c < 40; c++) {
@@ -369,12 +393,13 @@ void render_frame(uint8_t b, int16_t cam) {
   if (use_dma) {
     for (uint8_t i = 0; i < N_FLIP; i++)
       if (redraw[i]) blit_flipper(i, phase[i], fb, cam);
-    if (ball_on) {
-      blit_ball(bx, by, fb, cam);
-      if (!on_ramp && by < 370) blit_overlay(bx, by, fb, cam);   /* nur wo die Rampe ist */
-    }
+    for (uint8_t k = 0; k < 2; k++)
+      if (on[k]) {
+        blit_ball(bxs[k], bys[k], fb, cam);
+        if (!onr[k] && bys[k] < 370) blit_overlay(bxs[k], bys[k], fb, cam);   /* nur wo die Rampe ist */
+      }
   } else {
-
+#ifdef CPU_DRAW
   /* 2. Was muss gezeichnet werden? */
   need_clear();
   for (uint8_t i = 0; i < N_FLIP; i++) {
@@ -382,7 +407,7 @@ void render_frame(uint8_t b, int16_t cam) {
     int16_t yb = flip[i].py - 24, xa = fb_x0(&flip[i]);
     need_rect(xa, yb + ph_row0[phase[i]], xa + 52, yb + ph_row1[phase[i]], cam);
   }
-  if (ball_on) need_rect(nb[0], nb[1], nb[2], nb[3], cam);
+  for (uint8_t k = 0; k < 2; k++) if (on[k]) need_rect(nb[k][0], nb[k][1], nb[k][2], nb[k][3], cam);
 
   /* 3. Spaltenweise holen, bemalen, zurueckschreiben */
   for (uint8_t c = 0; c < 40; c++) {
@@ -396,13 +421,16 @@ void render_frame(uint8_t b, int16_t cam) {
     ty1 = cam + (int16_t)r1 * 8 + 7;
     for (uint8_t i = 0; i < N_FLIP; i++)
       if (redraw[i]) draw_flipper_col(&flip[i]);
-    if (ball_on) draw_ball_col(bx, by);
+    for (uint8_t k = 0; k < 2; k++) if (on[k]) draw_ball_col(bxs[k], bys[k]);
     dma_copy(CPUADDR(COLBUF), addr, len);
   }
+#endif /* CPU_DRAW */
   }
 
   /* 4. Merken, was jetzt in diesem Puffer steht */
   for (uint8_t i = 0; i < N_FLIP; i++) drawn_phase[b][i] = phase[i];
-  drawn_ball_on[b] = ball_on;
-  for (uint8_t k = 0; k < 4; k++) drawn_ball[b][k] = nb[k];
+  for (uint8_t k = 0; k < 2; k++) {
+    drawn_ball_on[b][k] = on[k];
+    for (uint8_t j = 0; j < 4; j++) drawn_ball[b][k][j] = nb[k][j];
+  }
 }

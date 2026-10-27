@@ -28,8 +28,8 @@ fix16 fmul(fix16 a, fix16 b);
 int32_t mul32(int32_t a, int32_t b);
 
 /* Winkel in 256 Schritten: 0 = rechts, 64 = unten (Bildschirm-y waechst nach unten) */
-static inline fix16 cosA(uint8_t a) { return SIN_TAB[(uint8_t)(a + 64)]; }
-static inline fix16 sinA(uint8_t a) { return SIN_TAB[a]; }
+static inline fix16 cosA(uint8_t a) { return sin_tab((uint8_t)(a + 64)); }
+static inline fix16 sinA(uint8_t a) { return sin_tab(a); }
 
 uint8_t angle256(int32_t dx, int32_t dy);
 

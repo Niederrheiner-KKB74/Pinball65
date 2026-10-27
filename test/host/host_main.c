@@ -137,6 +137,26 @@ static void rules_test(void) {
   check("neu gedrueckt: Abschuss frei", in.plunger, 1);
   char buf[20]; fmt_points(buf, 1234560); printf("   fmt_points: %s\n", buf);
   check("Tausenderpunkte", strcmp(buf, "1.234.560") == 0, 1);
+  /* v6.4: Multiball RUN/STOP */
+  memset(&in, 0, sizeof in);
+  phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+  { static const uint16_t G[3] = { 0x007, 0x078, 0x380 };
+    for (int g = 0; g < 3; g++) { ev_target = G[g]; game_update(&in); ev_target = 0; for (int k = 0; k < 20; k++) game_update(&in); } }
+  check("VIC-II, 6510, SID komplett: RUN/STOP bereit", mb_ready, 1);
+  ball.x = 262L << 16; ball.y = 252L << 16; ball.vx = 0; ball.vy = 16384;   /* wie am Rampenende */
+  ev_ramp = EV_RAMP_DONE; game_update(&in); ev_ramp = 0;
+  check("Rampe startet Multiball", multi, 1);
+  check("bereit geloescht", mb_ready, 0);
+  { uint32_t s0 = score; ev_kick = EV_KICK_IN; game_update(&in); ev_kick = 0;
+    check("Jackpot im Multiball", score - s0 >= 50000, 1); }
+  { int f, top = 0, lostf = -1;
+    for (f = 0; f < 3000 && multi; f++) {
+      memset(&in, 0, sizeof in); game_frame(&in); game_update(&in);
+      if ((ball2.b.y >> 16) < 40 || (ball.y >> 16) < 40) top = 1;
+    }
+    lostf = f;
+    printf("   Multiball ohne Flipper: zweiter Ball oben %s, einer verloren nach %d Bildern, Zustand %d\n", top ? "ja" : "nein", lostf, state);
+    check("nach Multiball spielt ein Ball weiter", state, ST_PLAY); }
   /* v6.4: L in beiden Richtungen, aber nicht direkt nach dem Abschuss */
   memset(&in, 0, sizeof in);
   game_new(); state = ST_PLUNGER; game_update(&in); state = ST_PLAY; game_update(&in);
@@ -190,9 +210,13 @@ static void bot_run(long frames) {
     /* Zufaellige Verzoegerung wie bei einem Menschen, sonst laeuft der
      * Roboter nach dem Kick-Out immer dieselbe Bahn (Endlosschleife) */
     if (state == ST_PLAY && !cool && !hold_l && !hold_r && !hold_3 && ((seed >> 16) % 3) != 0) {
-      if (y > 558 && y < 603 && x > 70 && x < 150 && ball.vy > 0) hold_l = 8;
-      if (y > 558 && y < 603 && x > 150 && x < 230 && ball.vy > 0) hold_r = 8;
-      if (y > 285 && y < 325 && x > 240 && x < 290) hold_3 = 8;
+      for (int k = 0; k < (multi ? 2 : 1); k++) {
+        int16_t xx = k ? (int16_t)(ball2.b.x >> 16) : x, yy = k ? (int16_t)(ball2.b.y >> 16) : y;
+        fix16 vy = k ? ball2.b.vy : ball.vy;
+        if (yy > 558 && yy < 603 && xx > 70 && xx < 150 && vy > 0) hold_l = 8;
+        if (yy > 558 && yy < 603 && xx > 150 && xx < 230 && vy > 0) hold_r = 8;
+        if (yy > 285 && yy < 325 && xx > 240 && xx < 290) hold_3 = 8;
+      }
       if (hold_l || hold_r || hold_3) cool = 25;
     }
     if (hold_l) { in.left = 1; hold_l--; }
@@ -200,6 +224,8 @@ static void bot_run(long frames) {
     game_input(&in);
     game_frame(&in);
     if (ev_target) tgt_hits++;
+    { static uint8_t wm; static unsigned long nmb, fmb; if (multi && !wm) nmb++; if (multi) fmb++; wm = multi;
+      if (f == frames - 1) printf("Roboter: Multiball %lu mal, im Mittel %.1f s\n", nmb, nmb ? fmb / 50.0 / nmb : 0.0); }
     { extern uint8_t ev_bumper; static unsigned long nb; if (ev_bumper) nb++; if (f == frames - 1) printf("Roboter: Bumper-Treffer %lu, je Spiel %.1f\n", nb, games ? (double)nb / games : 0.0); }
     if (ev_ramp & EV_RAMP_DONE) n_ramp++;
     if (ev_ramp & EV_RAMP_BACK) n_back++;
@@ -397,6 +423,25 @@ static void dump_mockup(const char *name) {
   state = ST_PLUNGER;
 }
 
+/* Bild mit zwei Baellen (Multiball) */
+static void dump_multi(void) {
+  phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+  phys_multiball();
+  ball.x = 140L << 16; ball.y = 520L << 16; ball2.b.x = 205L << 16; ball2.b.y = 540L << 16;
+  for (int k = 0; k < 2; k++) render_frame((uint8_t)k, 440);
+  render_frame(0, 440);
+  FILE *f = fopen("multi.ppm", "wb");
+  fprintf(f, "P6 320 168 255\n");
+  const uint8_t *map = chip + MAP_A;
+  for (int y = 32; y < 200; y++)
+    for (int x = 0; x < 320; x++) {
+      int cell = (y >> 3) * 40 + (x >> 3);
+      uint32_t ch = map[cell * 2] | (map[cell * 2 + 1] << 8);
+      fwrite(pal[chip[ch * 64 + (y & 7) * 8 + (x & 7)]], 1, 3, f);
+    }
+  fclose(f);
+}
+
 /* Dritter Flipper: Ball faellt wie vom Rampenende auf ihn, Schlag nach T Bildern.
  * Zaehlt Treffer der oberen Lanes C 6 4 und zeigt, wo der Ball y 200 kreuzt. */
 static void flip3_sweep(void) {
@@ -566,6 +611,7 @@ int main(void) {
   plunge_test();
   if (getenv("SHOTMAP")) shot_map();
   if (getenv("ORBIT")) orbit_test();
+  if (getenv("MBSHOT")) dump_multi();
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);

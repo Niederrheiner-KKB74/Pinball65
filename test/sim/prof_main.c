@@ -27,6 +27,9 @@ int main(void) {
   state = ST_PLAY;
   in_lane_reset();
   ball.x = 150L << 16; ball.y = 470L << 16; ball.vx = 20000; ball.vy = 0;
+#ifdef PROF_MULTI                 /* make prof CFLAGS=-DPROF_MULTI: zweiter Ball */
+  phys_multiball(); ball2.b.x = 200L << 16; ball2.b.y = 450L << 16; ball2.b.vy = 0; ball2.inl = 0;
+#endif
   input_t in;
   uint32_t total = 0, worst = 0, fm0, fc0, mc0;
   for (uint16_t f = 0; f < PROF_FRAMES; f++) {
@@ -42,6 +45,9 @@ int main(void) {
     total += t;
     if (t > worst) worst = t;
     if (state != ST_PLAY) { phys_init(); state = ST_PLAY; in_lane_reset(); ball.x = 150L << 16; ball.y = 470L << 16; }
+#ifdef PROF_MULTI
+    if (!multi) { phys_multiball(); ball2.b.x = 200L << 16; ball2.b.y = 450L << 16; ball2.b.vy = 0; ball2.inl = 0; }
+#endif
   }
   printf("Physik: Mittel %lu, hoechstens %lu Zyklen pro Bild (ohne Software-Multiplikation)\n",
          (unsigned long)(total / (PROF_FRAMES ? PROF_FRAMES : 1)), (unsigned long)worst);
