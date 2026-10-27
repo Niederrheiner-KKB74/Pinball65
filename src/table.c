@@ -85,7 +85,10 @@ static const int16_t SEGS[][5] = {
   /* v6.1: Orbit rundherum. Innenwaende parallel zum oberen Bogen, sie enden an
    * den aeusseren Lane-Waenden: links vom Orbit-Aufstieg, rechts von der Abschussbahn */
   {31, 170, 31, 146, M_WALL}, {31, 146, 35, 122, M_WALL}, {35, 122, 43, 99, M_WALL}, {43, 99, 56, 78, M_WALL}, {56, 78, 72, 60, M_WALL}, {72, 60, 92, 45, M_WALL}, {92, 45, 114, 34, M_WALL},
-  {186, 34, 207, 40, M_WALL}, {207, 40, 228, 49, M_WALL}, {228, 49, 246, 62, M_WALL}, {246, 62, 262, 78, M_WALL}, {262, 78, 275, 97, M_WALL}, {275, 97, 284, 118, M_WALL}, {284, 118, 290, 140, M_WALL},
+  {186, 34, 207, 40, M_WALL}, {207, 40, 228, 49, M_WALL}, {228, 49, 246, 62, M_WALL},
+  /* v6.2: unterer Teil rechts als Einwegtor: Schuesse vom dritten Flipper gehen
+   * nach oben hinein, der Abschuss in der Bahn wird weiter gefuehrt */
+  {246, 62, 262, 78, M_GATE_UP}, {262, 78, 275, 97, M_GATE_UP}, {275, 97, 284, 118, M_GATE_UP}, {284, 118, 290, 140, M_GATE_UP},
   /* v6.1: Tor nach unten zum dritten Flipper. Es ist offen, wenn der Ball in der
    * Abschussbahn nicht schnell nach oben laeuft; physics.c lenkt ihn dann hinaus. */
   {290, 140, 290, 172, M_WALL},

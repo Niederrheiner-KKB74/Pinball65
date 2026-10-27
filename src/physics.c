@@ -103,7 +103,10 @@ static uint8_t sample(int16_t x, int16_t y) {
    * Einwegtor, das seitliche Tor bleibt dabei zu. Ein langsamer Ball oder einer, der
    * von oben kommt, rollt auf dem Einwegtor durch das seitliche Tor hinaus. */
   if (c == M_GATE && in_lane && ball.vy > -GATE_UP_V) return M_EMPTY;
-  if (c == M_GATE_UP && ball.vy < 0) return M_EMPTY;
+#ifndef GATE_IN_VX
+#define GATE_IN_VX (-24576L)    /* v6.2: nach oben und kaum nach links: Schuss vom dritten Flipper */
+#endif
+  if (c == M_GATE_UP && ball.vy < 0 && ball.vx >= GATE_IN_VX) return M_EMPTY;
   return c;
 }
 

@@ -403,9 +403,10 @@ static void flip3_sweep(void) {
       game_frame(&in);
       if (py0 >= (200L << 16) && ball.y < (200L << 16) && cx < 0) cx = (int)(ball.x >> 16);
       if (py0 >= (52L << 16) && ball.y < (52L << 16) && (ball.x >> 16) > 114 && (ball.x >> 16) < 186) got = 1;
+      if ((ball.x >> 16) < 30 && (ball.y >> 16) > 150) { got = 2; break; }
       if ((ball.y >> 16) > 500) break;
     }
-    hits += got; line[k++] = got ? '#' : (cx < 0 ? '.' : (char)('a' + cx / 20));
+    hits += got == 1; line[k++] = got == 2 ? 'O' : got ? '#' : (cx < 0 ? '.' : (char)('a' + cx / 20));
   }
   line[k] = 0;
   printf("   dritter Flipper -> C 6 4: %s (%d Treffer; Buchstabe = x/20 bei y 200)\n", line, hits);
@@ -434,6 +435,32 @@ static void plunge_test(void) {
   }
   printf("   Abschuesse ohne Flipper: %d von %d nach weniger als 8 s verloren, %d ueber das Kick-Out-Hole\n",
          fast, PULL_MAX - 9, kicked);
+}
+
+/* Orbit-Test: Ball tangential im Orbit starten (links unten bzw. rechts unten,
+ * aufwaerts), Tempo v; wohin kommt er? */
+static void orbit_test(void) {
+  input_t in;
+  for (int dir = 0; dir < 2; dir++) {
+    printf("   Orbit %s:", dir ? "rechts->links" : "links->rechts");
+    for (int v = 8; v <= 24; v += 2) {
+      phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+      ball.x = (dir ? 300L : 20L) << 16; ball.y = 150L << 16;
+      ball.vx = 0; ball.vy = -(fix16)v * 8192L;          /* v/8 Pixel pro Substep */
+      char r = '?';
+      for (int f = 0; f < 300 && state == ST_PLAY; f++) {
+        memset(&in, 0, sizeof in);
+        game_frame(&in);
+        int x = (int)(ball.x >> 16), y = (int)(ball.y >> 16);
+        if (y < 75 && y > 40 && x > 114 && x < 186) { r = 'L'; break; }           /* in C 6 4 */
+        if (dir && x < 30 && y > 170) { r = 'O'; break; }                        /* links herum */
+        if (!dir && (x > 262 && y > 170)) { r = 'O'; break; }                     /* rechts herum */
+        if (y > 260) { r = 'z'; break; }                                          /* zurueck */
+      }
+      printf(" %d:%c", v, r);
+    }
+    printf("\n");
+  }
 }
 
 /* Shot-Map: Ball auf dem Flipper fangen (oder aus der Inlane kommen lassen),
@@ -528,6 +555,7 @@ int main(void) {
   flip3_sweep();
   plunge_test();
   if (getenv("SHOTMAP")) shot_map();
+  if (getenv("ORBIT")) orbit_test();
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);
