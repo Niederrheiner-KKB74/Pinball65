@@ -79,7 +79,7 @@ static void update_display(uint16_t load, uint16_t lmax) {
   char *p;
   /* Zahlen nur alle 10 Bilder (5 Mal pro Sekunde), Wechsel des Zustands sofort */
   uint8_t mode = (uint8_t)(tune_on ? 10 + tune_sel : test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
-                           msg_timer ? 7 : game_over ? 8 : 3 + state + (diag_on ? 30 : 0));
+                           msg_timer ? 7 : game_over ? 8 : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
   if (mode == last_mode && ++tick < 10) return;
   last_mode = mode;
   tick = 0;
@@ -113,6 +113,9 @@ static void update_display(uint16_t load, uint16_t lmax) {
   } else if (state == ST_DRAIN) {
     dmd_put(l1, "?BALL LOST  ERROR");
     dmd_put(l2, "READY.");
+  } else if (!diag_on && mission_active) {
+    fmt_points(l1, score);
+    mission_status(l2);
   } else if (!diag_on) {
     fmt_points(l1, score);
     p = dmd_put(l2, "BALL ");

@@ -99,6 +99,24 @@ static void rules_test(void) {
   ball.x = 20L << 16; ball.y = 460L << 16; game_update(&in);
   ball.y = 480L << 16; game_update(&in);
   check("Out-Lane zaehlt nicht: D bleibt aus", pal[C_LOAD0 + 3][0], 100);
+  /* Missionen: C 6 4 komplett -> bereit; Kick-Out startet FORMAT DISK; 3 Kick-Outs */
+  for (int lane = 0; lane < 3; lane++) LANE_PASS(126 + 24 * lane);
+  check("C 6 4: Mission bereit", mission_ready, 1);
+  ev_kick = EV_KICK_IN; game_update(&in); ev_kick = 0;
+  check("Kick-Out startet Mission", mission_active, 1);
+  check("Mission FORMAT DISK", mission_cur, 0);
+  { char st[32]; mission_status(st); printf("   Anzeige: %s\n", st); }
+  uint32_t sm = score;
+  for (int k = 0; k < 3; k++) { ev_kick = EV_KICK_IN; game_update(&in); ev_kick = 0; }
+  check("3 Kick-Outs: Mission geschafft", mission_active, 0);
+  check("Missionspunkte (mit Kick-Out)", score - sm >= 50000, 1);
+  check("naechste Mission SYS 64738", mission_cur, 1);
+  /* SYS 64738 laeuft ab */
+  for (int lane = 0; lane < 3; lane++) LANE_PASS(126 + 24 * lane);
+  ev_kick = EV_KICK_IN; game_update(&in); ev_kick = 0;
+  for (int k = 0; k < MISSION_TIME + 5; k++) game_update(&in);
+  check("Zeit abgelaufen: Mission vorbei", mission_active, 0);
+  printf("   Meldung: %s / %s\n", msg1, msg2);
   /* Ballende: Bonus = Zaehler * 1000 * Multiplikator */
   uint32_t s1 = score; uint16_t b = bonus; uint8_t m = mult;
   state = ST_DRAIN; game_update(&in);
@@ -133,14 +151,14 @@ static void bot_run(long frames) {
   uint8_t pulling = 0, target_pull = 0, hold_l = 0, hold_r = 0, hold_3 = 0, cool = 0;
   unsigned long best = 0, tgt_hits = 0, n_ramp = 0, n_back = 0, n_kick = 0;
   int kick_trace = 0;
-  long d_left = 0, d_mid = 0, d_right = 0;
+  long d_left = 0, d_mid = 0, d_right = 0, mis_done = 0, mis_start = 0;
   game_new(); phys_init();
   for (long f = 0; f < frames; f++) {
     memset(&in, 0, sizeof in);
     seed = seed * 1103515245u + 12345u;
     int16_t x = (int16_t)(ball.x >> 16), y = (int16_t)(ball.y >> 16);
     if (game_over) {
-      if (!(f & 1)) { if (score > best) best = score; games++; in.plunger = 1; }
+      if (!(f & 1)) { if (score > best) best = score; games++; mis_done += missions_done; in.plunger = 1; }
       pulling = 0;
     }
     else if (state == ST_PLUNGER) {
@@ -164,6 +182,7 @@ static void bot_run(long frames) {
     if (ev_ramp & EV_RAMP_DONE) n_ramp++;
     if (ev_ramp & EV_RAMP_BACK) n_back++;
     if (ev_kick & EV_KICK_IN) n_kick++;
+    { static uint8_t was_act; if (mission_active && !was_act) mis_start++; was_act = mission_active; }
     { static uint8_t was; static int16_t lastx;
       if (state == ST_PLAY) lastx = (int16_t)(ball.x >> 16);
       if (state == ST_DRAIN && was != ST_DRAIN) { if (lastx < 42) d_left++; else if (lastx > 258) d_right++; else d_mid++; }
@@ -181,6 +200,7 @@ static void bot_run(long frames) {
   }
   printf("Roboter: %ld Bilder, %ld Spiele, bestes Ergebnis %lu, Target-Bilder %lu, haengen %ld\n",
          frames, games, best, tgt_hits, stuck);
+  printf("Roboter: Missionen gestartet %ld, geschafft %ld\n", mis_start, mis_done);
   printf("Roboter: Ballverluste links %ld, Mitte %ld, rechts %ld\n", d_left, d_mid, d_right);
   printf("Roboter: Rampe %lu geschafft, %lu zurueckgerollt, Kick-Out %lu\n", n_ramp, n_back, n_kick);
 }

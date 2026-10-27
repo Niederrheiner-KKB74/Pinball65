@@ -14,6 +14,14 @@ extern uint8_t ball_no, mult, game_over;
 extern uint16_t bonus;          /* Bonuspunkte in Tausend, vor Multiplikator */
 extern uint8_t ramps;           /* Rampen in diesem Ball */
 
+/* Missionen (v5.5): C 6 4 komplett -> bereit, Kick-Out-Hole startet die naechste */
+#define N_MISSIONS    4
+#define MISSION_TIME  3000      /* 60 Sekunden (laeuft nicht, solange der Ball im Kick-Out-Hole liegt) */
+extern uint8_t mission_ready, mission_active, mission_cur, mission_prog, missions_done;
+extern uint16_t mission_timer;
+/* Schreibt Name, Fortschritt und Restzeit der laufenden Mission ("FORMAT 1/3 38") */
+char *mission_status(char *p);
+
 /* Meldung im Display (Zeile 1 und 2), solange msg_timer > 0 */
 extern char msg1[], msg2[];
 extern uint8_t msg_timer;

@@ -64,6 +64,7 @@ void table_build_palette(void) {
   set_color(C_LOGO_RED, 232, 69, 60);
   set_color(C_LOGO_BLUE, 61, 107, 234);
   set_color(C_TARGET_PLA, 255, 150, 40);
+  set_color(C_KICK_RING, 255, 210, 60);
   set_color(C_RAMP_RAIL, 220, 230, 255);    /* Rampe: Chromschienen ... */
   set_color(C_RAMP_RAIL_DK, 120, 130, 190);
   set_color(C_RAMP_FLOOR, 70, 150, 210);    /* ... und durchsichtiger Boden (Raster) */
@@ -362,7 +363,7 @@ static void band_overlays(uint8_t *b) {
     for (uint8_t i = 0; i < 3; i++) band_disc(b, 126 + 24 * i, 61, 4, (uint8_t)(C_TOP0 + i));
   /* Kick-Out-Hole "1541" */
   if (band_y0 < KICK_Y + 20 && band_y1 > KICK_Y - 12) {
-    band_disc(b, KICK_X, KICK_Y, 10, C_HOLE_RING);
+    band_disc(b, KICK_X, KICK_Y, 10, C_KICK_RING);
     band_disc(b, KICK_X, KICK_Y, 8, C_HOLE);
     band_text(b, KICK_X - 7, KICK_Y + 13, "1541", 1, C_LABEL);
   }

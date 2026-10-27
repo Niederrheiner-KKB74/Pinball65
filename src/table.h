@@ -86,7 +86,8 @@ enum {
   C_RAMP_RAIL = C_LAMP_END, C_RAMP_RAIL_DK, C_RAMP_FLOOR,
   C_SPIN0,                        /* 4 Streifen des Spinners, Farben drehen sich */
   C_SPIN_END = C_SPIN0 + 4,
-  C_TARGET_PLA = C_SPIN_END       /* Beschriftung PLA */
+  C_TARGET_PLA = C_SPIN_END,      /* Beschriftung PLA */
+  C_KICK_RING                     /* Ring des Kick-Out-Holes, blinkt bei MISSION READY */
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 

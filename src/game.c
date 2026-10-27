@@ -25,6 +25,13 @@ uint32_t score;
 uint8_t ball_no, mult, game_over;
 uint16_t bonus;
 uint8_t ramps;
+uint8_t mission_ready, mission_active, mission_cur, mission_prog, missions_done;
+uint16_t mission_timer;
+static const char *const MIS_NAME[N_MISSIONS] = { "FORMAT DISK", "SYS 64738", "PEEK & POKE", "LOAD ERROR" };
+static const char *const MIS_SHORT[N_MISSIONS] = { "FORMAT", "SYS", "PEEK", "LOAD" };
+static const char *const MIS_GOAL[N_MISSIONS] = { "3X 1541", "3X RAMP", "SPIN 1541 SPIN 1541", "L O A D" };
+static const uint8_t MIS_NEED[N_MISSIONS] = { 3, 3, 4, 4 };
+enum { MS_KICK, MS_RAMP, MS_SPIN, MS_LOAD };
 static uint16_t spin_v, spin_ang;
 static uint8_t spin_shown = 0xFF;
 char msg1[DMD_COLS + 1], msg2[DMD_COLS + 1];
@@ -101,6 +108,62 @@ static void spin_apply(void) {
   }
 }
 
+char *mission_status(char *p) {
+  p = dmd_put(p, MIS_SHORT[mission_cur]);
+  *p++ = ' ';
+  p = dmd_num(p, mission_prog, 0);
+  *p++ = '/';
+  p = dmd_num(p, MIS_NEED[mission_cur], 0);
+  *p++ = ' ';
+  return dmd_num(p, (mission_timer + 49) / 50, 0);
+}
+
+static void mission_end(uint8_t ok) {
+  mission_active = 0;
+  mission_ready = 0;
+  mission_cur = (uint8_t)((mission_cur + 1) % N_MISSIONS);
+  if (ok) {
+    uint32_t pts = 50000UL + 25000UL * missions_done;
+    missions_done++;
+    score += pts;
+    dmd_put(msg1, "MISSION COMPLETE");
+    fmt_points(msg2, pts);
+    msg_timer = 120;
+    snd_play(SND_COMPLETE);
+  } else {
+    dmd_put(msg1, "?TIME OUT  ERROR");
+    dmd_put(msg2, "READY.");
+    msg_timer = 100;
+    snd_play(SND_DRAIN);
+  }
+}
+
+/* Ereignis fuer die laufende Mission */
+static void mission_event(uint8_t kind) {
+  if (!mission_active) return;
+  uint8_t m = mission_cur;
+  if (m == 0 && kind == MS_KICK) mission_prog++;
+  else if (m == 1 && kind == MS_RAMP) mission_prog++;
+  else if (m == 2 && kind == ((mission_prog & 1) ? MS_KICK : MS_SPIN)) mission_prog++;
+  else if (m == 3 && kind == MS_LOAD) {
+    uint8_t n = 0;
+    for (uint8_t b = load_lit; b; b >>= 1) n += b & 1;
+    mission_prog = n;
+  } else return;
+  if (mission_prog >= MIS_NEED[m]) mission_end(1);
+}
+
+static void mission_start(void) {
+  mission_active = 1;
+  mission_prog = 0;
+  mission_timer = MISSION_TIME;
+  if (mission_cur == 3) load_lit = 0;      /* L O A D von vorn */
+  dmd_put(msg1, MIS_NAME[mission_cur]);
+  dmd_put(msg2, MIS_GOAL[mission_cur]);
+  msg_timer = KICK_HOLD;
+  snd_play(SND_START);
+}
+
 void game_new(void) {
   score = 0;
   ball_no = 1;
@@ -112,6 +175,7 @@ void game_new(void) {
   ramps = 0;
   spin_v = 0;
   msg_timer = 0;
+  mission_ready = mission_active = mission_cur = mission_prog = missions_done = 0;
   prev_state = state;
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
   lamps_apply();
@@ -166,6 +230,10 @@ static void top_lane(uint8_t i) {
     fmt_points(msg2, 5000);
     msg_timer = 100;
     snd_play(SND_COMPLETE);
+    if (!mission_active && !mission_ready) {
+      mission_ready = 1;
+      dmd_put(msg2, "MISSION READY");
+    }
   }
 }
 
@@ -176,6 +244,7 @@ static void low_lane(uint8_t i) {
   load_lit |= bit;
   add(2000);
   bonus++;
+  mission_event(MS_LOAD);
   if (load_lit == 15) {
     load_lit = 0;
     add(25000);
@@ -213,6 +282,7 @@ void game_update(const input_t *in) {
       if (d > 40) d = 0;                     /* Sprung (neuer Ball, Rampe): kein Drehen */
       spin_v += (uint16_t)d * 8;
       if (spin_v > 700) spin_v = 700;
+      if (d) mission_event(MS_SPIN);
     }
     if (ev_ramp & EV_RAMP_DONE) {
       if (ramps < 5) ramps++;
@@ -221,12 +291,17 @@ void game_update(const input_t *in) {
       bonus++;
       message("FAST LOADER", pts);
       snd_play(SND_RAMP);
+      mission_event(MS_RAMP);
     }
     if (ev_kick & EV_KICK_IN) {
       dmd_put(msg1, "SEARCHING FOR *");
       dmd_put(msg2, "LOADING");
       msg_timer = KICK_HOLD;
+      if (mission_active) mission_event(MS_KICK);
+      else if (mission_ready) mission_start();
     }
+    /* Missionszeit */
+    if (mission_active && !kick_timer && --mission_timer == 0) mission_end(0);
     if (ev_kick & EV_KICK_OUT) {
       add(3000);
       bonus++;
@@ -259,6 +334,10 @@ void game_update(const input_t *in) {
   prev_y = y;
 
   /* Ballende: Bonus; neuer Ball oder Spielende */
+  if (state == ST_DRAIN && prev_state != ST_DRAIN && mission_active) {
+    mission_active = 0;                      /* Ball verloren: Mission gescheitert */
+    mission_cur = (uint8_t)((mission_cur + 1) % N_MISSIONS);
+  }
   if (state == ST_DRAIN && prev_state != ST_DRAIN) {
     uint32_t b = (uint32_t)bonus * 1000u * mult;
     score += b;
@@ -291,5 +370,14 @@ void game_update(const input_t *in) {
   }
   spin_apply();
   lamps_apply();
+  /* Ring des Kick-Out-Holes blinkt, solange eine Mission bereit ist */
+  {
+    static uint8_t blink, shown = 0xFF;
+    uint8_t on = !(mission_ready && !mission_active) || ((++blink >> 3) & 1);
+    if (on != shown) {
+      shown = on;
+      if (on) set_color(C_KICK_RING, 255, 210, 60); else set_color(C_KICK_RING, 70, 50, 12);
+    }
+  }
   snd_update();
 }
