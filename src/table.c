@@ -80,7 +80,7 @@ static const int16_t SEGS[][5] = {
   {290, 138, 290, 640, M_WALL},           /* Innenwand Abschussbahn */
   {114, 34, 114, 70, M_WALL}, {138, 34, 138, 70, M_WALL},      /* Lanes C 6 4 */
   {162, 34, 162, 70, M_WALL}, {186, 34, 186, 70, M_WALL},
-  {36, 258, 36, 420, M_WALL},             /* Fuehrung linker Orbit */
+  {36, 258, 36, 400, M_WALL},             /* Fuehrung linker Orbit, endet mit den VIC-II-Targets (v5.2) */
   /* Inlanes (v4.2): Fuehrung endet knapp hinter dem Drehpunkt, sonst blieb der
    * Ball oben auf dem Drehpunkt liegen und der Flipper traf ihn kaum */
   {40, 444, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
@@ -101,8 +101,11 @@ static const int16_t SEGS[][5] = {
   {38, 316, 46, 326, M_WALL},             /* Dach ueber den VIC-II-Targets (wie bei SID) */
   {290, 268, 279, 294, M_WALL},           /* v4.3: Fuehrung ueber dem Drehpunkt des dritten Flippers,
                                              sonst blieb der Ball oben auf dem Drehpunkt liegen */
-  {290, 314, 280, 326, M_WALL},           /* Dach ueber den SID-Targets: sonst blieb der Ball unter
-                                             dem dritten Flipper auf dem obersten Target liegen */
+  /* Rechte Seite gespiegelt zur linken (v5.2): Begrenzung hinter den SID-Targets
+   * bei x 264 (ueber der Trennwand Inlane/Out-Lane bei x 260), endet wie links bei
+   * y 400; schraeges Dach von ihr zum obersten SID-Target */
+  {264, 330, 264, 400, M_WALL},
+  {264, 330, 254, 338, M_WALL},
   {12, 236, 34, 256, M_GATE_UP},          /* Einwegtor linker Orbit */
 };
 #define NSEGS (sizeof(SEGS) / sizeof(SEGS[0]))
@@ -122,7 +125,7 @@ static const int16_t TARGETS[N_TARGETS][4] = {
   {46, 328, 46, 344}, {46, 356, 46, 372}, {46, 384, 46, 400},
   /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
   {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
-  {280, 328, 280, 344}, {280, 356, 280, 372}, {280, 384, 280, 400},  /* SID */
+  {254, 340, 254, 354}, {254, 362, 254, 376}, {254, 384, 254, 400},  /* SID (v5.2): gegenueber VIC-II */
 };
 
 /* Beim Aufbau: Band, in das gerade gezeichnet wird */
@@ -363,7 +366,7 @@ static void band_overlays(uint8_t *b) {
   if (band_y0 < SPIN_Y + 14 && band_y1 > SPIN_Y - 14) band_spinner(b);
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
-  if (band_y0 < 420 && band_y1 > 408) band_text(b, 272, 410, "SID", 1, C_TARGET_SID);
+  if (band_y0 < 412 && band_y1 > 402) band_text(b, 238, 404, "SID", 1, C_TARGET_SID);
   /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */
   {
     static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_Y, 460, 460, ROLL_Y };

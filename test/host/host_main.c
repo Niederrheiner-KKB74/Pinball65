@@ -133,6 +133,7 @@ static void bot_run(long frames) {
   uint8_t pulling = 0, target_pull = 0, hold_l = 0, hold_r = 0, hold_3 = 0, cool = 0;
   unsigned long best = 0, tgt_hits = 0, n_ramp = 0, n_back = 0, n_kick = 0;
   int kick_trace = 0;
+  long d_left = 0, d_mid = 0, d_right = 0;
   game_new(); phys_init();
   for (long f = 0; f < frames; f++) {
     memset(&in, 0, sizeof in);
@@ -163,6 +164,10 @@ static void bot_run(long frames) {
     if (ev_ramp & EV_RAMP_DONE) n_ramp++;
     if (ev_ramp & EV_RAMP_BACK) n_back++;
     if (ev_kick & EV_KICK_IN) n_kick++;
+    { static uint8_t was; static int16_t lastx;
+      if (state == ST_PLAY) lastx = (int16_t)(ball.x >> 16);
+      if (state == ST_DRAIN && was != ST_DRAIN) { if (lastx < 42) d_left++; else if (lastx > 258) d_right++; else d_mid++; }
+      was = state; }
     if (ev_kick & EV_KICK_OUT) kick_trace = 1;
     if (kick_trace && kick_trace < 200 && getenv("KTRACE") && n_kick < 4 && (kick_trace % 10) == 1)
       printf("   nach Auswurf %d: x=%d y=%d\n", kick_trace, x, y);
@@ -176,6 +181,7 @@ static void bot_run(long frames) {
   }
   printf("Roboter: %ld Bilder, %ld Spiele, bestes Ergebnis %lu, Target-Bilder %lu, haengen %ld\n",
          frames, games, best, tgt_hits, stuck);
+  printf("Roboter: Ballverluste links %ld, Mitte %ld, rechts %ld\n", d_left, d_mid, d_right);
   printf("Roboter: Rampe %lu geschafft, %lu zurueckgerollt, Kick-Out %lu\n", n_ramp, n_back, n_kick);
 }
 
