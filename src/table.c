@@ -82,15 +82,20 @@ static const int16_t SEGS[][5] = {
   {290, 138, 290, 640, M_WALL},           /* Innenwand Abschussbahn */
   {114, 34, 114, 70, M_WALL}, {138, 34, 138, 70, M_WALL},      /* Lanes C 6 4 */
   {162, 34, 162, 70, M_WALL}, {186, 34, 186, 70, M_WALL},
-  {36, 258, 36, 400, M_WALL},             /* Fuehrung linker Orbit, endet mit den VIC-II-Targets (v5.2) */
+  {36, 297, 36, 400, M_WALL},             /* v6: Begrenzung links unter der Orbit-Einfahrt */
+  {46, 314, 10, 252, M_WALL},             /* v6: linker Orbit, untere Wand parallel zur Schusslinie */
+  {66, 293, 31, 233, M_WALL}, {31, 233, 31, 170, M_WALL},   /* v6: linker Orbit, obere Wand */
+  {304, 124, 292, 134, M_GATE_UP},       /* v6: Einwegtor oben in der Abschussbahn */
+  {162, 306, 170, 268, M_WALL}, {196, 306, 188, 268, M_WALL},  /* v6: Scoop 1541 */
+  {170, 268, 179, 256, M_WALL}, {179, 256, 188, 268, M_WALL},
   {10, 390, 36, 400, M_WALL},             /* v5.3: Out-Lane links oben zu (Ball flog ueber den Orbit zurueck) */
   {290, 390, 264, 400, M_WALL},           /* v5.3: Out-Lane rechts oben zu ... */
   {290, 318, 264, 336, M_WALL},           /* ... und der Gang hinter den SID-Targets auch oben */
   /* Inlanes (v4.2): Fuehrung endet knapp hinter dem Drehpunkt, sonst blieb der
    * Ball oben auf dem Drehpunkt liegen und der Flipper traf ihn kaum */
   /* v5.4: Trennwaende Inlane/Out-Lane 16 Pixel hoeher (vorher ab y 444): kleinerer Zugang */
-  {40, 428, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
-  {260, 428, 260, 519, M_WALL}, {260, 519, 191, 560, M_WALL},  /* Inlane rechts */
+  {40, 416, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
+  {260, 416, 260, 519, M_WALL}, {260, 519, 191, 560, M_WALL},  /* Inlane rechts */
   {100, 567, 72, 640, M_WALL},
   {200, 567, 228, 640, M_WALL},
   {64, 462, 64, 504, M_WALL}, {64, 504, 92, 524, M_WALL},      /* Slingshot links */
@@ -101,15 +106,12 @@ static const int16_t SEGS[][5] = {
   /* Einfahrt der Rampe (v5.4): senkrecht bei x 128, Muendung mit kleinem Trichter */
   {115, 300, 115, 330, M_WALL}, {141, 300, 141, 330, M_WALL},
   {115, 330, 106, 344, M_WALL}, {141, 330, 150, 344, M_WALL},
-  {38, 316, 46, 326, M_WALL},             /* Dach ueber den VIC-II-Targets (wie bei SID) */
   {290, 268, 279, 294, M_WALL},           /* v4.3: Fuehrung ueber dem Drehpunkt des dritten Flippers,
                                              sonst blieb der Ball oben auf dem Drehpunkt liegen */
   /* Rechte Seite gespiegelt zur linken (v5.2): Begrenzung hinter den SID-Targets
    * bei x 264 (ueber der Trennwand Inlane/Out-Lane bei x 260), endet wie links bei
    * y 400; schraeges Dach von ihr zum obersten SID-Target */
   {264, 336, 264, 400, M_WALL},
-  {264, 336, 254, 346, M_WALL},           /* v5.3 tiefer: sonst Mulde zwischen Spitze des dritten Flippers und Dach */
-  {12, 236, 34, 256, M_WALL},             /* Orbit-Abweiser (v5.4 feste Wand: der Kanal darunter ist seit v5.3 geschlossen) */
 };
 #define NSEGS (sizeof(SEGS) / sizeof(SEGS[0]))
 
@@ -125,10 +127,10 @@ static const int16_t SLING_TRI[2][6] = {
  */
 static const int16_t TARGETS[N_TARGETS][4] = {
   /* VIC-II (v4.2): links, genau gegenueber den SID-Targets */
-  {46, 328, 46, 344}, {46, 356, 46, 372}, {46, 384, 46, 400},
+  {54, 392, 61, 381}, {61, 381, 69, 369}, {69, 369, 76, 358},
   /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
   {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
-  {254, 348, 254, 362}, {254, 367, 254, 381}, {254, 386, 254, 400},  /* SID: gegenueber VIC-II */
+  {246, 392, 239, 381}, {239, 381, 231, 369}, {231, 369, 224, 358},  /* SID: gegenueber VIC-II */
   /* PLA (v5.3): links oben, senkrecht direkt rechts neben dem aufsteigenden Rampenstueck */
   {60, 120, 60, 134}, {60, 139, 60, 153}, {60, 158, 60, 172},
 };

@@ -52,8 +52,8 @@
 #define FLIP3_Y  300
 
 /* Kick-Out-Hole "1541" und Rampe (Meilenstein 4) */
-#define KICK_X    75            /* v5.4: links unten, auf der anderen Seite der Rampe (v4.3: 112, 222) */
-#define KICK_Y    318
+#define KICK_X    179           /* v6: Scoop 1541 am Ende des geraden Schusses vom rechten Flipper (v5.4: 75, 318) */
+#define KICK_Y    266
 #define RAMP_LANE_X0 117          /* Einfahrt (v5.4): Gasse zwischen x 115 und 141 */
 #define RAMP_LANE_X1 139
 #define SPIN_Y    316             /* Spinner quer in der Einfahrt ... */

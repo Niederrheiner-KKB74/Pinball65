@@ -191,6 +191,14 @@ static void bot_run(long frames) {
       if (state == ST_DRAIN && was != ST_DRAIN) { if (lastx < 42) d_left++; else if (lastx > 258) d_right++; else d_mid++;
         if (kick_trace && kick_trace < 150) d_kick++; }
       was = state; }
+    { static int16_t hx[32], hy[32]; static uint8_t hi; static int16_t oy;
+      int16_t yy = (int16_t)(ball.y >> 16), xx = (int16_t)(ball.x >> 16);
+      hx[hi & 31] = xx; hy[hi & 31] = yy; hi++;
+      if (getenv("OTRACE") && state == ST_PLAY && oy <= 404 && yy > 404 && (xx < 40 || xx > 260)) {
+        printf("   Out-Lane %s: vorher", xx < 40 ? "links" : "rechts");
+        for (int k = 30; k >= 6; k -= 6) printf(" (%d,%d)", hx[(uint8_t)(hi - 1 - k) & 31], hy[(uint8_t)(hi - 1 - k) & 31]);
+        printf("\n"); }
+      oy = yy; }
     if (ev_kick & EV_KICK_OUT) kick_trace = 1;
     if (ev_kick & EV_KICK_IN) kick_trace = 0;
     if (kick_trace && kick_trace < 200 && getenv("KTRACE") && n_kick < 4 && (kick_trace % 10) == 1)
@@ -416,6 +424,32 @@ static void plunge_test(void) {
          fast, PULL_MAX - 9, kicked);
 }
 
+/* Shot-Map: Ball auf dem Flipper fangen (oder aus der Inlane kommen lassen),
+ * zu verschiedenen Zeiten schlagen, Bahn in shots.csv schreiben */
+static void shot_map(void) {
+  FILE *out = fopen("shots.csv", "w");
+  input_t in;
+  for (int fl = 0; fl < 2; fl++)
+    for (int mode = 0; mode < 2; mode++)          /* 0: gefangen, 1: aus der Inlane */
+      for (int T = 0; T < 40; T++) {
+        phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+        if (mode == 0) { ball.x = (fl ? 180L : 120L) << 16; ball.y = 500L << 16; }
+        else { ball.x = (fl ? 250L : 50L) << 16; ball.y = 460L << 16; }
+        ball.vx = ball.vy = 0;
+        int t0 = mode == 0 ? 80 : 0, hit = -1;
+        for (int f = 0; f < 400 && state == ST_PLAY; f++) {
+          memset(&in, 0, sizeof in);
+          int hold = (mode == 0 && f < 80) || (f >= t0 + T && f < t0 + T + 12);
+          if (fl) in.right = (uint8_t)hold; else in.left = (uint8_t)hold;
+          game_frame(&in);
+          if (f == t0 + T) hit = f;
+          if (hit >= 0 && f > hit && f < hit + 70) fprintf(out, "%d,%d,%d,%ld,%ld\n", fl, mode, T, (long)(ball.x >> 16), (long)(ball.y >> 16));
+          if (hit >= 0 && f > hit + 70) break;
+        }
+      }
+  fclose(out);
+}
+
 extern int host_no_trans;
 #include <stdlib.h>
 #include <math.h>
@@ -481,6 +515,7 @@ int main(void) {
   cradle_sweep(1);
   flip3_sweep();
   plunge_test();
+  if (getenv("SHOTMAP")) shot_map();
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);

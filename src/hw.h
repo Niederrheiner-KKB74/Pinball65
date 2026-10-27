@@ -44,7 +44,7 @@
 /* Der Lader (PINBALL65) baut alles im Attic-RAM auf und laedt dann das Spiel
  * (PB65GAME). Das Spiel prueft die Kennung; die Nummer aendert sich, wenn
  * sich der Aufbau der Daten aendert. */
-#define PB_SIG      "PB65DATAF"
+#define PB_SIG      "PB65DATAG"
 #define PB_SIG_LEN  9
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL

@@ -309,7 +309,7 @@ static void substep(void) {
     ramp_place();
     return;
   }
-  if (bx > 293) in_lane = 1; else if (bx < 276) in_lane = 0;
+  if (bx > 291) in_lane = 1; else if (bx < 276) in_lane = 0;   /* v6: 291, sonst lag der Ball am Einwegtor fest */
   collide_flipper(&flip[0]);
   collide_flipper(&flip[1]);
   collide_flipper(&flip[2]);
@@ -375,8 +375,8 @@ void game_frame(const input_t *in) {
   ev_target = 0;
   ev_ramp = ev_kick = 0;
   if (kick_cool) kick_cool--;
-  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach unten in die linke Inlane */
-    ball.vx = -10486L;              /* v5.7: Inlane statt Slingshot */
+  if (kick_timer && --kick_timer == 0) {   /* auswerfen, nach unten zum linken Flipper */
+    ball.vx = -10486L;              /* v6: aus dem Scoop zum linken Flipper (steiler prallt er an den Trichter) */
     ball.vy = 32768L;
     kick_cool = 30;
     ev_kick |= EV_KICK_OUT;
