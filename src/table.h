@@ -21,7 +21,8 @@
 #define M_SLING_L 2
 #define M_SLING_R 3
 #define M_GATE    4           /* Tor an der Abschussbahn: offen, solange der Ball in der Bahn ist */
-#define M_GATE_UP 5           /* v6.2: rechte innere Orbitwand unten, von innen nach oben durchlaessig */
+#define M_RAIL    6           /* v6.3: Fuehrungsschiene (oberer Bogen): Ball gleitet ohne Abprall */
+#define M_GATE_UP 5           /* derzeit unbenutzt (v6.2: rechte innere Orbitwand) */
 #define M_TARGET  16          /* 16..25: zehn Targets, siehe TARGETS in table.c */
 
 /* Zielgruppen: Index der ersten Target-Klasse und Anzahl */

@@ -151,7 +151,7 @@ static void collide_mask(void) {
   for (uint8_t k = 0; k < 16 && ball_hits_mask(); k++) { ball.x += nx >> 1; ball.y += ny >> 1; }
   fix16 vn = fmul(ball.vx, nx) + fmul(ball.vy, ny);
   if (vn >= 0) return;
-  fix16 imp = (-vn < REST_V) ? vn : fmul(vn, p_wall_imp);
+  fix16 imp = (-vn < REST_V || kind == M_RAIL) ? vn : fmul(vn, p_wall_imp);   /* v6.3: Schiene ohne Abprall */
   ball.vx -= fmul(imp, nx);
   ball.vy -= fmul(imp, ny);
   if (kind >= M_TARGET) ev_target |= (uint16_t)1 << (kind - M_TARGET);
