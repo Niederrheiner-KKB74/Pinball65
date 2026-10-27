@@ -3,7 +3,7 @@
  *
  * Punkte:  Bumper 100, Slingshot 10, Target 500 (schon an: 100),
  *          obere Lane 1000 (an: 200), L O A D 2000 (an: 500).
- * Gruppen: VIC-II 10.000, 6510 20.000, SID 10.000; danach gehen die Lampen aus.
+ * Gruppen: VIC-II 10.000, 6510 20.000, SID 10.000, PLA 15.000 (v5.3); danach gehen die Lampen aus.
  *          C 6 4 komplett: Bonus-Multiplikator +1 (bis 5X) und 5.000.
  *          L O A D komplett: 25.000.
  * Bonus:   jedes neu angeschaltete Target oder jede Lane 1.000, am Ballende
@@ -44,13 +44,14 @@ static const uint8_t LAMP_RGB[N_LAMPS][2][3] = {
   {{50, 100, 58}, {120, 240, 140}}, {{50, 100, 58}, {120, 240, 140}},
   {{50, 100, 58}, {120, 240, 140}}, {{50, 100, 58}, {120, 240, 140}},
   {{106, 50, 92}, {255, 120, 220}}, {{106, 50, 92}, {255, 120, 220}}, {{106, 50, 92}, {255, 120, 220}},
+  {{100, 60, 20}, {255, 150, 40}}, {{100, 60, 20}, {255, 150, 40}}, {{100, 60, 20}, {255, 150, 40}},   /* PLA */
   {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
   {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
   {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
   {{200, 32, 46}, {255, 244, 210}}, {{200, 32, 46}, {255, 244, 210}}, {{200, 32, 46}, {255, 244, 210}},
   {{216, 48, 64}, {255, 236, 120}}, {{216, 48, 64}, {255, 236, 120}},
 };
-_Static_assert(N_LAMPS == 22, "Lampentabelle passt nicht zur Palette");
+_Static_assert(N_LAMPS == 25, "Lampentabelle passt nicht zur Palette");
 
 char *fmt_points(char *p, uint32_t v) {
   char tmp[12];
@@ -76,10 +77,11 @@ static void add(uint16_t pts) { score += pts; }
 static void lamps_apply(void) {
   for (uint8_t n = 0; n < N_LAMPS; n++) {
     uint8_t on;
-    if (n < 10) on = (tgt_lit >> n) & 1;
-    else if (n < 13) on = (top_lit >> (n - 10)) & 1;
-    else if (n < 17) on = (load_lit >> (n - 13)) & 1;
-    else on = flash[n - 17] != 0;
+    const uint8_t T = N_TARGETS;
+    if (n < T) on = (tgt_lit >> n) & 1;
+    else if (n < T + 3) on = (top_lit >> (n - T)) & 1;
+    else if (n < T + 7) on = (load_lit >> (n - T - 3)) & 1;
+    else on = flash[n - T - 7] != 0;
     if (on == lamp_shown[n]) continue;
     lamp_shown[n] = on;
     const uint8_t *c = LAMP_RGB[n][on];
@@ -129,16 +131,16 @@ void game_input(input_t *in) {
 /* Ziel i getroffen */
 static void low_lane(uint8_t i);
 static void target_hit(uint8_t i) {
-  static const uint16_t GROUP_MASK[3] = { 0x007, 0x078, 0x380 };
-  static const char *GROUP_NAME[3] = { "VIC-II READY", "6510 READY", "SID READY" };
-  static const uint16_t GROUP_PTS[3] = { 10000, 20000, 10000 };
+  static const uint16_t GROUP_MASK[4] = { 0x007, 0x078, 0x380, 0x1C00 };
+  static const char *GROUP_NAME[4] = { "VIC-II READY", "6510 READY", "SID READY", "PLA READY" };
+  static const uint16_t GROUP_PTS[4] = { 10000, 20000, 10000, 15000 };
   uint16_t bit = (uint16_t)1 << i;
   snd_play(SND_TARGET);
   if (tgt_lit & bit) { add(100); return; }
   tgt_lit |= bit;
   add(500);
   bonus++;
-  for (uint8_t g = 0; g < 3; g++)
+  for (uint8_t g = 0; g < 4; g++)
     if ((tgt_lit & GROUP_MASK[g]) == GROUP_MASK[g]) {
       tgt_lit &= (uint16_t)~GROUP_MASK[g];
       add(GROUP_PTS[g]);

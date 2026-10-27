@@ -63,6 +63,7 @@ void table_build_palette(void) {
   set_color(C_DMD_EDGE, 170, 90, 16);
   set_color(C_LOGO_RED, 232, 69, 60);
   set_color(C_LOGO_BLUE, 61, 107, 234);
+  set_color(C_TARGET_PLA, 255, 150, 40);
   set_color(C_RAMP_RAIL, 220, 230, 255);    /* Rampe: Chromschienen ... */
   set_color(C_RAMP_RAIL_DK, 120, 130, 190);
   set_color(C_RAMP_FLOOR, 70, 150, 210);    /* ... und durchsichtiger Boden (Raster) */
@@ -81,6 +82,9 @@ static const int16_t SEGS[][5] = {
   {114, 34, 114, 70, M_WALL}, {138, 34, 138, 70, M_WALL},      /* Lanes C 6 4 */
   {162, 34, 162, 70, M_WALL}, {186, 34, 186, 70, M_WALL},
   {36, 258, 36, 400, M_WALL},             /* Fuehrung linker Orbit, endet mit den VIC-II-Targets (v5.2) */
+  {10, 390, 36, 400, M_WALL},             /* v5.3: Out-Lane links oben zu (Ball flog ueber den Orbit zurueck) */
+  {290, 390, 264, 400, M_WALL},           /* v5.3: Out-Lane rechts oben zu ... */
+  {290, 318, 264, 336, M_WALL},           /* ... und der Gang hinter den SID-Targets auch oben */
   /* Inlanes (v4.2): Fuehrung endet knapp hinter dem Drehpunkt, sonst blieb der
    * Ball oben auf dem Drehpunkt liegen und der Flipper traf ihn kaum */
   {40, 444, 40, 519, M_WALL}, {40, 519, 109, 560, M_WALL},     /* Inlane links */
@@ -104,8 +108,8 @@ static const int16_t SEGS[][5] = {
   /* Rechte Seite gespiegelt zur linken (v5.2): Begrenzung hinter den SID-Targets
    * bei x 264 (ueber der Trennwand Inlane/Out-Lane bei x 260), endet wie links bei
    * y 400; schraeges Dach von ihr zum obersten SID-Target */
-  {264, 330, 264, 400, M_WALL},
-  {264, 330, 254, 338, M_WALL},
+  {264, 336, 264, 400, M_WALL},
+  {264, 336, 254, 346, M_WALL},           /* v5.3 tiefer: sonst Mulde zwischen Spitze des dritten Flippers und Dach */
   {12, 236, 34, 256, M_GATE_UP},          /* Einwegtor linker Orbit */
 };
 #define NSEGS (sizeof(SEGS) / sizeof(SEGS[0]))
@@ -125,7 +129,9 @@ static const int16_t TARGETS[N_TARGETS][4] = {
   {46, 328, 46, 344}, {46, 356, 46, 372}, {46, 384, 46, 400},
   /* 6510 (v4.2): schraeg links vom geraden Abstieg der Rampe, zeigt zum linken Flipper */
   {214, 196, 220, 205}, {221, 206, 227, 215}, {227, 217, 233, 226}, {234, 227, 240, 236},
-  {254, 340, 254, 354}, {254, 362, 254, 376}, {254, 384, 254, 400},  /* SID (v5.2): gegenueber VIC-II */
+  {254, 348, 254, 362}, {254, 367, 254, 381}, {254, 386, 254, 400},  /* SID: gegenueber VIC-II */
+  /* PLA (v5.3): links oben in der Rampenkurve, schraeg zum rechten Flipper gerichtet */
+  {66, 190, 75, 178}, {76, 176, 86, 164}, {87, 162, 96, 150},
 };
 
 /* Beim Aufbau: Band, in das gerade gezeichnet wird */
@@ -268,7 +274,7 @@ static uint8_t art_px(int16_t x, int16_t y) {
 }
 
 /* Kleine 3x5-Schrift fuer Beschriftungen auf dem Tisch */
-static const char LBL_CHARS[] = "0123456789ABCDEFIKLNORSTVY-.*,\"";
+static const char LBL_CHARS[] = "0123456789ABCDEFIKLNORSTVY-.*,\"P";
 static const uint8_t LBL_GLYPHS[][5] = {
   {7, 5, 5, 5, 7}, {2, 6, 2, 2, 7}, {7, 1, 7, 4, 7}, {7, 1, 7, 1, 7}, {5, 5, 7, 1, 1},
   {7, 4, 7, 1, 7}, {7, 4, 7, 5, 7}, {7, 1, 1, 2, 2}, {7, 5, 7, 5, 7}, {7, 5, 7, 1, 7},
@@ -276,7 +282,7 @@ static const uint8_t LBL_GLYPHS[][5] = {
   {7, 4, 6, 4, 4}, {7, 2, 2, 2, 7}, {5, 5, 6, 5, 5}, {4, 4, 4, 4, 7}, {6, 5, 5, 5, 5},
   {2, 5, 5, 5, 2}, {6, 5, 6, 5, 5}, {3, 4, 2, 1, 6}, {7, 2, 2, 2, 2}, {5, 5, 5, 5, 2},
   {5, 5, 2, 2, 2}, {0, 0, 7, 0, 0}, {0, 0, 0, 0, 2}, {0, 5, 2, 5, 0}, {0, 0, 0, 2, 4},
-  {5, 5, 0, 0, 0},
+  {5, 5, 0, 0, 0}, {6, 5, 6, 4, 4},
 };
 
 /* Zeichnet Text mit Vergroesserung s in das Band (nur Zeilen im Band) */
@@ -367,6 +373,7 @@ static void band_overlays(uint8_t *b) {
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 50, 404, "VIC-II", 1, C_TARGET_VIC);
   if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
   if (band_y0 < 412 && band_y1 > 402) band_text(b, 238, 404, "SID", 1, C_TARGET_SID);
+  if (band_y0 < 192 && band_y1 > 182) band_text(b, 86, 184, "PLA", 1, C_TARGET_PLA);
   /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */
   {
     static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_Y, 460, 460, ROLL_Y };

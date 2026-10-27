@@ -28,7 +28,8 @@
 #define TGT_VIC   0           /* 3 Targets V, I, C */
 #define TGT_6510  3           /* 4 Targets 6, 5, 1, 0 */
 #define TGT_SID   7           /* 3 Targets S, I, D */
-#define N_TARGETS 10
+#define TGT_PLA   10          /* 3 Targets P, L, A (v5.3, links oben) */
+#define N_TARGETS 13
 /* L und D (v5.1): Roll-Over-Kontakte auf dem Tisch, der Ball rollt darueber */
 #define ROLL_LX   97
 #define ROLL_DX   223
@@ -76,15 +77,16 @@ enum {
   /* Lampen: jede hat einen eigenen Paletteneintrag. Ein- und Ausschalten
    * aendert nur die Farbe, die Grafik muss nicht neu gezeichnet werden. */
   C_LAMP0,
-  C_TGT0 = C_LAMP0,               /* 10 Targets */
-  C_TOP0 = C_TGT0 + 10,           /* 3 obere Lanes C 6 4 */
+  C_TGT0 = C_LAMP0,               /* 13 Targets (VIC-II, 6510, SID, PLA) */
+  C_TOP0 = C_TGT0 + N_TARGETS,    /* 3 obere Lanes C 6 4 */
   C_LOAD0 = C_TOP0 + 3,           /* 4 Lampen L O A D (Out- und Inlanes) */
   C_BUMP0 = C_LOAD0 + 4,          /* 3 Bumper-Ringe (Aufblitzen) */
   C_SLING0 = C_BUMP0 + 3,         /* 2 Slingshot-Gummis (Aufblitzen) */
   C_LAMP_END = C_SLING0 + 2,
   C_RAMP_RAIL = C_LAMP_END, C_RAMP_RAIL_DK, C_RAMP_FLOOR,
   C_SPIN0,                        /* 4 Streifen des Spinners, Farben drehen sich */
-  C_SPIN_END = C_SPIN0 + 4
+  C_SPIN_END = C_SPIN0 + 4,
+  C_TARGET_PLA = C_SPIN_END       /* Beschriftung PLA */
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 
