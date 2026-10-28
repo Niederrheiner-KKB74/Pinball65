@@ -243,7 +243,7 @@ void game_new(void) {
   mission_ready = mission_active = mission_cur = mission_prog = missions_done = 0;
   grp_mask = mb_ready = 0;
   prev_state = state;
-  music_play(MUS_GAME);
+  music_stop();                          /* v7.0: im Spiel keine Hintergrundmusik, nur Effekte und Jingles */
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
   for (uint8_t n = 0; n < N_ARROWS; n++) arrow_shown[n] = 9;
   lamps_apply();

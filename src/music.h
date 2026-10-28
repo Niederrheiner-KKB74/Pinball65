@@ -13,6 +13,7 @@ void music_init(void);
 /* Stueck starten: Lieder mit Wiederholung werden Hintergrund, Jingles
  * unterbrechen ihn und danach beginnt der Hintergrund von vorn */
 void music_play(uint8_t song);
+void music_stop(void);            /* alles still, auch kein Hintergrund */
 void music_mute(uint8_t on);
 uint8_t music_muted(void);
 /* Einmal pro Bild */

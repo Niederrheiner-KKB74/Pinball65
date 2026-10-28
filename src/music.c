@@ -136,6 +136,11 @@ void music_play(uint8_t n) {
   start(n);
 }
 
+void music_stop(void) {
+  song = bg = 0xFF;
+  for (uint8_t v = 0; v < 3; v++) { mv[v].ord = 0; poke2((uint8_t)(v * 7 + 4), 0); }
+}
+
 void music_mute(uint8_t on) { muted = on; poke2(0x18, on ? 0 : MUSIC_VOL); }
 uint8_t music_muted(void) { return muted; }
 
