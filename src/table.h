@@ -89,7 +89,12 @@ enum {
   C_SPIN0,                        /* 4 Streifen des Spinners, Farben drehen sich */
   C_SPIN_END = C_SPIN0 + 4,
   C_TARGET_PLA = C_SPIN_END,      /* Beschriftung PLA */
-  C_KICK_RING                     /* Ring des Kick-Out-Holes, blinkt bei MISSION READY */
+  C_KICK_RING,                    /* Ring des Kick-Out-Holes, blinkt bei MISSION READY */
+  C_ARROW0                        /* v6.8: 8 Pfeil-Lampen, Reihenfolge wie ARW_* */
+};
+/* Pfeile vor den Schuessen (Lampen C_ARROW0 + ARW_*) */
+enum { ARW_RAMP, ARW_KICK, ARW_ORBIT_L, ARW_ORBIT_R, ARW_6510, ARW_VIC, ARW_SID, ARW_PLA, N_ARROWS,
+       C_ARROW_END = C_ARROW0 + N_ARROWS
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 

@@ -50,6 +50,7 @@ uint8_t msg_timer, msg_type;           /* msg_type 1: Meldung wird getippt (v6.6
 uint32_t hiscore;
 
 static uint16_t tgt_lit;
+static const uint16_t GROUP_MASK[4] = { 0x007, 0x078, 0x380, 0x1C00 };   /* VIC-II, 6510, SID, PLA */
 static uint8_t top_lit, load_lit;
 /* v6.1: Skill-Shot. Vor dem Abschuss blinkt eine der Lanes C 6 4 (mit den Flippern
  * verschiebbar); faellt der Ball nach dem Abschuss als erstes in diese Lane, gibt es
@@ -116,6 +117,41 @@ static void lamps_apply(void) {
     lamp_shown[n] = on;
     const uint8_t *c = LAMP_RGB[n][on];
     set_color((uint8_t)(C_LAMP0 + n), c[0], c[1], c[2]);
+  }
+}
+
+/* v6.8: Pfeile vor den Schuessen. 0 aus, 1 an, 2 blinkt (lohnt sich jetzt besonders) */
+static const uint8_t ARROW_RGB[N_ARROWS][3] = {
+  {255, 220, 80}, {255, 210, 60}, {120, 220, 255}, {120, 220, 255},
+  {120, 240, 140}, {80, 200, 255}, {255, 120, 220}, {255, 150, 40},
+};
+static uint8_t arrow_shown[N_ARROWS] = { 9, 9, 9, 9, 9, 9, 9, 9 };
+static uint8_t group_lit(uint8_t g) {
+  uint8_t n = 0;
+  for (uint16_t m = tgt_lit & GROUP_MASK[g]; m; m >>= 1) n += m & 1;
+  return n;
+}
+static void arrows_apply(uint8_t blink) {
+  static const uint8_t GSIZE[4] = { 3, 4, 3, 3 };
+  uint8_t st[N_ARROWS];
+  uint8_t m = mission_active ? mission_cur : 0xFF, pr = mission_prog;
+  st[ARW_RAMP] = (mb_ready || m == 1 || (m == 2 && !(pr & 1)) || (m == 3 && !(load_lit & 8))) ? 2 : 0;
+  st[ARW_KICK] = (multi || (mission_ready && !mission_active) || m == 0 || (m == 2 && (pr & 1))) ? 2 : 0;
+  st[ARW_ORBIT_L] = (load_lit & 1) ? 0 : (m == 3 ? 2 : 1);   /* L im linken Orbit */
+  st[ARW_ORBIT_R] = st[ARW_ORBIT_L];
+  for (uint8_t g = 0; g < 4; g++) {
+    uint8_t n = group_lit(g);
+    uint8_t need = g < 3 && !(grp_mask & (1 << g)) && !mb_ready && !multi;   /* fuer RUN/STOP */
+    st[ARW_VIC + (g == 0 ? 0 : g == 1 ? -1 : g == 2 ? 1 : 2)] =
+      (n + 1 == GSIZE[g] && (need || g == 3)) ? 2 : (need || n) ? 1 : 0;
+  }
+  for (uint8_t i = 0; i < N_ARROWS; i++) {
+    uint8_t on = st[i] == 2 ? blink : st[i];
+    if (on == arrow_shown[i]) continue;
+    arrow_shown[i] = on;
+    const uint8_t *c = ARROW_RGB[i];
+    if (on) set_color((uint8_t)(C_ARROW0 + i), c[0], c[1], c[2]);
+    else set_color((uint8_t)(C_ARROW0 + i), (uint8_t)(c[0] >> 2), (uint8_t)(c[1] >> 2), (uint8_t)(c[2] >> 2));
   }
 }
 
@@ -206,6 +242,7 @@ void game_new(void) {
   grp_mask = mb_ready = 0;
   prev_state = state;
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
+  for (uint8_t n = 0; n < N_ARROWS; n++) arrow_shown[n] = 9;
   lamps_apply();
 }
 
@@ -223,7 +260,6 @@ void game_input(input_t *in) {
 /* Ziel i getroffen */
 static void low_lane(uint8_t i);
 static void target_hit(uint8_t i) {
-  static const uint16_t GROUP_MASK[4] = { 0x007, 0x078, 0x380, 0x1C00 };
   static const char *GROUP_NAME[4] = { "VIC-II READY", "6510 READY", "SID READY", "PLA READY" };
   static const uint16_t GROUP_PTS[4] = { 10000, 20000, 10000, 15000 };
   uint16_t bit = (uint16_t)1 << i;
@@ -465,6 +501,7 @@ void game_update(const input_t *in) {
       shown = on;
       if (on) set_color(C_KICK_RING, 255, 210, 60); else set_color(C_KICK_RING, 70, 50, 12);
     }
+    arrows_apply((blink >> 3) & 1);
     /* Rampe blinkt, solange RUN/STOP bereit ist */
     static uint8_t rshown = 0xFF;
     uint8_t ron = !mb_ready || ((blink >> 3) & 1);

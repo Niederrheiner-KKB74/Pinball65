@@ -326,6 +326,32 @@ static void band_disc(uint8_t *buf, int16_t cx, int16_t cy, int16_t r, uint8_t c
   }
 }
 
+/* v6.8: Pfeil-Einsatz (Dreieck mit dunklem Rand), Spitze in Richtung ang (256er-Winkel) */
+static const int16_t ARROWS[N_ARROWS][3] = {
+  {128, 386, 192}, {179, 330, 192}, {72, 338, 171}, {277, 232, 192},
+  {204, 258, 212}, {94, 432, 160}, {206, 432, 224}, {82, 146, 128},
+};
+static uint8_t in_arrow(int16_t u, int16_t v, int16_t tip, int16_t base, int16_t half) {
+  if (v < 0) v = -v;
+  if (u > tip || u < base) return 0;
+  return v <= (int16_t)(((int32_t)(tip - u) * half) / (tip - base));
+}
+static void band_arrow(uint8_t *buf, int16_t cx, int16_t cy, uint8_t ang, uint8_t col) {
+  int16_t c = (int16_t)(cosA(ang) >> 8), sn = (int16_t)(sinA(ang) >> 8);   /* +-256 */
+  for (int16_t yy = cy - 10; yy <= cy + 10; yy++) {
+    if (yy < band_y0 || yy >= band_y1) continue;
+    int16_t dy = yy - cy;
+    for (int16_t xx = cx - 10; xx <= cx + 10; xx++) {
+      int16_t dx = xx - cx;
+      int16_t u = dx * c + dy * sn, v = dy * c - dx * sn;      /* 8.8 */
+      /* schlankes Dreieck: 16 Pixel lang, 11 breit, mit dunklem Rand */
+      if (!in_arrow(u, v, 9 * 256, -7 * 256, 1408)) continue;
+      uint8_t inner = in_arrow(u, v, 7 * 256, -6 * 256, 960);
+      buf[((uint16_t)(xx >> 3) << 6) + ((yy - band_y0) << 3) + (xx & 7)] = inner ? col : C_LANE;
+    }
+  }
+}
+
 static void band_rect(uint8_t *buf, int16_t x0, int16_t y0, int16_t w, int16_t h, uint8_t col) {
   for (int16_t yy = y0; yy < y0 + h; yy++) {
     if (yy < band_y0 || yy >= band_y1) continue;
@@ -370,6 +396,9 @@ static void band_overlays(uint8_t *b) {
   /* Lampen der oberen Lanes */
   if (band_y0 < 66 && band_y1 > 56)
     for (uint8_t i = 0; i < 3; i++) band_disc(b, 126 + 24 * i, 61, 4, (uint8_t)(C_TOP0 + i));
+  for (uint8_t i = 0; i < N_ARROWS; i++)
+    if (band_y0 < ARROWS[i][1] + 11 && band_y1 > ARROWS[i][1] - 11)
+      band_arrow(b, ARROWS[i][0], ARROWS[i][1], (uint8_t)ARROWS[i][2], (uint8_t)(C_ARROW0 + i));
   /* Kick-Out-Hole "1541" */
   if (band_y0 < KICK_Y + 20 && band_y1 > KICK_Y - 12) {
     band_disc(b, KICK_X, KICK_Y, 10, C_KICK_RING);
