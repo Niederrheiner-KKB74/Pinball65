@@ -22,6 +22,7 @@
 #include "tables.h"
 #include "game.h"
 #include "sound.h"
+#include "music.h"
 
 /* Taste mit Wiederholung: sofort, dann nach 15 Bildern alle 3 Bilder */
 static uint8_t repeat(uint8_t down, uint8_t *cnt) {
@@ -33,7 +34,7 @@ static uint8_t repeat(uint8_t down, uint8_t *cnt) {
 }
 
 static void read_input(input_t *in) {
-  static uint8_t prev_t, prev_b, prev_d, prev_f1, prev_f3, rep_f5, rep_f7, prev_rs;
+  static uint8_t prev_t, prev_b, prev_d, prev_f1, prev_f3, rep_f5, rep_f7, prev_rs, prev_m;
   uint8_t c0 = key_col(0);
   uint8_t f1 = (c0 & 0x10) != 0, f3 = (c0 & 0x20) != 0;
   in->tune_toggle = f1 && !prev_f1;
@@ -54,6 +55,9 @@ static void read_input(input_t *in) {
   in->diag = d && !prev_d;
   uint8_t rs = (c7 & 0x80) != 0;                            /* RUN/STOP: Multiball zum Testen */
   in->mb = rs && !prev_rs;
+  uint8_t mk = (key_col(4) & 0x10) != 0;                   /* M: Musik an/aus */
+  in->mute = mk && !prev_m;
+  prev_m = mk;
   prev_t = t; prev_b = b; prev_d = d; prev_rs = rs;
 }
 
@@ -87,16 +91,24 @@ static void update_display(uint16_t load, uint16_t lmax) {
   /* v6.6: nach Spielende wechseln vier Seiten alle 3 Sekunden */
   if (game_over && !msg_timer) { if (++page_t >= 150) { page_t = 0; page = (uint8_t)((page + 1) & 3); } }
   else { page = 0; page_t = 0; }
+#ifdef PHYS_TUNE
   uint8_t mode = (uint8_t)(tune_on ? 10 + tune_sel : test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
                            msg_timer ? 7 : game_over ? 80 + page : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
+#else
+  uint8_t mode = (uint8_t)(test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
+                           msg_timer ? 7 : game_over ? 80 + page : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
+#endif
   if (mode == last_mode && ++tick < 10) return;
   last_mode = mode;
   tick = 0;
+#ifdef PHYS_TUNE
   if (tune_on) {
     dmd_put(l1, TUNE_INFO[tune_sel].name);
     p = dmd_put(l2, "= ");
     dmd_num(p, (uint32_t)tune[tune_sel], 0);
-  } else if (test_active) {
+  } else
+#endif
+  if (test_active) {
     p = dmd_put(l1, "TEST ");
     dmd_num(p, test_count, 3);
     dmd_put(l2, "SEARCHING FOR *");
@@ -136,8 +148,7 @@ static void update_display(uint16_t load, uint16_t lmax) {
     p = dmd_num(p, ball_no, 0);
     p = dmd_put(p, " ");
     p = dmd_num(p, mult, 0);
-    p = dmd_put(p, "X  ");
-    put_load(p, load, lmax);
+    dmd_put(p, "X");                       /* v6.9: L und MAX nur noch mit Taste D */
   } else {
     /* Zeile 1: L MAX P R, Zeile 2: S Z T D C (langsamstes Bild der letzten Sekunde) */
     static const char LET[T_N] = { 'P', 'R', 'S', 'Z', 'T', 'D', 'C' };
@@ -236,6 +247,7 @@ int main(void) {
     show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */
     read_input(&in);
     if (in.diag) diag_on ^= 1;
+    if (in.mute) music_mute(!music_muted());
     game_input(&in);
     game_frame(&in);
     int16_t cam = camera_update();

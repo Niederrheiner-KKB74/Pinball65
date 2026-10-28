@@ -75,6 +75,8 @@ void dma_copy_trans(uint32_t src, uint32_t dst, uint16_t count);
 uint8_t dma_trans_ok(void);
 /* SID-Register reg (0..$18) in den linken ($D400) und rechten ($D440) SID */
 void sid_poke(uint8_t reg, uint8_t value);
+/* v6.9: dasselbe fuer das zweite SID-Paar ($D420 und $D460, Musik) */
+void sid2_poke(uint8_t reg, uint8_t value);
 void set_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void show_buffer(uint8_t b);
 uint16_t raster_line(void);

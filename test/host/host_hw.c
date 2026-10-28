@@ -71,6 +71,9 @@ void dma_copy_trans(uint32_t s, uint32_t d, uint16_t n) {
 uint8_t dma_trans_ok(void) { return !host_no_trans; }
 unsigned long host_sid_writes;
 void sid_poke(uint8_t r, uint8_t v) { (void)r; (void)v; host_sid_writes++; }
+/* Musik: Register merken, damit der PC-Test sie als WAV ausgeben kann */
+uint8_t host_sid2[32];
+void sid2_poke(uint8_t r, uint8_t v) { host_sid2[r & 31] = v; }
 void dma_fill(uint32_t d, uint8_t v, uint16_t n) {
   uint32_t cnt = n ? n : 65536; dma_jobs++; dma_bytes += cnt;
   memset(resolve(d, cnt), v, cnt);

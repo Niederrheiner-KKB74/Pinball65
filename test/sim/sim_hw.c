@@ -74,6 +74,7 @@ void dma_copy(uint32_t s, uint32_t d, uint16_t n) {
 void dma_copy_trans(uint32_t s, uint32_t d, uint16_t n) { dma_copy(s, d, n); }
 uint8_t dma_trans_ok(void) { return 0; }
 void sid_poke(uint8_t r, uint8_t v) { (void)r; (void)v; }   /* Simulator: CPU-Weg pruefen */
+void sid2_poke(uint8_t r, uint8_t v) { (void)r; (void)v; }
 void dma_fill(uint32_t d, uint8_t v, uint16_t n) {
   sim_jobs++;
   check_cpu(d, n);

@@ -2,7 +2,7 @@
 # llvm-mos-Compiler (16-Bit-int), DMA-Zugriffe in CPU-Speicher werden geprueft.
 CC  := mos-sim-clang
 SRC := sim_main.c sim_hw.c ../../src/table.c ../../src/physics.c ../../src/render.c \
-       ../../src/tables.c ../../src/dmd.c ../../src/game.c ../../src/sound.c ../../src/ramp_path.c ../../src/font5x7.c
+       ../../src/tables.c ../../src/dmd.c ../../src/game.c ../../src/sound.c ../../src/ramp_path.c ../../src/font5x7.c ../../src/music.c ../../src/music_data.c
 simtest: $(SRC) $(wildcard ../../src/*.h) mega65.h
 	$(CC) -Oz -DPB_BUILDER -I . -I ../../src -include mega65.h -o $@ $(SRC)
 run: simtest

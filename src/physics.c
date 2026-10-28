@@ -16,14 +16,15 @@
 #include "table.h"
 #include "ramp_path.h"
 
-ball_t ball;
+bctx_t pb;                         /* v6.9: Zustand des aktuellen Balls (ball, on_ramp, ... sind Makros) */
 flipper_t flip[N_FLIP];
 uint8_t ev_bumper, ev_sling;
 uint16_t ev_target;
-uint8_t ev_ramp, ev_kick, on_ramp, kick_timer;
-fix16 ramp_s, ramp_v;
-static uint8_t ramp_seg, kick_cool;
-uint8_t state, pull, in_lane;
+uint8_t ev_ramp, ev_kick;
+#define ramp_seg  (pb.rseg)
+#define kick_cool (pb.kc)
+#define in_lane   (pb.inl)
+uint8_t state, pull;
 bctx_t ball2;
 uint8_t multi, ball_idx, ev_saved;
 static uint16_t mb_save;          /* Bilder, in denen ein verlorener Ball zurueckkommt */
@@ -33,6 +34,7 @@ uint16_t test_count;
 uint8_t snap_valid;
 fix16 snap_x, snap_y;
 
+#ifdef PHYS_TUNE
 uint8_t tune_on, tune_sel;
 int32_t tune[T_COUNT];
 const tune_info_t TUNE_INFO[T_COUNT] = {
@@ -72,6 +74,8 @@ static void tune_input(const input_t *in) {
   if (in->tune_up)   { v += t->step; if (v > t->max) v = t->max; }
   if (v != tune[tune_sel]) { tune[tune_sel] = v; tune_apply(); }
 }
+
+#endif
 
 static uint8_t sling_cool[2];
 static int16_t plunger_top;      /* Pixel: Ballmittelpunkt darf nicht tiefer */
@@ -349,11 +353,8 @@ __attribute__((noinline)) static void ball_step(void) {
 void in_lane_reset(void) { in_lane = 0; }
 
 void phys_swap(void) {
-  bctx_t t = ball2;
-  ball2.b = ball; ball2.rs = ramp_s; ball2.rv = ramp_v; ball2.onr = on_ramp;
-  ball2.rseg = ramp_seg; ball2.kt = kick_timer; ball2.kc = kick_cool; ball2.inl = in_lane;
-  ball = t.b; ramp_s = t.rs; ramp_v = t.rv; on_ramp = t.onr;
-  ramp_seg = t.rseg; kick_timer = t.kt; kick_cool = t.kc; in_lane = t.inl;
+  uint8_t *p = (uint8_t *)&pb, *q = (uint8_t *)&ball2;
+  for (uint8_t i = 0; i < sizeof(bctx_t); i++) { uint8_t t = p[i]; p[i] = q[i]; q[i] = t; }
   ball_idx ^= 1;
 }
 
@@ -466,7 +467,9 @@ void game_frame(const input_t *in) {
   kick_tick();
   if (multi) { phys_swap(); kick_tick(); phys_swap(); }
 
+#ifdef PHYS_TUNE
   tune_input(in);
+#endif
   if (in->mb && state == ST_PLAY && !multi) phys_multiball();
   if (in->reset) { new_ball(); test_active = 0; }
   if (state == ST_PLUNGER) {

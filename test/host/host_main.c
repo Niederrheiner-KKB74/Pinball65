@@ -15,7 +15,9 @@
 #include "dmd.h"
 #include "tables.h"
 #include "game.h"
+#include "music.h"
 #include "sound.h"
+#include "music.h"
 
 extern uint8_t chip[], attic[];
 extern uint8_t pal[256][3];
@@ -445,6 +447,15 @@ static void dump_dmd_typing(void) {
   fclose(f);
 }
 
+/* Musik: Registerinhalte des zweiten SID-Paars je Bild in eine Datei (fuer tools/sid_wav.py) */
+static void dump_music(const char *name, uint8_t song, int frames) {
+  extern uint8_t host_sid2[32];
+  FILE *f = fopen(name, "wb");
+  music_init(); music_play(song);
+  for (int i = 0; i < frames; i++) { music_update(); fwrite(host_sid2, 1, 25, f); }
+  fclose(f);
+}
+
 /* Bild mit zwei Baellen (Multiball) */
 static void dump_multi(void) {
   phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
@@ -635,6 +646,13 @@ int main(void) {
   if (getenv("ORBIT")) orbit_test();
   if (getenv("MBSHOT")) dump_multi();
   if (getenv("DMDSHOT")) dump_dmd_typing();
+  if (getenv("MUSIC")) {
+    dump_music("mus_title.sid", MUS_TITLE, 50 * 40);
+    dump_music("mus_game.sid", MUS_GAME, 50 * 20);
+    dump_music("mus_fanfare.sid", MUS_FANFARE, 50 * 3);
+    dump_music("mus_multi.sid", MUS_MULTI, 50 * 3);
+    dump_music("mus_over.sid", MUS_OVER, 50 * 5);
+  }
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);

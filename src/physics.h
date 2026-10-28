@@ -15,10 +15,28 @@
  */
 #define SUBSTEPS     8
 enum { T_GRAVITY, T_FLIP_SPEED, T_WALL_BOUNCE, T_FLIP_BOUNCE, T_BUMPER_KICK, T_SLING_KICK, T_COUNT };
+/* v6.9: Die Einstellung im Spiel (F1/F3/F5/F7) gibt es nur noch mit -DTUNE_UI und
+ * in den Tests; das Spiel rechnet mit festen Werten (spart Speicher fuer die Musik). */
+#if defined(PB_BUILDER) || defined(TUNE_UI)
+#define PHYS_TUNE 1
+#endif
+#ifndef PHYS_TUNE
+#define p_gravity     340L
+#define p_rest_v      (340L * 5)
+#define p_flip_up     1100
+#define p_flip_down   660
+#define p_wall_imp    (65536L + 80L * 256)
+#define p_flip_imp    (65536L + 72L * 256)
+#define p_bumper_kick 90000L
+#define p_sling_kick  70000L
+#define tune_on       0
+static inline void tune_reset(void) {}
+#else
 extern int32_t tune[T_COUNT];
 /* Abgeleitete Werte, nur bei Aenderung neu berechnet (tune_apply) */
 extern int32_t p_gravity, p_rest_v, p_wall_imp, p_flip_imp, p_bumper_kick, p_sling_kick;
 extern int16_t p_flip_up, p_flip_down;
+#endif
 #define GRAVITY      p_gravity
 #define REST_V       p_rest_v
 #define FLIP_SPEED   p_flip_up
@@ -26,6 +44,7 @@ extern int16_t p_flip_up, p_flip_down;
 #define BUMPER_KICK  p_bumper_kick
 #define SLING_KICK   p_sling_kick
 
+#ifdef PHYS_TUNE
 typedef struct {
   const char *name;
   int32_t def, min, max, step;
@@ -33,6 +52,7 @@ typedef struct {
 extern const tune_info_t TUNE_INFO[T_COUNT];
 void tune_reset(void);
 void tune_apply(void);           /* nach Aenderung von tune[] */
+#endif
 
 #ifndef MAX_V
 #define MAX_V        229376L     /* 3.5 px pro Substep */
@@ -63,11 +83,18 @@ typedef struct {
 } flipper_t;
 
 typedef struct {
-  uint8_t left, right, plunger, test, reset, diag, mb;   /* mb: RUN/STOP startet Multiball (Test) */
+  uint8_t left, right, plunger, test, reset, diag, mb, mute;   /* mb: RUN/STOP startet Multiball (Test), mute: M */
   uint8_t tune_toggle, tune_next, tune_down, tune_up;   /* F1, F3, F5, F7 */
 } input_t;
 
-extern ball_t ball;
+/* Zustand eines Balls; pb ist der aktuelle, ball2 der zweite im Multiball */
+typedef struct { ball_t b; fix16 rs, rv; uint8_t onr, rseg, kt, kc, inl; } bctx_t;
+extern bctx_t pb;
+#define ball       (pb.b)
+#define on_ramp    (pb.onr)            /* Ball faehrt auf der Rampe (zweite Ebene) */
+#define kick_timer (pb.kt)             /* > 0: Ball liegt im Kick-Out-Hole */
+#define ramp_s     (pb.rs)
+#define ramp_v     (pb.rv)
 #define N_FLIP 3                 /* links unten, rechts unten, rechts oben */
 extern flipper_t flip[N_FLIP];
 /* Ereignisse des letzten Bildes fuer die Spielregeln (game.c), Bit = Nummer */
@@ -80,21 +107,19 @@ extern uint16_t ev_target;
 #define EV_KICK_OUT   2
 #define KICK_HOLD     75           /* Bilder im Loch (1,5 s) */
 extern uint8_t ev_ramp, ev_kick;
-extern uint8_t on_ramp;            /* Ball faehrt auf der Rampe (zweite Ebene) */
-extern uint8_t kick_timer;         /* > 0: Ball liegt im Kick-Out-Hole */
-extern fix16 ramp_s, ramp_v;
 extern uint8_t state, pull;
 extern uint16_t bumper_hits, sling_hits, collisions;
 extern uint8_t test_active;
 extern uint16_t test_count;
 extern uint8_t snap_valid;
+#ifdef PHYS_TUNE
 extern uint8_t tune_on, tune_sel;
+#endif
 extern fix16 snap_x, snap_y;
 
 /* Multiball (v6.4): ein zweiter Ball. Sein Zustand liegt in ball2; phys_swap
  * tauscht ihn mit dem aktuellen Ball (ball, on_ramp, ...), damit derselbe Code
  * beide bewegt und auswertet. ball_idx sagt, welcher gerade "ball" ist. */
-typedef struct { ball_t b; fix16 rs, rv; uint8_t onr, rseg, kt, kc, inl; } bctx_t;
 extern bctx_t ball2;
 extern uint8_t multi, ball_idx;
 extern uint8_t ev_saved;          /* Ball im Multiball zurueckgeholt (Ball-Save) */

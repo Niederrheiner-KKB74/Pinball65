@@ -30,6 +30,7 @@
 #include "hw.h"
 #include "dmd.h"
 #include "sound.h"
+#include "music.h"
 
 uint32_t score;
 uint8_t ball_no, mult, game_over;
@@ -190,6 +191,7 @@ static void mission_end(uint8_t ok) {
     msg_timer = 120;
     msg_type = 0;
     dmd_fx(FX_INVERT);
+    music_play(MUS_FANFARE);
     snd_play(SND_COMPLETE);
   } else {
     dmd_put(msg1, "?TIME OUT  ERROR");
@@ -241,6 +243,7 @@ void game_new(void) {
   mission_ready = mission_active = mission_cur = mission_prog = missions_done = 0;
   grp_mask = mb_ready = 0;
   prev_state = state;
+  music_play(MUS_GAME);
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
   for (uint8_t n = 0; n < N_ARROWS; n++) arrow_shown[n] = 9;
   lamps_apply();
@@ -331,6 +334,7 @@ static void low_lane(uint8_t i) {
     add(25000);
     message("PRESS PLAY ON TAPE", 25000);
     dmd_fx(FX_INVERT);
+    music_play(MUS_FANFARE);
     snd_play(SND_COMPLETE);
   }
 }
@@ -416,6 +420,7 @@ void game_update(const input_t *in) {
         msg_timer = 100;
         msg_type = 0;
         dmd_fx(FX_BLINK);
+        music_play(MUS_MULTI);
         snd_play(SND_START);
       }
     }
@@ -424,7 +429,7 @@ void game_update(const input_t *in) {
       dmd_put(msg2, "LOADING");
       msg_timer = KICK_HOLD;
       msg_type = 1;
-      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); dmd_fx(FX_INVERT); }
+      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); dmd_fx(FX_INVERT); music_play(MUS_FANFARE); }
       if (mission_active) mission_event(MS_KICK);
       else if (mission_ready && !multi) mission_start();
     }
@@ -471,11 +476,13 @@ void game_update(const input_t *in) {
     if (ball_no < BALLS_PER_GAME) ball_no++;
     else {
       game_over = 1;
+      music_play(MUS_TITLE);                 /* v6.9: Titelmusik im Wartebildschirm ... */
       if (score > hiscore) {                 /* v6.6: Highscore (bis zum Ausschalten) */
         hiscore = score;
         message("NEW HIGH SCORE", score);
         dmd_fx(FX_INVERT);
-      }
+        music_play(MUS_FANFARE);
+      } else music_play(MUS_OVER);           /* ... nach dem Abschiedsstueck */
     }
   }
   prev_state = state;
