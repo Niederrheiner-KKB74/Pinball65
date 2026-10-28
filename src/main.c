@@ -207,7 +207,6 @@ int main(void) {
   hw_init();
   table_build_palette();
   dmd_init();
-  dmd_palette();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES); /* Tischbereich dunkel */
   dma_fill(FB_B, C_BG, 40 * COL_BYTES);
   dma_fill(DISP_ADDR, C_DMD_BG, DISP_ROWS * ROW_BYTES);
@@ -231,15 +230,7 @@ int main(void) {
   uint8_t max_tick = 0;
   input_t in;
   for (;;) {
-    /* v6.6: beim Warten auf das Bildende den Rahmen streifen wie beim Laden vom Band */
-    if (dmd_stripes) {
-      static uint8_t seed;
-      seed += 3;
-      while (raster_line() >= 251) {}
-      uint16_t r;
-      while ((r = raster_line()) < 251) VICIV.bordercol = (uint8_t)(C_C64 + ((((uint8_t)(r >> 2)) * 37 + seed) & 15));
-      VICIV.bordercol = 0;
-    } else wait_vblank();
+    wait_vblank();
     dmd_tick();
     uint16_t t0 = raster_line();
     show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */

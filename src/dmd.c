@@ -11,7 +11,6 @@ static uint8_t dirty = 15;           /* Bit n: Zeichenzeile n (0-1 = Zeile 1, 2-
 /* v6.6 Tipp-Effekt: sichtbare Zeichen je Zeile (255 = alle) und Cursor-Block */
 static uint8_t vis[2] = { 255, 255 }, typing, cur_on, cur_ln, cur_ph, tick;
 static uint8_t fx, fx_t, fx_rnd = 1;
-uint8_t dmd_stripes;
 
 static uint8_t set_line(uint8_t n, const char *s) {
   char tmp[DMD_COLS + 1];
@@ -126,22 +125,18 @@ void dmd_render(void) {
   render_row((uint8_t)(ln * 2 + 1));
 }
 
-/* C64-Farben (Index C_C64 + 0..15) fuer Rahmen und Streifen */
-static const uint8_t C64RGB[16][3] = {
-  {0, 0, 0}, {255, 255, 255}, {129, 51, 56}, {117, 206, 200}, {142, 60, 151}, {86, 172, 77},
-  {46, 44, 155}, {237, 241, 113}, {142, 80, 41}, {85, 56, 0}, {196, 108, 113}, {74, 74, 74},
-  {123, 123, 123}, {169, 255, 159}, {112, 109, 235}, {178, 178, 178},
-};
-void dmd_palette(void) {
-  for (uint8_t k = 0; k < 16; k++) set_color((uint8_t)(C_C64 + k), C64RGB[k][0], C64RGB[k][1], C64RGB[k][2]);
-}
+void dmd_fx(uint8_t kind) { fx = kind; fx_t = kind == FX_BLINK ? 100 : kind == FX_INVERT ? 64 : 30; }
 
-void dmd_fx(uint8_t kind) { fx = kind; fx_t = kind == FX_BLINK ? 100 : kind == FX_PULSE ? 64 : 30; }
-
-/* Leuchtfarbe der Punkte: Helligkeit 0..16 (16 = normal) */
-static void dmd_level(uint8_t l) {
-  set_color(C_DMD_ON, (uint8_t)(40 + ((215 * l) >> 4)), (uint8_t)(18 + ((142 * l) >> 4)), (uint8_t)(4 + ((36 * l) >> 4)));
-  set_color(C_DMD_EDGE, (uint8_t)(40 + ((130 * l) >> 4)), (uint8_t)(18 + ((72 * l) >> 4)), (uint8_t)(4 + ((12 * l) >> 4)));
+/* Display normal (0), invertiert (1: leuchtende Punkte dunkel, die anderen hell)
+ * oder dunkel (2, zum Flackern); nur Palette, kostet keine Zeichenzeit */
+static void dmd_look(uint8_t m) {
+  if (m == 1) {
+    set_color(C_DMD_ON, 40, 18, 4); set_color(C_DMD_EDGE, 40, 18, 4); set_color(C_DMD_OFF, 255, 160, 40);
+  } else {
+    if (m) { set_color(C_DMD_ON, 40, 18, 4); set_color(C_DMD_EDGE, 40, 18, 4); }
+    else { set_color(C_DMD_ON, 255, 160, 40); set_color(C_DMD_EDGE, 170, 90, 16); }
+    set_color(C_DMD_OFF, 40, 18, 4);
+  }
 }
 
 /* Einmal pro Bild: Tippen, Cursor blinken, Farbeffekte */
@@ -167,15 +162,9 @@ void dmd_tick(void) {
   if (!fx) return;
   fx_t--;
   fx_rnd = (uint8_t)((fx_rnd << 1) ^ ((fx_rnd & 0x80) ? 0x1D : 0));
-  if (fx == FX_BLINK) {
-    dmd_level((fx_t >> 2) & 1 ? 16 : 1);
-    VICIV.bordercol = (uint8_t)(C_C64 + ((fx_t >> 1) & 15));
-  } else if (fx == FX_PULSE) {
-    uint8_t p = fx_t & 15;
-    dmd_level(p < 8 ? (uint8_t)(16 - 2 * p) : (uint8_t)(2 * p - 14));
-    dmd_stripes = 1;
-  } else {
-    dmd_level(fx_rnd & 1 ? 16 : 0);
-  }
-  if (!fx_t) { fx = 0; dmd_level(16); dmd_stripes = 0; VICIV.bordercol = 0; }
+  /* v6.7: Erfolge invertieren das Display mehrmals (statt Rahmeneffekten) */
+  if (fx == FX_BLINK) dmd_look((fx_t / 5) & 1);          /* Multiball: schnell */
+  else if (fx == FX_INVERT) dmd_look((fx_t >> 3) & 1);   /* Jackpot, Mission: viermal */
+  else dmd_look(fx_rnd & 1 ? 0 : 2);                     /* Ball verloren: Flackern */
+  if (!fx_t) { fx = 0; dmd_look(0); }
 }

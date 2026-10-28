@@ -153,7 +153,7 @@ static void mission_end(uint8_t ok) {
     fmt_points(msg2, pts);
     msg_timer = 120;
     msg_type = 0;
-    dmd_fx(FX_PULSE);
+    dmd_fx(FX_INVERT);
     snd_play(SND_COMPLETE);
   } else {
     dmd_put(msg1, "?TIME OUT  ERROR");
@@ -294,7 +294,7 @@ static void low_lane(uint8_t i) {
     load_lit = 0;
     add(25000);
     message("PRESS PLAY ON TAPE", 25000);
-    dmd_fx(FX_PULSE);                      /* mit Bandstreifen im Rahmen */
+    dmd_fx(FX_INVERT);
     snd_play(SND_COMPLETE);
   }
 }
@@ -388,7 +388,7 @@ void game_update(const input_t *in) {
       dmd_put(msg2, "LOADING");
       msg_timer = KICK_HOLD;
       msg_type = 1;
-      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); dmd_fx(FX_PULSE); }
+      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); dmd_fx(FX_INVERT); }
       if (mission_active) mission_event(MS_KICK);
       else if (mission_ready && !multi) mission_start();
     }
@@ -438,7 +438,7 @@ void game_update(const input_t *in) {
       if (score > hiscore) {                 /* v6.6: Highscore (bis zum Ausschalten) */
         hiscore = score;
         message("NEW HIGH SCORE", score);
-        dmd_fx(FX_PULSE);
+        dmd_fx(FX_INVERT);
       }
     }
   }
