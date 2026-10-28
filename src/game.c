@@ -509,6 +509,10 @@ void game_update(const input_t *in) {
       if (on) set_color(C_KICK_RING, 255, 210, 60); else set_color(C_KICK_RING, 70, 50, 12);
     }
     arrows_apply((blink >> 3) & 1);
+    /* v7.2: Tor der Abschussbahn sichtbar offen oder zu */
+    static uint8_t gshown = 2;
+    uint8_t go = phys_gate_open();
+    if (go != gshown) { gshown = go; if (go) set_color(C_GATE, 7, 5, 26); else set_color(C_GATE, 172, 172, 184); }
     /* Rampe blinkt, solange RUN/STOP bereit ist */
     static uint8_t rshown = 0xFF;
     uint8_t ron = !mb_ready || ((blink >> 3) & 1);

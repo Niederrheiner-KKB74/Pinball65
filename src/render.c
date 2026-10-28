@@ -185,6 +185,7 @@ static uint8_t need_r0[40], need_r1[40];
 /* Was steht in welchem Puffer? Damit muessen ruhende Flipper nicht in jedem
  * Bild neu gezeichnet werden. */
 static uint8_t drawn_phase[2][N_FLIP];          /* gezeichnete Flipperphase, NONE = keine */
+static int16_t drawn_plg[2];                /* v7.2: gezeichnete Plunger-Hoehe je Puffer */
 static uint8_t drawn_ball_on[2][2];        /* [Puffer][Ball], Ball 1 = zweiter Ball im Multiball */
 static int16_t drawn_ball[2][2][4];        /* x0, y0, x1, y1 in Tischkoordinaten */
 
@@ -221,6 +222,10 @@ static uint8_t overlaps(const int16_t *r, const flipper_t *f) {
  * Gezeichnet mit denselben Routinen wie der CPU-Weg, Wert 0 = durchsichtig. */
 #define FSPR_BYTES 384u
 #define BSPR_BASE  (ATTIC_SPR + 0x30000UL)
+/* v7.2: Plunger, eine Spalte (x 296-303) mit 48 Zeilen */
+#define PSPR_BASE  (ATTIC_SPR + 0x3C000UL)
+#define PLG_X      296
+#define PLG_ROWS   48
 static uint8_t use_dma;
 
 static uint32_t fspr(uint8_t i, uint8_t p, uint8_t k) {
@@ -251,6 +256,16 @@ static void sprites_build(void) {
       draw_ball_col(5 + s, 5);
       dma_copy(CPUADDR(COLBUF), BSPR_BASE + (uint16_t)(s * 3 + k) * 88, 88);
     }
+  /* Plunger: rote Kappe, Stange, Feder */
+  for (uint16_t n = 0; n < PLG_ROWS * 8; n++) COLBUF[n] = 0;
+  for (uint8_t r = 0; r < PLG_ROWS; r++) {
+    uint8_t *row = COLBUF + r * 8;
+    if (r < 4) { for (uint8_t x = 1; x < 8; x++) row[x] = r == 3 ? C_PLUNGER_DK : C_PLUNGER_TIP; continue; }
+    row[3] = row[4] = C_PLUNGER;
+    row[5] = C_PLUNGER_DK;
+    if (r >= 8 && r < 40 && (r % 3) == 0) { row[1] = row[2] = C_PLUNGER_DK; row[6] = C_PLUNGER; }
+  }
+  dma_copy(CPUADDR(COLBUF), PSPR_BASE, PLG_ROWS * 8);
 }
 
 /* Lader: Flipperspannen und vorgezeichnete Bilder ins Attic-RAM */
@@ -277,6 +292,15 @@ static void blit_flipper(uint8_t n, uint8_t p, uint32_t fb, int16_t cam) {
   uint8_t c0 = (uint8_t)(xa >> 3);
   for (uint8_t k = 0; k < 8 && c0 + k < 40; k++)
     dma_copy_trans(fspr(i, p, k) + soff, fb + (uint32_t)(c0 + k) * COL_BYTES + doff, count);
+}
+
+static void blit_plunger(int16_t py, uint32_t fb, int16_t cam) {
+  int16_t s0 = py < cam ? cam : py, s1 = py + PLG_ROWS - 1;
+  if (s1 > TH - 1) s1 = TH - 1;
+  if (s1 > cam + VIEW_H - 1) s1 = cam + VIEW_H - 1;
+  if (s0 > s1) return;
+  dma_copy_trans(PSPR_BASE + (uint16_t)(s0 - py) * 8,
+                 fb + (uint32_t)(PLG_X >> 3) * COL_BYTES + (uint16_t)(s0 - cam) * 8, (uint16_t)(s1 - s0 + 1) * 8);
 }
 
 static void blit_ball(int16_t bx, int16_t by, uint32_t fb, int16_t cam) {
@@ -357,6 +381,7 @@ void render_frame(uint8_t b, int16_t cam) {
   for (uint8_t k = 0; k < 2; k++) {
     nb[k][0] = bxs[k] - 5; nb[k][1] = bys[k] - 5; nb[k][2] = bxs[k] + 5; nb[k][3] = bys[k] + 5;
   }
+  int16_t plg_y = PLUNGER_Y + (int16_t)((pull * 7) / 20);   /* Oberkante der Plunger-Kappe */
   uint8_t redraw[N_FLIP], phase[N_FLIP];
   for (uint8_t i = 0; i < N_FLIP; i++) {
     phase[i] = phase_of(&flip[i]);
@@ -377,6 +402,8 @@ void render_frame(uint8_t b, int16_t cam) {
     for (uint8_t k = 0; k < 2; k++)
       if (drawn_ball_on[b][k])
         need_rect(drawn_ball[b][k][0], drawn_ball[b][k][1], drawn_ball[b][k][2], drawn_ball[b][k][3], cam);
+    if (plg_y != drawn_plg[b])
+      need_rect(PLG_X, plg_y < drawn_plg[b] ? plg_y : drawn_plg[b], PLG_X + 7, TH - 1, cam);
     for (uint8_t i = 0; i < N_FLIP; i++)
       if (redraw[i]) { int16_t x0 = fb_x0(&flip[i]), y0 = flip[i].py - 24; need_rect(x0, y0, x0 + 52, y0 + 47, cam); }
     for (uint8_t c = 0; c < 40; c++) {
@@ -393,6 +420,7 @@ void render_frame(uint8_t b, int16_t cam) {
   if (use_dma) {
     for (uint8_t i = 0; i < N_FLIP; i++)
       if (redraw[i]) blit_flipper(i, phase[i], fb, cam);
+    blit_plunger(plg_y, fb, cam);
     for (uint8_t k = 0; k < 2; k++)
       if (on[k]) {
         blit_ball(bxs[k], bys[k], fb, cam);
@@ -429,6 +457,7 @@ void render_frame(uint8_t b, int16_t cam) {
 
   /* 4. Merken, was jetzt in diesem Puffer steht */
   for (uint8_t i = 0; i < N_FLIP; i++) drawn_phase[b][i] = phase[i];
+  drawn_plg[b] = plg_y;
   for (uint8_t k = 0; k < 2; k++) {
     drawn_ball_on[b][k] = on[k];
     for (uint8_t j = 0; j < 4; j++) drawn_ball[b][k][j] = nb[k][j];

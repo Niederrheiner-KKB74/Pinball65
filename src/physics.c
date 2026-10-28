@@ -3,7 +3,6 @@
  */
 #include <string.h>
 #include "physics.h"
-#define GATE_UP_V 16384L        /* 0,25 Pixel pro Substep */
 #ifndef KICK_UP_DY
 #define KICK_UP_DY 19          /* Auswurfpunkt hinter dem Dach des Scoops */
 #endif
@@ -29,10 +28,12 @@ bctx_t ball2;
 uint8_t multi, ball_idx, ev_saved;
 static uint16_t mb_save;          /* Bilder, in denen ein verlorener Ball zurueckkommt */
 uint16_t bumper_hits, sling_hits, collisions;
+#ifdef PB_BUILDER                  /* Testabschuss (Taste T) nur noch in den Tests */
 uint8_t test_active;
 uint16_t test_count;
 uint8_t snap_valid;
 fix16 snap_x, snap_y;
+#endif
 
 #ifdef PHYS_TUNE
 uint8_t tune_on, tune_sel;
@@ -110,11 +111,7 @@ static uint8_t sample(int16_t x, int16_t y) {
   /* v6.1: Abschussbahn oben. Der Abschuss (schnell nach oben) geht durch das
    * Einwegtor, das seitliche Tor bleibt dabei zu. Ein langsamer Ball oder einer, der
    * von oben kommt, rollt auf dem Einwegtor durch das seitliche Tor hinaus. */
-  if (c == M_GATE && in_lane && ball.vy > -GATE_UP_V) return M_EMPTY;
-#ifndef GATE_IN_VX
-#define GATE_IN_VX (-24576L)    /* v6.2: nach oben und kaum nach links: Schuss vom dritten Flipper */
-#endif
-  if (c == M_GATE_UP && ball.vy < 0 && ball.vx >= GATE_IN_VX) return M_EMPTY;
+  if (c == M_GATE_UP && in_lane && ball.vy < 0) return M_EMPTY;   /* v7.2: Abschuss nach oben */
   return c;
 }
 
@@ -331,12 +328,6 @@ __attribute__((noinline)) static void ball_step(void) {
     return;
   }
   if (bx > 291) in_lane = 1; else if (bx < 276) in_lane = 0;   /* v6: 291, sonst lag der Ball am Einwegtor fest */
-  /* v6.1: Ball, der in der Abschussbahn von oben kommt (Orbit) oder zu schwach
-   * abgeschossen wurde, verlaesst sie durch das Tor nach links zum dritten Flipper */
-  if (in_lane && ball.vy > -GATE_UP_V && ball.y > (176L << 16) && ball.y < (196L << 16)) {
-    if (ball.vy > 32768L) ball.vy = 32768L;
-    ball.vx = -98304L;
-  }
   collide_flipper(&flip[0]);
   collide_flipper(&flip[1]);
   collide_flipper(&flip[2]);
@@ -351,6 +342,13 @@ __attribute__((noinline)) static void ball_step(void) {
 }
 
 void in_lane_reset(void) { in_lane = 0; }
+
+/* v7.2: Tor oben in der Abschussbahn offen? Solange ein Ball darunter in der Bahn
+ * liegt oder nach oben laeuft */
+uint8_t phys_gate_open(void) {
+  if (in_lane && ball.y > (118L << 16) && (state == ST_PLUNGER || ball.vy < 0)) return 1;
+  return multi && ball2.inl && ball2.b.y > (118L << 16) && ball2.b.vy < 0;
+}
 
 void phys_swap(void) {
   uint8_t *p = (uint8_t *)&pb, *q = (uint8_t *)&ball2;
@@ -427,7 +425,8 @@ static void new_ball(void) {
 }
 
 static void launch(uint8_t p) {
-  fix16 v = LAUNCH_MIN + ((LAUNCH_MAX - LAUNCH_MIN) * p) / PULL_MAX;
+  /* v7.2: ohne 32-Bit-Division (spart 380 Byte Bibliothek) */
+  fix16 v = LAUNCH_MIN + (fix16)p * ((LAUNCH_MAX - LAUNCH_MIN) / PULL_MAX);
   ball.y = (fix16)(PLUNGER_Y - BALL_R) << 16;
   ball.vx = 0;
   ball.vy = -v;
@@ -471,12 +470,20 @@ void game_frame(const input_t *in) {
   tune_input(in);
 #endif
   if (in->mb && state == ST_PLAY && !multi) phys_multiball();
-  if (in->reset) { new_ball(); test_active = 0; }
+  if (in->reset) {
+    new_ball();
+#ifdef PB_BUILDER
+    test_active = 0;
+#endif
+  }
   if (state == ST_PLUNGER) {
+#ifdef PB_BUILDER
     if (in->test && !test_active) {
       launch(TEST_PULL);
       test_active = 1; test_count = 0; snap_valid = 0;
-    } else if (in->plunger) {
+    } else
+#endif
+    if (in->plunger) {
       if (pull < PULL_MAX) pull++;
     } else if (pull > 0) {
       launch(pull);
@@ -528,9 +535,11 @@ void game_frame(const input_t *in) {
       ball.y >= ((fix16)plunger_top << 16) && ball.vy == 0)
     state = ST_PLUNGER;
 
+#ifdef PB_BUILDER
   if (test_active && ++test_count == TEST_FRAMES) {
     snap_x = ball.x; snap_y = ball.y; snap_valid = 1; test_active = 0;
   }
+#endif
   if (state == ST_PLAY && drained()) { state = ST_DRAIN; drain_timer = 50; }
   if (state == ST_DRAIN && --drain_timer == 0) new_ball();
   if (sling_cool[0]) sling_cool[0]--;

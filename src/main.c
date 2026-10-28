@@ -108,6 +108,7 @@ static void update_display(uint16_t load, uint16_t lmax) {
     dmd_num(p, (uint32_t)tune[tune_sel], 0);
   } else
 #endif
+#ifdef PB_BUILDER
   if (test_active) {
     p = dmd_put(l1, "TEST ");
     dmd_num(p, test_count, 3);
@@ -117,7 +118,9 @@ static void update_display(uint16_t load, uint16_t lmax) {
     dmd_num(p, (uint32_t)snap_x, 8);
     p = dmd_put(l2, "TEST Y ");
     dmd_num(p, (uint32_t)snap_y, 8);
-  } else if (msg_timer) {
+  } else
+#endif
+  if (msg_timer) {
     dmd_put(l1, msg1);
     dmd_put(l2, msg2);
     type = msg_type;

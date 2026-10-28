@@ -109,13 +109,20 @@ extern uint16_t ev_target;
 extern uint8_t ev_ramp, ev_kick;
 extern uint8_t state, pull;
 extern uint16_t bumper_hits, sling_hits, collisions;
+#ifdef PB_BUILDER
 extern uint8_t test_active;
 extern uint16_t test_count;
 extern uint8_t snap_valid;
+extern fix16 snap_x, snap_y;
+#else
+#define test_active 0
+#define snap_valid  0
+#define snap_x      0L
+#define snap_y      0L
+#endif
 #ifdef PHYS_TUNE
 extern uint8_t tune_on, tune_sel;
 #endif
-extern fix16 snap_x, snap_y;
 
 /* Multiball (v6.4): ein zweiter Ball. Sein Zustand liegt in ball2; phys_swap
  * tauscht ihn mit dem aktuellen Ball (ball, on_ramp, ...), damit derselbe Code
@@ -126,6 +133,7 @@ extern uint8_t ev_saved;          /* Ball im Multiball zurueckgeholt (Ball-Save)
 #define MB_SAVE 500              /* 10 s nach dem Start */
 void phys_swap(void);
 void phys_multiball(void);       /* zweiten Ball aus der Abschussbahn starten */
+uint8_t phys_gate_open(void);    /* v7.2: Tor oben in der Abschussbahn offen */
 
 void phys_init(void);
 void in_lane_reset(void);        /* nur fuer Tests: Ball nicht in der Abschussbahn */

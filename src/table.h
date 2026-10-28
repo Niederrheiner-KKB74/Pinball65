@@ -22,7 +22,7 @@
 #define M_SLING_R 3
 #define M_GATE    4           /* Tor an der Abschussbahn: offen, solange der Ball in der Bahn ist */
 #define M_RAIL    6           /* v6.3: Fuehrungsschiene (oberer Bogen): Ball gleitet ohne Abprall */
-#define M_GATE_UP 5           /* derzeit unbenutzt (v6.2: rechte innere Orbitwand) */
+#define M_GATE_UP 5           /* v7.2: Tor oben in der Abschussbahn, nur nach oben durchlaessig */
 #define M_TARGET  16          /* 16..25: zehn Targets, siehe TARGETS in table.c */
 
 /* Zielgruppen: Index der ersten Target-Klasse und Anzahl */
@@ -94,7 +94,9 @@ enum {
 };
 /* Pfeile vor den Schuessen (Lampen C_ARROW0 + ARW_*) */
 enum { ARW_RAMP, ARW_KICK, ARW_ORBIT_L, ARW_ORBIT_R, ARW_6510, ARW_VIC, ARW_SID, ARW_PLA, N_ARROWS,
-       C_ARROW_END = C_ARROW0 + N_ARROWS
+       C_ARROW_END = C_ARROW0 + N_ARROWS,
+       C_GATE = C_ARROW_END,           /* v7.2: Tor der Abschussbahn: offen = unsichtbar, zu = Chrom */
+       C_PLUNGER, C_PLUNGER_DK, C_PLUNGER_TIP
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 

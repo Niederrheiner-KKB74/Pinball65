@@ -66,6 +66,10 @@ void table_build_palette(void) {
   set_color(C_LOGO_BLUE, 61, 107, 234);
   set_color(C_TARGET_PLA, 255, 150, 40);
   set_color(C_KICK_RING, 255, 210, 60);
+  set_color(C_GATE, 172, 172, 184);
+  set_color(C_PLUNGER, 200, 200, 210);
+  set_color(C_PLUNGER_DK, 110, 110, 120);
+  set_color(C_PLUNGER_TIP, 216, 48, 64);
   set_color(C_RAMP_RAIL, 220, 230, 255);    /* Rampe: Chromschienen ... */
   set_color(C_RAMP_RAIL_DK, 120, 130, 190);
   set_color(C_RAMP_FLOOR, 70, 150, 210);    /* ... und durchsichtiger Boden (Raster) */
@@ -86,7 +90,7 @@ void art_palette_load(void) {
 static const int16_t SEGS[][5] = {
   {10, 156, 10, 640, M_WALL},
   {310, 156, 310, 640, M_WALL},
-  {290, 200, 290, 640, M_WALL},           /* Innenwand Abschussbahn */
+  {290, 140, 290, 640, M_WALL},           /* Innenwand Abschussbahn */
   {114, 34, 114, 70, M_WALL}, {138, 34, 138, 70, M_WALL},      /* Lanes C 6 4 */
   {162, 34, 162, 70, M_WALL}, {186, 34, 186, 70, M_WALL},
   /* v6.1: Orbit rundherum. Innenwaende parallel zum oberen Bogen, sie enden an
@@ -94,10 +98,10 @@ static const int16_t SEGS[][5] = {
   {31, 170, 31, 146, M_WALL}, {31, 146, 35, 122, M_WALL}, {35, 122, 43, 99, M_WALL}, {43, 99, 56, 78, M_WALL}, {56, 78, 72, 60, M_WALL}, {72, 60, 92, 45, M_WALL}, {92, 45, 114, 34, M_WALL},
   /* v6.3: rechts keine innere Wand mehr; der obere Bogen ist eine Fuehrungsschiene
    * (M_RAIL, ohne Abprall), an der der Ball entlanglaeuft */
-  /* v6.1: Tor nach unten zum dritten Flipper. Es ist offen, wenn der Ball in der
-   * Abschussbahn nicht schnell nach oben laeuft; physics.c lenkt ihn dann hinaus. */
-  {290, 140, 290, 172, M_WALL},
-  {290, 172, 290, 200, M_GATE},
+  /* v7.2: Einwegtor oben quer ueber der Abschussbahn: der Abschuss geht nach oben
+   * hindurch, danach ist es zu. Ein Ball aus dem Orbit rollt darauf nach links
+   * ueber die Wand der Bahn zum dritten Flipper. */
+  {290, 140, 301, 132, M_GATE_UP},        /* endet vor dem Feld des Bogens (Klassen je 8x8) */
   {36, 297, 36, 428, M_WALL},             /* Begrenzung links unter der Orbit-Einfahrt */
   {46, 314, 10, 252, M_WALL},             /* linker Orbit, untere Wand parallel zur Schusslinie */
   {66, 293, 31, 233, M_WALL}, {31, 233, 31, 170, M_WALL},   /* linker Orbit, obere Wand */
@@ -298,11 +302,19 @@ static void band_art(uint8_t *b) {
   band_chip(b, 216, 424, 44, "SID");
   band_chip(b, 222, 244, 40, "6510");
   band_chip(b, 70, 178, 30, "PLA");
-  if (band_y0 <= 300 && band_y1 > 242) {        /* Laufwerk um das Kick-Out-Hole */
-    band_box(b, 150, 242, 208, 300, C_DRV, C_DRV_DK);
-    band_box(b, 154, 290, 204, 294, C_DRV_SLOT, C_DRV_SLOT);
-    band_box(b, 196, 280, 201, 284, C_DRV_LED, C_DRV_LED);
-    band_text5(b, 153, 245, "1541", C_DRV_TEXT);
+  if (band_y0 <= 298 && band_y1 > 232) {        /* v7.2: 5,25-Zoll-Diskette um das Kick-Out-Hole */
+    const int16_t X0 = KICK_X - 30, Y0 = KICK_Y - 34, X1 = KICK_X + 30, Y1 = KICK_Y + 30;
+    band_box(b, X0, Y0, X1, Y1, C_CHIP, C_CHIP_EDGE);                 /* schwarze Huelle */
+    band_box(b, X1 - 2, Y0 + 8, X1, Y0 + 15, C_GRAD0 + 4, C_GRAD0 + 4); /* Schreibschutzkerbe */
+    band_box(b, X0 + 8, Y0 + 3, X1 - 8, Y0 + 14, C_KEY_TEXT, C_DRV_DK); /* Etikett */
+    band_text5(b, KICK_X - 11, Y0 + 5, "1541", C_DRV_TEXT);
+    for (int16_t y = KICK_Y - 15; y <= KICK_Y + 15; y++)              /* Mittelloch: Ring der Scheibe */
+      for (int16_t x = KICK_X - 15; x <= KICK_X + 15; x++) {
+        int16_t dx = x - KICK_X, dy = y - KICK_Y, d = dx * dx + dy * dy;
+        if (d <= 225 && d >= 144) band_put_bg(b, x, y, C_KEY);
+      }
+    band_box(b, KICK_X - 4, KICK_Y + 16, KICK_X + 4, Y1 - 3, C_KEY, C_DRV_DK);   /* Schlitz fuer den Lesekopf */
+    band_box(b, KICK_X + 18, KICK_Y - 3, KICK_X + 21, KICK_Y + 0, C_KEY, C_KEY); /* Indexloch */
   }
   band_key(b, 12, 520, "RUN");
   band_key(b, 12, 538, "STOP");
@@ -405,6 +417,7 @@ static uint8_t art_px(int16_t x, int16_t y) {
       if (tp < l || tp > l2 - l) return C_LANE;
       return (uint8_t)(C_TGT0 + (k - M_TARGET));
     }
+    if (k == M_GATE_UP && !(x <= 292 && y > 139)) return C_GATE;   /* v7.2: Tor (Farbe zeigt offen/zu) */
     if (y > 0 && !mask_solid(x, y - 1)) return C_CHROME_HI;
     if (x > 0 && !mask_solid(x - 1, y)) return C_CHROME_MID;
     return C_CHROME_DK;
