@@ -89,7 +89,8 @@ enum {
   C_SPIN0,                        /* 4 Streifen des Spinners, Farben drehen sich */
   C_SPIN_END = C_SPIN0 + 4,
   C_TARGET_PLA = C_SPIN_END,      /* Beschriftung PLA */
-  C_KICK_RING                     /* Ring des Kick-Out-Holes, blinkt bei MISSION READY */
+  C_KICK_RING,                    /* Ring des Kick-Out-Holes, blinkt bei MISSION READY */
+  C_C64 = 240                     /* v6.6: 16 C64-Farben fuer Rahmen und Streifen (240..255) */
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 

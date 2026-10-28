@@ -26,7 +26,8 @@ char *mission_status(char *p);
 
 /* Meldung im Display (Zeile 1 und 2), solange msg_timer > 0 */
 extern char msg1[], msg2[];
-extern uint8_t msg_timer;
+extern uint8_t msg_timer, msg_type;   /* msg_type 1: Meldung wird getippt */
+extern uint32_t hiscore;               /* bester Punktestand seit dem Einschalten */
 
 void game_new(void);
 /* Vor game_frame: sperrt den Plunger nach Spielende, Plunger startet neu */

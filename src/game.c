@@ -46,7 +46,8 @@ enum { MS_KICK, MS_RAMP, MS_SPIN, MS_LOAD };
 static uint16_t spin_v, spin_ang;
 static uint8_t spin_shown = 0xFF;
 char msg1[DMD_COLS + 1], msg2[DMD_COLS + 1];
-uint8_t msg_timer;
+uint8_t msg_timer, msg_type;           /* msg_type 1: Meldung wird getippt (v6.6) */
+uint32_t hiscore;
 
 static uint16_t tgt_lit;
 static uint8_t top_lit, load_lit;
@@ -98,6 +99,7 @@ static void message(const char *a, uint32_t pts) {
   dmd_put(msg1, a);
   fmt_points(msg2, pts);
   msg_timer = 100;
+  msg_type = 0;
 }
 
 static void add(uint16_t pts) { score += pts; }
@@ -150,11 +152,14 @@ static void mission_end(uint8_t ok) {
     dmd_put(msg1, "MISSION COMPLETE");
     fmt_points(msg2, pts);
     msg_timer = 120;
+    msg_type = 0;
+    dmd_fx(FX_PULSE);
     snd_play(SND_COMPLETE);
   } else {
     dmd_put(msg1, "?TIME OUT  ERROR");
     dmd_put(msg2, "READY.");
     msg_timer = 100;
+    msg_type = 1;
     snd_play(SND_DRAIN);
   }
 }
@@ -182,6 +187,7 @@ static void mission_start(void) {
   dmd_put(msg1, MIS_NAME[mission_cur]);
   dmd_put(msg2, MIS_GOAL[mission_cur]);
   msg_timer = KICK_HOLD;
+  msg_type = 1;
   snd_play(SND_START);
 }
 
@@ -242,6 +248,7 @@ static void target_hit(uint8_t i) {
         mb_ready = 1;
         dmd_put(msg1, "RUN/STOP READY");
         dmd_put(msg2, "SHOOT RAMP");
+        msg_type = 1;
       }
     }
 }
@@ -266,6 +273,7 @@ static void top_lane(uint8_t i) {
     dmd_put(p, "X");
     fmt_points(msg2, 5000);
     msg_timer = 100;
+    msg_type = 0;
     snd_play(SND_COMPLETE);
     if (!mission_active && !mission_ready) {
       mission_ready = 1;
@@ -286,6 +294,7 @@ static void low_lane(uint8_t i) {
     load_lit = 0;
     add(25000);
     message("PRESS PLAY ON TAPE", 25000);
+    dmd_fx(FX_PULSE);                      /* mit Bandstreifen im Rahmen */
     snd_play(SND_COMPLETE);
   }
 }
@@ -368,6 +377,9 @@ void game_update(const input_t *in) {
         phys_multiball();
         dmd_put(msg1, "RUN/STOP");
         dmd_put(msg2, "MULTIBALL");
+        msg_timer = 100;
+        msg_type = 0;
+        dmd_fx(FX_BLINK);
         snd_play(SND_START);
       }
     }
@@ -375,11 +387,12 @@ void game_update(const input_t *in) {
       dmd_put(msg1, "SEARCHING FOR *");
       dmd_put(msg2, "LOADING");
       msg_timer = KICK_HOLD;
-      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); }
+      msg_type = 1;
+      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); dmd_fx(FX_PULSE); }
       if (mission_active) mission_event(MS_KICK);
       else if (mission_ready && !multi) mission_start();
     }
-    if (ev_saved) { dmd_put(msg1, "RUN/STOP RESTORE"); dmd_put(msg2, "BALL SAVED"); msg_timer = 75; }
+    if (ev_saved) { dmd_put(msg1, "RUN/STOP RESTORE"); dmd_put(msg2, "BALL SAVED"); msg_timer = 75; msg_type = 1; }
     /* Missionszeit */
     if (mission_active && !kick_timer && --mission_timer == 0) mission_end(0);
     if (ev_kick & EV_KICK_OUT) {
@@ -388,6 +401,7 @@ void game_update(const input_t *in) {
       dmd_put(msg1, "READY.");
       fmt_points(msg2, 3000);
       msg_timer = 50;
+      msg_type = 0;
       snd_play(SND_BUMPER);
     }
     if (kick_timer && (kick_timer & 7) == 0) snd_play(SND_DRIVE);
@@ -403,11 +417,15 @@ void game_update(const input_t *in) {
   if (state == ST_DRAIN && prev_state != ST_DRAIN) {
     uint32_t b = (uint32_t)bonus * 1000u * mult;
     score += b;
-    char *p = dmd_put(msg1, "BONUS ");
+    /* v6.6: Fehlermeldung flackert, darunter der Bonus */
+    dmd_put(msg1, "?BALL LOST  ERROR");
+    char *p = dmd_put(msg2, "BONUS ");
     p = dmd_num(p, mult, 0);
-    dmd_put(p, "X");
-    fmt_points(msg2, b);
+    p = dmd_put(p, "X ");
+    fmt_points(p, b);
     msg_timer = 50;
+    msg_type = 0;
+    dmd_fx(FX_FLICKER);
     snd_play(SND_DRAIN);
   }
   if (state == ST_PLUNGER && prev_state == ST_DRAIN) {
@@ -415,7 +433,14 @@ void game_update(const input_t *in) {
     ramps = 0;
     mult = 1;
     if (ball_no < BALLS_PER_GAME) ball_no++;
-    else game_over = 1;
+    else {
+      game_over = 1;
+      if (score > hiscore) {                 /* v6.6: Highscore (bis zum Ausschalten) */
+        hiscore = score;
+        message("NEW HIGH SCORE", score);
+        dmd_fx(FX_PULSE);
+      }
+    }
   }
   prev_state = state;
 

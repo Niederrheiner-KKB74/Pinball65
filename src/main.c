@@ -81,8 +81,14 @@ static void update_display(uint16_t load, uint16_t lmax) {
   static uint8_t last_mode = 0xFF, tick;
   char *p;
   /* Zahlen nur alle 10 Bilder (5 Mal pro Sekunde), Wechsel des Zustands sofort */
+  static uint8_t page;
+  static uint16_t page_t;
+  uint8_t type = 0;
+  /* v6.6: nach Spielende wechseln vier Seiten alle 3 Sekunden */
+  if (game_over && !msg_timer) { if (++page_t >= 150) { page_t = 0; page = (uint8_t)((page + 1) & 3); } }
+  else { page = 0; page_t = 0; }
   uint8_t mode = (uint8_t)(tune_on ? 10 + tune_sel : test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
-                           msg_timer ? 7 : game_over ? 8 : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
+                           msg_timer ? 7 : game_over ? 80 + page : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
   if (mode == last_mode && ++tick < 10) return;
   last_mode = mode;
   tick = 0;
@@ -102,17 +108,22 @@ static void update_display(uint16_t load, uint16_t lmax) {
   } else if (msg_timer) {
     dmd_put(l1, msg1);
     dmd_put(l2, msg2);
+    type = msg_type;
   } else if (game_over) {
-    dmd_put(l1, "?OUT OF DATA  ERROR");
-    fmt_points(l2, score);
+    if (page == 0) { dmd_put(l1, "?OUT OF DATA  ERROR"); fmt_points(l2, score); }
+    else if (page == 1) { dmd_put(l1, "HIGH SCORE"); fmt_points(l2, hiscore); }
+    else if (page == 2) { dmd_put(l1, "PRESS FIRE"); dmd_put(l2, "TO PLAY"); type = 1; }
+    else { dmd_put(l1, "LOAD\"*\",8,1"); dmd_put(l2, "READY."); type = 1; }
   } else if (state == ST_PLUNGER) {
     if (score) fmt_points(l1, score);
     else dmd_put(l1, "LOAD\"*\",8,1");
     p = dmd_put(l2, "BALL ");
     p = dmd_num(p, ball_no, 0);
-    p = dmd_put(p, "  ");
-    p = put_load(p, load, lmax);
-    dmd_put(p, render_uses_dma() ? " DMA" : " CPU");
+    if (diag_on) {
+      p = dmd_put(p, "  ");
+      p = put_load(p, load, lmax);
+      dmd_put(p, render_uses_dma() ? " DMA" : " CPU");
+    } else { dmd_put(p, "  READY."); type = 1; }   /* v6.6: getippt, mit Cursor */
   } else if (state == ST_DRAIN) {
     dmd_put(l1, "?BALL LOST  ERROR");
     dmd_put(l2, "READY.");
@@ -137,7 +148,7 @@ static void update_display(uint16_t load, uint16_t lmax) {
       p = dmd_num(p, tmax[k], 3);
     }
   }
-  dmd_text(l1, l2);
+  dmd_show(l1, l2, type);
 }
 
 /* ---------- Diagnose: Pruefsumme ueber Programmcode und Konstanten ---------- */
@@ -196,6 +207,7 @@ int main(void) {
   hw_init();
   table_build_palette();
   dmd_init();
+  dmd_palette();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES); /* Tischbereich dunkel */
   dma_fill(FB_B, C_BG, 40 * COL_BYTES);
   dma_fill(DISP_ADDR, C_DMD_BG, DISP_ROWS * ROW_BYTES);
@@ -219,7 +231,16 @@ int main(void) {
   uint8_t max_tick = 0;
   input_t in;
   for (;;) {
-    wait_vblank();
+    /* v6.6: beim Warten auf das Bildende den Rahmen streifen wie beim Laden vom Band */
+    if (dmd_stripes) {
+      static uint8_t seed;
+      seed += 3;
+      while (raster_line() >= 251) {}
+      uint16_t r;
+      while ((r = raster_line()) < 251) VICIV.bordercol = (uint8_t)(C_C64 + ((((uint8_t)(r >> 2)) * 37 + seed) & 15));
+      VICIV.bordercol = 0;
+    } else wait_vblank();
+    dmd_tick();
     uint16_t t0 = raster_line();
     show_buffer(front);                 /* fertig gezeichneten Puffer zeigen */
     read_input(&in);

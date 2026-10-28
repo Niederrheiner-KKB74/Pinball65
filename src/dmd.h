@@ -18,6 +18,16 @@ extern const uint8_t FONT5X7[59][7];
 void dmd_init(void);
 /* Setzt beide Zeilen (NULL = leer); Text wird zentriert */
 void dmd_text(const char *l1, const char *l2);
+/* v6.6: wie dmd_text; type = 1 tippt den Text Zeichen fuer Zeichen mit Cursor */
+void dmd_show(const char *l1, const char *l2, uint8_t type);
+/* Einmal pro Bild aufrufen: Tippen, Cursor, Farbeffekte */
+void dmd_tick(void);
+/* Farbeffekte: Blinken mit Rahmenfarben (Multiball), Pulsieren mit Bandstreifen
+ * (Jackpot, Mission), Flackern (Ball verloren) */
+enum { FX_NONE, FX_BLINK, FX_PULSE, FX_FLICKER };
+void dmd_fx(uint8_t kind);
+void dmd_palette(void);              /* C64-Farben fuer Rahmen und Streifen setzen */
+extern uint8_t dmd_stripes;          /* 1: Rahmen beim Warten auf das Bildende gestreift */
 /* Zeichnet hoechstens eine geaenderte Textzeile (beide Haelften) */
 void dmd_render(void);
 /* Zeichnet alle geaenderten Zeilen sofort (Start, Fehlermeldungen) */

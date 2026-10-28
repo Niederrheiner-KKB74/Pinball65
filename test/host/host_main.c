@@ -423,6 +423,28 @@ static void dump_mockup(const char *name) {
   state = ST_PLUNGER;
 }
 
+/* Display-Animation: Tipp-Effekt, Bilder nach 0, 8, 16 ... Bildern untereinander */
+static void dump_dmd_typing(void) {
+  FILE *f = fopen("dmd_type.ppm", "wb");
+  const int N = 8;
+  fprintf(f, "P6 320 %d 255\n", 34 * N);
+  dmd_show("SEARCHING FOR *", "LOADING", 1);
+  int shot = 0;
+  for (int fr = 0; shot < N; fr++) {
+    dmd_tick(); dmd_render();
+    if (fr % 8 == 0) {
+      for (int y = 0; y < 34; y++)
+        for (int x = 0; x < 320; x++) {
+          uint8_t v = 0;
+          if (y < 32) { int cr = y >> 3; v = chip[DISP_ADDR + (uint32_t)cr * ROW_BYTES + (x >> 3) * 64 + (y & 7) * 8 + (x & 7)]; }
+          fwrite(y < 32 ? pal[v] : (const uint8_t[3]){ 255, 255, 255 }, 1, 3, f);
+        }
+      shot++;
+    }
+  }
+  fclose(f);
+}
+
 /* Bild mit zwei Baellen (Multiball) */
 static void dump_multi(void) {
   phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
@@ -612,6 +634,7 @@ int main(void) {
   if (getenv("SHOTMAP")) shot_map();
   if (getenv("ORBIT")) orbit_test();
   if (getenv("MBSHOT")) dump_multi();
+  if (getenv("DMDSHOT")) dump_dmd_typing();
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);
   pose("pose_under_right.ppm", 240, 200, 0);

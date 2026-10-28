@@ -123,7 +123,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING  V6.5");
+  dmd_text("SEARCHING FOR *", "BUILDING  V6.6");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
