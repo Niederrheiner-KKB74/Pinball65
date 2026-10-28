@@ -18,7 +18,7 @@ extern const uint8_t FONT5X7[59][7];
 void dmd_init(void);
 /* Setzt beide Zeilen (NULL = leer); Text wird zentriert */
 void dmd_text(const char *l1, const char *l2);
-/* Zeichnet hoechstens eine geaenderte Zeichenzeile (fuer jedes Bild) */
+/* Zeichnet hoechstens eine geaenderte Textzeile (beide Haelften) */
 void dmd_render(void);
 /* Zeichnet alle geaenderten Zeilen sofort (Start, Fehlermeldungen) */
 void dmd_flush(void);

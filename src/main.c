@@ -62,6 +62,7 @@ static void read_input(input_t *in) {
 /* P Physik (Eingabe, game_frame, Kamera), R Regeln (game_update, Lampen, Klang),
  * S Hintergrund, Z Flipper/Ball, T Displaytext, D Display zeichnen, C Pruefsumme */
 #define SPARE_FROM 200     /* bis hierher (Rasterzeilen) duerfen Display und Pruefsumme noch laufen */
+#define SPARE_DMD  190     /* Display zeichnen (zwei Zeichenzeilen, je etwa 25-30 Rasterzeilen) */
 enum { T_PHYS, T_RULES, T_SCROLL, T_DRAW, T_TEXT, T_DMD, T_CHK, T_N };
 static uint16_t tmax[T_N], tmax_run[T_N];
 
@@ -237,7 +238,8 @@ int main(void) {
     uint8_t spare = raster_diff(t0, t2) < SPARE_FROM;
     if (spare) update_display(load, lmax);
     uint16_t tb = raster_line();
-    if (spare) dmd_render();            /* hoechstens eine Zeichenzeile */
+    /* v6.4: eine Textzeile kostet jetzt zwei Zeichenzeilen; nur, wenn noch Zeit ist */
+    if (spare && raster_diff(t0, tb) < SPARE_DMD) dmd_render();
     uint16_t tc = raster_line();
     if (spare) code_check_step();
     uint16_t t3 = raster_line();

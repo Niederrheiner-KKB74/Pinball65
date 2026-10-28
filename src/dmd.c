@@ -57,15 +57,9 @@ void dmd_init(void) {
   dma_copy(CPUADDR(b), DMD_TPL, ROW_BYTES);
 }
 
-/* Zeichnet hoechstens EINE Zeichenzeile pro Aufruf: Vorlage per DMA holen,
- * dann nur die leuchtenden Punkte setzen */
-void dmd_render(void) {
-  static uint8_t next;                       /* reihum, damit keine Zeile verhungert */
-  if (!dirty) return;
-  uint8_t cr = next;
-  while (!(dirty & (1 << cr))) cr = (uint8_t)((cr + 1) & 3);
-  next = (uint8_t)((cr + 1) & 3);
-  dirty &= (uint8_t)~(1 << cr);
+/* Eine Zeichenzeile cr (0-3): Vorlage per DMA holen, dann nur die leuchtenden
+ * Punkte setzen */
+static void render_row(uint8_t cr) {
   uint8_t *b = ROWBUF;
   dma_copy(DMD_TPL, CPUADDR(b), ROW_BYTES);
   uint8_t ln = cr >> 1;                       /* Zeichenzeilen 0-1: Zeile 1, 2-3: Zeile 2 */
@@ -91,4 +85,18 @@ void dmd_render(void) {
     }
   }
   dma_copy(CPUADDR(b), DISP_ADDR + (uint32_t)cr * ROW_BYTES, ROW_BYTES);
+}
+
+/* v6.4: zeichnet hoechstens eine Textzeile (ihre beiden Zeichenzeilen) pro Aufruf.
+ * Vorher kam je Bild nur eine Zeichenzeile dran; fehlte im Multiball die Zeit,
+ * zeigten obere und untere Haelfte einer Zeile verschiedene Texte. */
+void dmd_render(void) {
+  static uint8_t next;                       /* reihum, damit keine Zeile verhungert */
+  if (!dirty) return;
+  uint8_t ln = next;
+  if (!(dirty & (3 << (ln * 2)))) ln ^= 1;
+  next = ln ^ 1;
+  dirty &= (uint8_t)~(3 << (ln * 2));
+  render_row((uint8_t)(ln * 2));
+  render_row((uint8_t)(ln * 2 + 1));
 }
