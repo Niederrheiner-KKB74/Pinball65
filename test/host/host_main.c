@@ -591,6 +591,7 @@ int main(void) {
   dmd_text("SEARCHING FOR *", "LOADING");
   dmd_render();
   table_build_mask();
+  table_store_art_palette();
   table_build_art();
   table_build_overlay();
   phys_init();

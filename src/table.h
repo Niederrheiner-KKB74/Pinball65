@@ -98,6 +98,27 @@ enum { ARW_RAMP, ARW_KICK, ARW_ORBIT_L, ARW_ORBIT_R, ARW_6510, ARW_VIC, ARW_SID,
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 
+/* v7.1: Farben der Tischgrafik ab C_ART (Verlauf, Bildschirm, Regenbogen, Platine,
+ * Chips, Laufwerk, Tasten, Holz). Der Lader legt die Tabelle im Attic-RAM ab,
+ * das Spiel setzt sie von dort (ATTIC_PAL), ohne sie selbst zu enthalten. */
+enum {
+  C_ART = 96,
+  C_GRAD0 = C_ART,                /* 16 Stufen Hintergrund, oben dunkelblau, unten violett */
+  C_SCR_EDGE = C_GRAD0 + 16, C_SCR_IN, C_SCR_LINE, C_SCR_TEXT,
+  C_RB0,                          /* 5 Regenbogenstreifen */
+  C_RB_EDGE = C_RB0 + 5,
+  C_PCB, C_PCB_DK, C_COPPER, C_PAD,
+  C_CHIP, C_CHIP_EDGE, C_PIN, C_CHIP_TEXT,
+  C_DRV, C_DRV_DK, C_DRV_SLOT, C_DRV_LED, C_DRV_TEXT,
+  C_KEY, C_KEY_TOP, C_KEY_EDGE, C_KEY_TEXT,
+  C_WOOD0,                        /* 3 Holztoene */
+  C_ART_END = C_WOOD0 + 3
+};
+#define ATTIC_PAL (ATTIC_SIG + 0x3000UL)   /* 3 Byte je Farbe ab C_ART */
+#define N_ART_COLORS (C_ART_END - C_ART)
+void art_palette_load(void);       /* im Spiel: Grafikfarben aus dem Attic-RAM setzen */
+void table_store_art_palette(void);   /* im Lader: Grafikfarben ins Attic-RAM und setzen */
+
 /* Rollover-Lanes */
 #define TOPLANE_Y   52            /* Zaehllinie der oberen Lanes */
 #define TOPLANE_X0  114           /* Waende bei 114, 138, 162, 186 */

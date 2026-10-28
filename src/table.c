@@ -10,6 +10,7 @@
 #include "hw.h"
 #include "fixmath.h"
 #include "ramp_path.h"
+#include "dmd.h"
 
 int16_t win_y0 = -1000;
 const uint8_t MASK_BIT[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
@@ -33,9 +34,9 @@ void table_build_palette(void) {
   set_color(0, 0, 0, 0);
   set_color(C_BG, 16, 12, 56);
   set_color(C_GRID, 26, 21, 74);
-  set_color(C_CHROME_DK, 100, 96, 150);
-  set_color(C_CHROME_MID, 160, 156, 205);
-  set_color(C_CHROME_HI, 236, 235, 255);
+  set_color(C_CHROME_DK, 104, 104, 116);   /* v7.1: Chrom silbern statt violett */
+  set_color(C_CHROME_MID, 172, 172, 184);
+  set_color(C_CHROME_HI, 244, 244, 250);
   set_color(C_SLING_BODY, 40, 33, 100);
   set_color(C_RUBBER, 216, 48, 64);
   set_color(C_LANE, 7, 5, 26);
@@ -48,7 +49,7 @@ void table_build_palette(void) {
   set_color(C_TARGET_6510, 120, 240, 140);
   set_color(C_TARGET_SID, 255, 120, 220);
   set_color(C_BUMPER_RING, 200, 32, 46);
-  set_color(C_C64_DARK, 64, 49, 141);       /* Einschaltbild: Hintergrund */
+  set_color(C_C64_DARK, 238, 232, 214);     /* v7.1: Bumper-Kappen cremefarben */
   set_color(C_C64_LIGHT, 120, 106, 189);    /* Einschaltbild: Schrift */
   set_color(C_HOLE, 4, 3, 12);
   set_color(C_HOLE_RING, 255, 210, 60);
@@ -71,6 +72,12 @@ void table_build_palette(void) {
   for (uint8_t k = 0; k < 4; k++) set_color((uint8_t)(C_SPIN0 + k), 90, 90, 110);
 }
 
+
+void art_palette_load(void) {
+  dma_copy(ATTIC_PAL, CPUADDR(COLBUF), N_ART_COLORS * 3);
+  const uint8_t *c = COLBUF;
+  for (uint8_t i = 0; i < N_ART_COLORS; i++, c += 3) set_color((uint8_t)(C_ART + i), c[0], c[1], c[2]);
+}
 
 #ifdef PB_BUILDER
 /* ===== Ab hier nur im Lader (PINBALL65): Aufbau von Maske und Grafik ===== */
@@ -186,6 +193,123 @@ static uint8_t in_tri(const int16_t *t, int16_t x, int16_t y) {
 
 static uint16_t SQ[161];
 
+/* ---------- v7.1: Tischgrafik ---------- */
+static const uint8_t ART_RGB[N_ART_COLORS][3] = {
+  {16, 14, 50}, {18, 14, 52}, {20, 15, 54}, {22, 15, 56}, {24, 16, 57}, {26, 16, 58}, {28, 17, 59}, {30, 17, 60},
+  {32, 18, 61}, {34, 18, 62}, {36, 19, 63}, {38, 19, 64}, {40, 20, 65}, {42, 20, 66}, {44, 21, 67}, {46, 21, 68},
+  {112, 110, 232}, {44, 40, 150}, {36, 32, 128}, {150, 148, 255},
+  {210, 50, 50}, {236, 128, 36}, {240, 206, 48}, {70, 170, 80}, {60, 100, 210}, {10, 8, 20},
+  {18, 58, 38}, {12, 42, 28}, {150, 120, 52}, {205, 172, 82},
+  {24, 24, 28}, {72, 72, 82}, {190, 190, 200}, {214, 214, 224},
+  {206, 196, 168}, {150, 140, 115}, {60, 56, 50}, {230, 40, 40}, {80, 70, 60},
+  {88, 66, 48}, {140, 112, 84}, {40, 30, 22}, {240, 232, 210},
+  {110, 70, 36}, {120, 76, 38}, {130, 82, 40},
+};
+_Static_assert(sizeof ART_RGB / 3 == N_ART_COLORS, "Grafikfarben passen nicht");
+void table_store_art_palette(void) {
+  dma_copy(CPUADDR(ART_RGB), ATTIC_PAL, N_ART_COLORS * 3);
+  art_palette_load();
+}
+
+/* Abgerundetes Rechteck (Radius r): Punkt innen? */
+static uint8_t in_rrect(int16_t x, int16_t y, int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t r) {
+  if (x < x0 || x > x1 || y < y0 || y > y1) return 0;
+  int16_t cx = x < x0 + r ? x0 + r : x > x1 - r ? x1 - r : x;
+  int16_t cy = y < y0 + r ? y0 + r : y > y1 - r ? y1 - r : y;
+  int16_t dx = x - cx, dy = y - cy;
+  return dx * dx + dy * dy <= r * r;
+}
+
+/* Hintergrund der Tischgrafik an (x, y): Holzleisten, Bildschirm, Regenbogen,
+ * Platine, sonst Farbverlauf */
+static uint8_t art_bg(int16_t x, int16_t y) {
+  if (x < 9 || x > 311) return (uint8_t)(C_WOOD0 + (x % 3));
+  if (in_rrect(x, y, 34, 14, 286, 236, 26)) {
+    if (!in_rrect(x, y, 44, 26, 276, 226, 16)) return C_SCR_EDGE;
+    return (y % 3) == 0 ? C_SCR_LINE : C_SCR_IN;
+  }
+  int16_t s = y + (x >> 1) - 400;               /* Regenbogen: Streifen parallel zu y = 400 - x/2 */
+  if (s >= -1 && s <= 45) {
+    if (s < 0 || s == 45) return C_RB_EDGE;
+    return (uint8_t)(C_RB0 + s / 9);
+  }
+  if (s > 50) {                                 /* Platine unterhalb des Regenbogens */
+    int16_t gx = (x - 14) % 22, gy = (y - 470) % 26;
+    if (y >= 456 && x >= 12 && x <= 308) {
+      if (gx >= -2 && gx <= 2 && gy >= -2 && gy <= 2 && y >= 468 && x > 11 && (gx * gx + gy * gy) <= 5 && y < 600) return C_PAD;
+      if (gx == 0 || (gy == 0 && y >= 470 && y < 600)) return C_COPPER;
+    }
+    return ((x & 3) == 1 && (y & 3) == 1 && ((x ^ y) & 4)) ? C_PCB_DK : C_PCB;
+  }
+  return (uint8_t)(C_GRAD0 + (y >> 6) + (y >> 7));
+}
+
+/* Punkt der Grafik setzen, aber nicht ueber Waenden */
+static void band_put_bg(uint8_t *buf, int16_t x, int16_t y, uint8_t col) {
+  if (x < 0 || x >= TW || y < band_y0 || y >= band_y1 || mask_solid(x, y)) return;
+  buf[((uint16_t)(x >> 3) << 6) + ((y - band_y0) << 3) + (x & 7)] = col;
+}
+static void band_box(uint8_t *buf, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t fill, uint8_t edge) {
+  int16_t ya = y0 < band_y0 ? band_y0 : y0, yb = y1 >= band_y1 ? band_y1 - 1 : y1;
+  for (int16_t y = ya; y <= yb; y++)
+    for (int16_t x = x0; x <= x1; x++)
+      band_put_bg(buf, x, y, (x == x0 || x == x1 || y == y0 || y == y1) ? edge : fill);
+}
+/* Text in der 5x7-Schrift des Displays */
+static void band_text5(uint8_t *buf, int16_t x, int16_t y, const char *str, uint8_t col) {
+  for (; *str; str++, x += 6) {
+    uint8_t ch = (uint8_t)*str;
+    if (ch < 32 || ch > 90) continue;
+    for (uint8_t r = 0; r < 7; r++) {
+      uint8_t bits = FONT5X7[ch - 32][r];
+      for (uint8_t c = 0; c < 5; c++) if (bits & (0x10 >> c)) band_put_bg(buf, x + c, y + r, col);
+    }
+  }
+}
+static void band_chip(uint8_t *b, int16_t x, int16_t y, int16_t w, const char *label) {
+  if (band_y0 > y + 18 || band_y1 < y - 4) return;
+  band_box(b, x, y, x + w, y + 13, C_CHIP, C_CHIP_EDGE);
+  for (int16_t px = x + 3; px < x + w - 1; px += 5) {
+    band_box(b, px, y - 3, px + 2, y - 1, C_PIN, C_PIN);
+    band_box(b, px, y + 14, px + 2, y + 16, C_PIN, C_PIN);
+  }
+  band_box(b, x + 2, y + 5, x + 4, y + 8, C_CHIP_EDGE, C_CHIP_EDGE);
+  int16_t n = 0;
+  while (label[n]) n++;
+  band_text5(b, x + (w + 1 - n * 6) / 2 + 1, y + 3, label, C_CHIP_TEXT);
+}
+static void band_key(uint8_t *b, int16_t x, int16_t y, const char *label) {
+  if (band_y0 > y + 18 || band_y1 < y) return;
+  band_box(b, x, y, x + 24, y + 16, C_KEY, C_KEY_EDGE);
+  band_box(b, x + 2, y + 2, x + 22, y + 11, C_KEY_TOP, C_KEY_TOP);
+  int16_t n = 0;
+  while (label[n]) n++;
+  band_text5(b, x + (25 - n * 6) / 2 + 1, y + 3, label, C_KEY_TEXT);
+}
+/* Motive: Einschalttext, Chips neben den Targets, Laufwerk 1541, Tasten */
+static void band_art(uint8_t *b) {
+  if (band_y0 < 122 && band_y1 > 108) band_text5(b, 73, 109, "**** PINBALL 65 BASIC V2 ****", C_SCR_TEXT);
+  if (band_y0 < 131 && band_y1 > 117) band_text5(b, 94, 118, "38911 BASIC BYTES FREE", C_SCR_TEXT);
+  if (band_y0 < 224 && band_y1 > 208) {
+    band_text5(b, 134, 209, "READY.", C_SCR_TEXT);
+    band_box(b, 170, 209, 174, 215, C_SCR_TEXT, C_SCR_TEXT);
+  }
+  band_chip(b, 40, 424, 44, "VIC-II");
+  band_chip(b, 216, 424, 44, "SID");
+  band_chip(b, 222, 244, 40, "6510");
+  band_chip(b, 70, 178, 30, "PLA");
+  if (band_y0 <= 300 && band_y1 > 242) {        /* Laufwerk um das Kick-Out-Hole */
+    band_box(b, 150, 242, 208, 300, C_DRV, C_DRV_DK);
+    band_box(b, 154, 290, 204, 294, C_DRV_SLOT, C_DRV_SLOT);
+    band_box(b, 196, 280, 201, 284, C_DRV_LED, C_DRV_LED);
+    band_text5(b, 153, 245, "1541", C_DRV_TEXT);
+  }
+  band_key(b, 12, 520, "RUN");
+  band_key(b, 12, 538, "STOP");
+  band_key(b, 265, 520, "RES");
+  band_key(b, 265, 538, "TORE");
+}
+
 /* Zeichnet alle Formen, beschnitten auf das aktuelle Band */
 static void build_band(void) {
   /* Oberer Bogen: Mittelpunkt (160,156), Radius 150, Breite 4 */
@@ -260,7 +384,27 @@ static uint8_t art_px(int16_t x, int16_t y) {
       if (x >= 204 && on_rubber(SLING_TRI[1], x, y)) return C_SLING0 + 1;
     }
     uint8_t k = mask_class(x, y);
-    if (k >= M_TARGET) return (uint8_t)(C_TGT0 + (k - M_TARGET));
+    if (k >= M_TARGET) {                 /* v7.1: dunkle Fuge an den Enden jedes Targets */
+      /* Das Klassenraster gilt je 8x8-Feld; fuer die Grafik zaehlt das naechste Target */
+      uint8_t best = 0;
+      int16_t bd = 0x7FFF;
+      for (uint8_t i = 0; i < N_TARGETS; i++) {
+        const int16_t *u = TARGETS[i];
+        int16_t mx = (u[0] + u[2]) >> 1, my = (u[1] + u[3]) >> 1;
+        int16_t ex = x - mx, ey = y - my;
+        if (ex > 20 || ex < -20 || ey > 20 || ey < -20) continue;
+        int16_t dd = ex * ex + ey * ey;
+        if (dd < bd) { bd = dd; best = i; }
+      }
+      k = (uint8_t)(M_TARGET + best);
+      const int16_t *t = TARGETS[k - M_TARGET];
+      int16_t sx = t[2] - t[0], sy = t[3] - t[1];
+      int16_t tp = (x - t[0]) * sx + (y - t[1]) * sy, l2 = sx * sx + sy * sy;
+      int16_t l = sx < 0 ? -sx : sx, ly = sy < 0 ? -sy : sy;
+      l = l > ly ? l + ly / 2 : ly + l / 2;     /* ungefaehre Laenge */
+      if (tp < l || tp > l2 - l) return C_LANE;
+      return (uint8_t)(C_TGT0 + (k - M_TARGET));
+    }
     if (y > 0 && !mask_solid(x, y - 1)) return C_CHROME_HI;
     if (x > 0 && !mask_solid(x - 1, y)) return C_CHROME_MID;
     return C_CHROME_DK;
@@ -274,11 +418,7 @@ static uint8_t art_px(int16_t x, int16_t y) {
     int16_t d = y - 595;
     if (x > 100 - (d * 17) / 45 && x < 200 + (d * 17) / 45) return C_LANE;
   }
-  /* Leiterbahnen als Grundmuster: senkrechte und waagerechte Bahnen */
-  if (((x + 4) & 31) == 0 && ((y >> 5) & 1)) return C_TRACE;
-  if (((y + 12) & 31) == 0 && ((x >> 6) & 1)) return C_TRACE;
-  if ((x & 15) == 0 || (y & 15) == 0) return C_GRID;
-  return C_BG;
+  return art_bg(x, y);                    /* v7.1: gemalte Tischgrafik */
 }
 
 /* Kleine 3x5-Schrift fuer Beschriftungen auf dem Tisch */
@@ -377,6 +517,7 @@ static void band_spinner(uint8_t *b) {
 }
 
 static void band_overlays(uint8_t *b) {
+  band_art(b);
   /* Pop-Bumper: roter Ring, Kappe im Einschaltbild-Blau mit Cursor */
   for (uint8_t i = 0; i < N_BUMPERS; i++) {
     int16_t x = BUMPERS[i][0], y = BUMPERS[i][1];
@@ -403,14 +544,9 @@ static void band_overlays(uint8_t *b) {
   if (band_y0 < KICK_Y + 20 && band_y1 > KICK_Y - 12) {
     band_disc(b, KICK_X, KICK_Y, 10, C_KICK_RING);
     band_disc(b, KICK_X, KICK_Y, 8, C_HOLE);
-    band_text(b, KICK_X - 7, KICK_Y + 13, "1541", 1, C_LABEL);
   }
   /* Spinner quer in der schraegen Einfahrt: vier Streifen, deren Farben wandern */
   if (band_y0 < SPIN_Y + 14 && band_y1 > SPIN_Y - 14) band_spinner(b);
-  if (band_y0 < 440 && band_y1 > 430) band_text(b, 50, 432, "VIC-II", 1, C_TARGET_VIC);
-  if (band_y0 < 222 && band_y1 > 212) band_text(b, 194, 214, "6510", 1, C_TARGET_6510);
-  if (band_y0 < 440 && band_y1 > 430) band_text(b, 238, 432, "SID", 1, C_TARGET_SID);
-  if (band_y0 < 184 && band_y1 > 174) band_text(b, 66, 176, "PLA", 1, C_TARGET_PLA);
   /* Lampen L O A D: O und A an den Inlanes, L und D sind Roll-Over-Kontakte (v5.1) */
   {
     static const int16_t LX[4] = { ROLL_LX, 52, 248, ROLL_DX }, LY[4] = { ROLL_LY, 488, 488, ROLL_DY };

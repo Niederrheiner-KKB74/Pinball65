@@ -123,12 +123,13 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING  V7.0");
+  dmd_text("SEARCHING FOR *", "BUILDING  V7.1");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
   dma_fill(ATTIC_SIG, 0, 16);
   table_build_mask();
+  table_store_art_palette();
   table_build_art();
   table_build_overlay();
   phys_init();                   /* Flipperpositionen fuer die Bilder */

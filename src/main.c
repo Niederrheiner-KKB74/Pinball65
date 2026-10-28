@@ -217,6 +217,7 @@ int main(void) {
   tables_init();
   hw_init();
   table_build_palette();
+  art_palette_load();                  /* v7.1: Grafikfarben vom Lader */
   dmd_init();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES); /* Tischbereich dunkel */
   dma_fill(FB_B, C_BG, 40 * COL_BYTES);
