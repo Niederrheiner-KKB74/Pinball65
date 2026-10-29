@@ -13,7 +13,7 @@
 
 typedef struct {
   const uint8_t *ord, *p;     /* Folge und Leseposition im Pattern */
-  uint8_t len, left, ins, note, gate, frames, fxc;
+  uint8_t len, left, ins, note, gate, frames, fxc, arp;
   uint16_t freq, pw;
 } mvoice_t;
 
@@ -92,7 +92,8 @@ static void voice_fx(uint8_t v) {
   if (m->frames && --m->frames == 0) { poke2((uint8_t)(r + 4), in->wave); m->gate = 0; return; }
   m->fxc++;
   if (in->fx == 1) {
-    uint8_t k = (uint8_t)(m->fxc % 3);
+    uint8_t k = m->arp;
+    if (++m->arp == 3) m->arp = 0;
     set_freq(v, note_freq((uint8_t)(m->note + ARP[in->arg][k])));
   } else if (in->fx == 2) {
     uint16_t d = (uint16_t)in->arg << 4;

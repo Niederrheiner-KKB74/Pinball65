@@ -159,6 +159,23 @@ static void rules_test(void) {
     lostf = f;
     printf("   Multiball ohne Flipper: zweiter Ball oben %s, einer verloren nach %d Bildern, Zustand %d\n", top ? "ja" : "nein", lostf, state);
     check("nach Multiball spielt ein Ball weiter", state, ST_PLAY); }
+  /* v7.3: CIA 1 und 2, Ball-Save ueber die Out-Lane */
+  memset(&in, 0, sizeof in);
+  phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+  ball.x = (long)CIA_LX << 16; ball.y = (long)CIA_Y << 16; game_update(&in);
+  ball.x = 120L << 16; ball.y = 300L << 16; game_update(&in);
+  check("CIA 1 an", cia_lit, 1);
+  ball.x = (long)CIA_RX << 16; ball.y = (long)CIA_Y << 16; game_update(&in);
+  check("CIA 1 und 2: Ball-Save bereit", save_ready, 1);
+  { uint8_t b0 = ball_no;
+    ball.x = 25L << 16; ball.y = 600L << 16; game_update(&in);
+    state = ST_DRAIN; game_update(&in);
+    check("Out-Lane mit Ball-Save: gerettet", save_ready, 0);
+    state = ST_PLUNGER; game_update(&in);
+    check("Out-Lane mit Ball-Save: gleiche Kugel", ball_no, b0);
+    state = ST_PLAY; ball.x = 25L << 16; game_update(&in);
+    state = ST_DRAIN; game_update(&in); state = ST_PLUNGER; game_update(&in);
+    check("ohne Ball-Save: naechste Kugel", ball_no, b0 + 1); }
   /* v6.4: L in beiden Richtungen, aber nicht direkt nach dem Abschuss */
   memset(&in, 0, sizeof in);
   game_new(); state = ST_PLUNGER; game_update(&in); state = ST_PLAY; game_update(&in);
@@ -186,6 +203,7 @@ static void rules_test(void) {
 
 /* Spielroboter: schiesst ab und schlaegt, wenn der Ball nahe an einem Flipper ist.
  * Meldet Stellen, an denen der Ball lange liegen bleibt. */
+int16_t trk_x[64], trk_y[64]; uint8_t trk_i;
 static void bot_run(long frames) {
   input_t in;
   unsigned seed = 12345;
@@ -225,7 +243,15 @@ static void bot_run(long frames) {
     if (hold_r || hold_3) { in.right = 1; if (hold_r) hold_r--; if (hold_3) hold_3--; }
     game_input(&in);
     game_frame(&in);
+    trk_x[trk_i & 63] = (int16_t)(ball.x >> 16); trk_y[trk_i & 63] = (int16_t)(ball.y >> 16); trk_i++;
     if (ev_target) tgt_hits++;
+    { static uint32_t heat[160][80]; static int hon = -1;
+      if (hon < 0) hon = getenv("HEAT") != 0;
+      if (hon && state == ST_PLAY && !on_ramp) { int hx = (int)(ball.x >> 16) / 4, hy = (int)(ball.y >> 16) / 4;
+        if (hx >= 0 && hx < 80 && hy >= 0 && hy < 160) heat[hy][hx]++; }
+      if (hon && f == frames - 1) { FILE *hf = fopen("heat.csv", "w");
+        for (int yy = 0; yy < 160; yy++) { for (int xx = 0; xx < 80; xx++) fprintf(hf, "%u%c", heat[yy][xx], xx == 79 ? '\n' : ','); }
+        fclose(hf); } }
     { static uint8_t wm; static unsigned long nmb, fmb; if (multi && !wm) nmb++; if (multi) fmb++; wm = multi;
       if (f == frames - 1) printf("Roboter: Multiball %lu mal, im Mittel %.1f s\n", nmb, nmb ? fmb / 50.0 / nmb : 0.0); }
     { extern uint8_t ev_bumper; static unsigned long nb; if (ev_bumper) nb++; if (f == frames - 1) printf("Roboter: Bumper-Treffer %lu, je Spiel %.1f\n", nb, games ? (double)nb / games : 0.0); }
@@ -238,7 +264,7 @@ static void bot_run(long frames) {
     { static uint8_t was_act; if (mission_active && !was_act) mis_start++; was_act = mission_active; }
     { static uint8_t was; static int16_t lastx;
       if (state == ST_PLAY) lastx = (int16_t)(ball.x >> 16);
-      if (state == ST_DRAIN && was != ST_DRAIN) { if (lastx < 42) d_left++; else if (lastx > 258) d_right++; else d_mid++;
+      if (state == ST_DRAIN && was != ST_DRAIN) { if (lastx < 42) d_left++; else if (lastx > 258) d_right++; else d_mid++; if (getenv("DTRACE") && (lastx < 42 || lastx > 258)) { extern int16_t trk_x[64], trk_y[64]; extern uint8_t trk_i; printf("   Out-Lane %d:", lastx); for (int k = 60; k >= 4; k -= 8) printf(" (%d,%d)", trk_x[(uint8_t)(trk_i - k) & 63], trk_y[(uint8_t)(trk_i - k) & 63]); printf("\n"); }
         if (kick_trace && kick_trace < 150) d_kick++; }
       was = state; }
     { static int16_t hx[32], hy[32]; static uint8_t hi; static int16_t oy;

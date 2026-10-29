@@ -67,6 +67,10 @@ static uint8_t roll_in[2];
  * waren; die naechste Rampe startet ihn. Im Multiball gibt das 1541 den Jackpot. */
 static uint8_t grp_mask;
 uint8_t mb_ready;
+/* v7.3: Roll-Over CIA 1 und 2; beide = IRQ: Ball-Save fuer die naechste Out-Lane */
+uint8_t cia_lit, save_ready;
+static uint8_t saving, cia_in[2];
+static int16_t play_x;
 static uint8_t lamp_shown[N_LAMPS];
 
 /* Lampenfarben: aus, an */
@@ -88,10 +92,11 @@ char *fmt_points(char *p, uint32_t v) {
   char tmp[12];
   char *e = dmd_num(tmp, v, 0);
   uint8_t n = (uint8_t)(e - tmp);
+  uint8_t g = (uint8_t)(n - 1);                /* Ziffern bis zum ersten Punkt - 1 */
+  while (g >= 3) g -= 3;
   for (uint8_t i = 0; i < n; i++) {
     *p++ = tmp[i];
-    uint8_t rest = (uint8_t)(n - 1 - i);
-    if (rest && rest % 3 == 0) *p++ = '.';
+    if (i + 1 < n) { if (!g) { *p++ = '.'; g = 3; } g--; }
   }
   *p = 0;
   return p;
@@ -181,7 +186,7 @@ char *mission_status(char *p) {
 static void mission_end(uint8_t ok) {
   mission_active = 0;
   mission_ready = 0;
-  mission_cur = (uint8_t)((mission_cur + 1) % N_MISSIONS);
+  mission_cur = (uint8_t)((mission_cur + 1) & (N_MISSIONS - 1));
   if (ok) {
     uint32_t pts = 50000UL + 25000UL * missions_done;
     missions_done++;
@@ -242,6 +247,7 @@ void game_new(void) {
   msg_timer = 0;
   mission_ready = mission_active = mission_cur = mission_prog = missions_done = 0;
   grp_mask = mb_ready = 0;
+  cia_lit = save_ready = saving = 0;
   prev_state = state;
   music_stop();                          /* v7.0: im Spiel keine Hintergrundmusik, nur Effekte und Jingles */
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
@@ -340,6 +346,22 @@ static void low_lane(uint8_t i) {
 }
 
 /* Regeln, die von der Lage des Balls abhaengen (im Multiball fuer beide Baelle) */
+static void cia_hit(uint8_t i) {
+  uint8_t bit = (uint8_t)(1 << i);
+  snd_play(SND_LANE);
+  if (cia_lit & bit) { add(500); return; }
+  cia_lit |= bit;
+  add(2000);
+  bonus++;
+  if (cia_lit == 3) {
+    cia_lit = 0;
+    add(10000);
+    if (!save_ready) { save_ready = 1; dmd_put(msg1, "IRQ"); dmd_put(msg2, "BALL SAVE READY"); msg_timer = 100; msg_type = 1; }
+    else message("IRQ", 10000);
+    snd_play(SND_COMPLETE);
+  }
+}
+
 static void ball_rules(void) {
   int16_t x = (int16_t)(ball.x >> 16), y = (int16_t)(ball.y >> 16), py = prev_y[ball_idx];
     /* Spinner: Ball kreuzt ihn in der Einfahrt, Drehung nach Tempo */
@@ -363,6 +385,14 @@ static void ball_rules(void) {
       }
       if (now && now != roll_in[ball_idx]) low_lane(now == 1 ? 0 : 3);
       roll_in[ball_idx] = now;
+      /* v7.3: CIA 1 und 2 im Keil hinter VIC-II und SID, in beiden Richtungen */
+      uint8_t c = 0;
+      if (!on_ramp && y > CIA_Y - ROLL_R && y < CIA_Y + ROLL_R) {
+        if (x > CIA_LX - ROLL_R && x < CIA_LX + ROLL_R) c = 1;
+        else if (x > CIA_RX - ROLL_R && x < CIA_RX + ROLL_R) c = 2;
+      }
+      if (c && c != cia_in[ball_idx]) cia_hit((uint8_t)(c - 1));
+      cia_in[ball_idx] = c;
     }
     /* Rollover: Ball ueberquert die Zaehllinie */
     if ((py < TOPLANE_Y) != (y < TOPLANE_Y) && x > TOPLANE_X0 && x < TOPLANE_X0 + 72)
@@ -378,7 +408,7 @@ static void ball_rules(void) {
 void game_update(const input_t *in) {
   /* Lane-Wechsel und Flipperklang beim Druecken */
   if (state == ST_PLUNGER) {
-    if (skill_t != 255) { skill_t = 255; skill_lane = (uint8_t)(ball_no % 3); }
+    if (skill_t != 255) { skill_t = 255; skill_lane = (uint8_t)(ball_no >= 3 ? ball_no - 3 : ball_no); }
     if (in->left && !prev_l) skill_lane = skill_lane ? skill_lane - 1 : 2;
     if (in->right && !prev_r) skill_lane = skill_lane == 2 ? 0 : skill_lane + 1;
   } else if (skill_t == 255) skill_t = 250;           /* 5 s nach dem Abschuss */
@@ -451,11 +481,23 @@ void game_update(const input_t *in) {
   } else prev_y[ball_idx] = (int16_t)(ball.y >> 16);
 
   /* Ballende: Bonus; neuer Ball oder Spielende */
-  if (state == ST_DRAIN && prev_state != ST_DRAIN && mission_active) {
-    mission_active = 0;                      /* Ball verloren: Mission gescheitert */
-    mission_cur = (uint8_t)((mission_cur + 1) % N_MISSIONS);
+  if (state == ST_PLAY) play_x = (int16_t)(ball.x >> 16);
+  /* v7.3: Ball-Save: Kugel ueber eine Out-Lane verloren -> kommt zurueck, zaehlt nicht */
+  if (state == ST_DRAIN && prev_state != ST_DRAIN && save_ready && (play_x < 60 || play_x > 240)) {
+    save_ready = 0;
+    saving = 1;
+    dmd_put(msg1, "RUN/STOP RESTORE");
+    dmd_put(msg2, "BALL SAVED");
+    msg_timer = 75;
+    msg_type = 1;
+    dmd_fx(FX_INVERT);
+    snd_play(SND_START);
   }
-  if (state == ST_DRAIN && prev_state != ST_DRAIN) {
+  if (state == ST_DRAIN && prev_state != ST_DRAIN && mission_active && !saving) {
+    mission_active = 0;                      /* Ball verloren: Mission gescheitert */
+    mission_cur = (uint8_t)((mission_cur + 1) & (N_MISSIONS - 1));
+  }
+  if (state == ST_DRAIN && prev_state != ST_DRAIN && !saving) {
     uint32_t b = (uint32_t)bonus * 1000u * mult;
     score += b;
     /* v6.6: Fehlermeldung flackert, darunter der Bonus */
@@ -469,7 +511,8 @@ void game_update(const input_t *in) {
     dmd_fx(FX_FLICKER);
     snd_play(SND_DRAIN);
   }
-  if (state == ST_PLUNGER && prev_state == ST_DRAIN) {
+  if (state == ST_PLUNGER && prev_state == ST_DRAIN && saving) saving = 0;   /* gleiche Kugel weiter */
+  else if (state == ST_PLUNGER && prev_state == ST_DRAIN) {
     bonus = 0;
     ramps = 0;
     mult = 1;
@@ -509,6 +552,15 @@ void game_update(const input_t *in) {
       if (on) set_color(C_KICK_RING, 255, 210, 60); else set_color(C_KICK_RING, 70, 50, 12);
     }
     arrows_apply((blink >> 3) & 1);
+    /* v7.3: Lampen CIA 1 und 2, Tasten in den Out-Lanes bei Ball-Save */
+    static uint8_t cshown = 0xFF;
+    uint8_t cs = (uint8_t)(cia_lit | (save_ready && ((blink >> 4) & 1) ? 4 : 0));
+    if (cs != cshown) {
+      cshown = cs;
+      for (uint8_t i = 0; i < 2; i++)
+        if (cs & (1 << i)) set_color((uint8_t)(C_CIA0 + i), 255, 220, 80); else set_color((uint8_t)(C_CIA0 + i), 100, 80, 24);
+      if (cs & 4) set_color(C_SAVE, 255, 214, 120); else set_color(C_SAVE, 140, 112, 84);
+    }
     /* v7.2: Tor der Abschussbahn sichtbar offen oder zu */
     static uint8_t gshown = 2;
     uint8_t go = phys_gate_open();

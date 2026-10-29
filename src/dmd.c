@@ -81,7 +81,7 @@ static void render_row(uint8_t cr) {
   uint8_t len = 0;
   while (line[ln][len]) len++;
   uint8_t cur = cur_on && cur_ln == ln;       /* Cursor-Block hinter dem Text */
-  uint8_t x0 = (uint8_t)((160 - ((len + cur_on) * 6 - 1)) / 2);   /* Platz fuer den Cursor, damit nichts springt */
+  uint8_t x0 = (uint8_t)((uint8_t)(160 - ((len + cur_on) * 6 - 1)) >> 1);   /* Platz fuer den Cursor, damit nichts springt */
   uint8_t n = vis[ln] < len ? vis[ln] : len;
   uint8_t show_cur = cur && cur_ph;
   for (uint8_t q = 0; q < 4; q++) {           /* vier Punktreihen pro Zeichenzeile */
@@ -163,7 +163,7 @@ void dmd_tick(void) {
   fx_t--;
   fx_rnd = (uint8_t)((fx_rnd << 1) ^ ((fx_rnd & 0x80) ? 0x1D : 0));
   /* v6.7: Erfolge invertieren das Display mehrmals (statt Rahmeneffekten) */
-  if (fx == FX_BLINK) dmd_look((fx_t / 5) & 1);          /* Multiball: schnell */
+  if (fx == FX_BLINK) dmd_look((fx_t >> 2) & 1);         /* Multiball: schnell */
   else if (fx == FX_INVERT) dmd_look((fx_t >> 3) & 1);   /* Jackpot, Mission: viermal */
   else dmd_look(fx_rnd & 1 ? 0 : 2);                     /* Ball verloren: Flackern */
   if (!fx_t) { fx = 0; dmd_look(0); }

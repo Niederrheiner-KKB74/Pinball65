@@ -165,6 +165,8 @@ static void update_display(uint16_t load, uint16_t lmax) {
   dmd_show(l1, l2, type);
 }
 
+/* v7.3: Pruefsumme nur noch mit -DCODE_CHECK (Speicher fuer CIA und Ball-Save) */
+#ifdef CODE_CHECK
 /* ---------- Diagnose: Pruefsumme ueber Programmcode und Konstanten ---------- */
 extern char __data_start[];   /* Ende von Code und Konstanten; .data aendert sich im Spiel */
 static uint16_t code_sum0;
@@ -201,6 +203,12 @@ static void code_check_fail(const char *where) {
   for (;;) {}
 }
 
+#else
+#define code_sum() 0
+#define code_check(w) ((void)0)
+#define code_check_step() ((void)0)
+#endif
+
 /* Hat der Lader die Tischdaten aufgebaut (Kennung im Attic-RAM)? */
 static uint8_t data_ok(void) {
   dma_copy(ATTIC_SIG, CPUADDR(COLBUF), PB_SIG_LEN);
@@ -216,7 +224,9 @@ static void halt(const char *l1, const char *l2) {
 }
 
 int main(void) {
+#ifdef CODE_CHECK
   code_sum0 = code_sum();
+#endif
   tables_init();
   hw_init();
   table_build_palette();

@@ -70,6 +70,9 @@ void table_build_palette(void) {
   set_color(C_PLUNGER, 200, 200, 210);
   set_color(C_PLUNGER_DK, 110, 110, 120);
   set_color(C_PLUNGER_TIP, 216, 48, 64);
+  set_color(C_CIA0, 100, 80, 24);
+  set_color(C_CIA1, 100, 80, 24);
+  set_color(C_SAVE, 140, 112, 84);
   set_color(C_RAMP_RAIL, 220, 230, 255);    /* Rampe: Chromschienen ... */
   set_color(C_RAMP_RAIL_DK, 120, 130, 190);
   set_color(C_RAMP_FLOOR, 70, 150, 210);    /* ... und durchsichtiger Boden (Raster) */
@@ -208,6 +211,7 @@ static const uint8_t ART_RGB[N_ART_COLORS][3] = {
   {206, 196, 168}, {150, 140, 115}, {60, 56, 50}, {230, 40, 40}, {80, 70, 60},
   {88, 66, 48}, {140, 112, 84}, {40, 30, 22}, {240, 232, 210},
   {110, 70, 36}, {120, 76, 38}, {130, 82, 40},
+  {255, 252, 240}, {226, 218, 196}, {160, 150, 128}, {60, 50, 150}, {8, 6, 18},
 };
 _Static_assert(sizeof ART_RGB / 3 == N_ART_COLORS, "Grafikfarben passen nicht");
 void table_store_art_palette(void) {
@@ -282,13 +286,17 @@ static void band_chip(uint8_t *b, int16_t x, int16_t y, int16_t w, const char *l
   while (label[n]) n++;
   band_text5(b, x + (w + 1 - n * 6) / 2 + 1, y + 3, label, C_CHIP_TEXT);
 }
-static void band_key(uint8_t *b, int16_t x, int16_t y, const char *label) {
-  if (band_y0 > y + 18 || band_y1 < y) return;
-  band_box(b, x, y, x + 24, y + 16, C_KEY, C_KEY_EDGE);
-  band_box(b, x + 2, y + 2, x + 22, y + 11, C_KEY_TOP, C_KEY_TOP);
-  int16_t n = 0;
-  while (label[n]) n++;
-  band_text5(b, x + (25 - n * 6) / 2 + 1, y + 3, label, C_KEY_TEXT);
+/* v7.3: quadratische Taste wie beim C64 (26 x 26), Oberseite leuchtet bei Ball-Save */
+static void band_text(uint8_t *buf, int16_t x, int16_t y, const char *str, uint8_t s, uint8_t col);
+static void band_key(uint8_t *b, int16_t x, int16_t y, const char *l1, const char *l2) {
+  if (band_y0 > y + 26 || band_y1 < y) return;
+  band_box(b, x, y, x + 25, y + 25, C_KEY, C_KEY_EDGE);
+  band_box(b, x + 3, y + 2, x + 22, y + 19, C_SAVE, C_SAVE);
+  int16_t n1 = 0, n2 = 0;
+  while (l1[n1]) n1++;
+  while (l2[n2]) n2++;
+  band_text(b, x + 13 - n1 * 2, y + 4, l1, 1, C_KEY_TEXT);
+  band_text(b, x + 13 - n2 * 2, y + 11, l2, 1, C_KEY_TEXT);
 }
 /* Motive: Einschalttext, Chips neben den Targets, Laufwerk 1541, Tasten */
 static void band_art(uint8_t *b) {
@@ -316,10 +324,8 @@ static void band_art(uint8_t *b) {
     band_box(b, KICK_X - 4, KICK_Y + 16, KICK_X + 4, Y1 - 3, C_KEY, C_DRV_DK);   /* Schlitz fuer den Lesekopf */
     band_box(b, KICK_X + 18, KICK_Y - 3, KICK_X + 21, KICK_Y + 0, C_KEY, C_KEY); /* Indexloch */
   }
-  band_key(b, 12, 520, "RUN");
-  band_key(b, 12, 538, "STOP");
-  band_key(b, 265, 520, "RES");
-  band_key(b, 265, 538, "TORE");
+  band_key(b, 12, 526, "RUN", "STOP");
+  band_key(b, 263, 526, "CLR", "HOME");
 }
 
 /* Zeichnet alle Formen, beschnitten auf das aktuelle Band */
@@ -435,7 +441,7 @@ static uint8_t art_px(int16_t x, int16_t y) {
 }
 
 /* Kleine 3x5-Schrift fuer Beschriftungen auf dem Tisch */
-static const char LBL_CHARS[] = "0123456789ABCDEFIKLNORSTVY-.*,\"P";
+static const char LBL_CHARS[] = "0123456789ABCDEFIKLNORSTVY-.*,\"PHMU";
 static const uint8_t LBL_GLYPHS[][5] = {
   {7, 5, 5, 5, 7}, {2, 6, 2, 2, 7}, {7, 1, 7, 4, 7}, {7, 1, 7, 1, 7}, {5, 5, 7, 1, 1},
   {7, 4, 7, 1, 7}, {7, 4, 7, 5, 7}, {7, 1, 1, 2, 2}, {7, 5, 7, 5, 7}, {7, 5, 7, 1, 7},
@@ -444,6 +450,7 @@ static const uint8_t LBL_GLYPHS[][5] = {
   {2, 5, 5, 5, 2}, {6, 5, 6, 5, 5}, {3, 4, 2, 1, 6}, {7, 2, 2, 2, 2}, {5, 5, 5, 5, 2},
   {5, 5, 2, 2, 2}, {0, 0, 7, 0, 0}, {0, 0, 0, 0, 2}, {0, 5, 2, 5, 0}, {0, 0, 0, 2, 4},
   {5, 5, 0, 0, 0}, {6, 5, 6, 4, 4},
+  {5, 5, 7, 5, 5}, {5, 7, 7, 5, 5}, {5, 5, 5, 5, 7},   /* H M U (v7.3) */
 };
 
 /* Zeichnet Text mit Vergroesserung s in das Band (nur Zeilen im Band) */
@@ -505,6 +512,20 @@ static void band_arrow(uint8_t *buf, int16_t cx, int16_t cy, uint8_t ang, uint8_
   }
 }
 
+/* Gewoelbte Scheibe: Licht von links oben (hell, mittel, dunkel) */
+static void band_shade(uint8_t *buf, int16_t cx, int16_t cy, int16_t r, uint8_t hi, uint8_t mid, uint8_t dk) {
+  for (int16_t yy = cy - r; yy <= cy + r; yy++) {
+    if (yy < band_y0 || yy >= band_y1) continue;
+    int16_t dy = yy - cy;
+    for (int16_t xx = cx - r; xx <= cx + r; xx++) {
+      int16_t dx = xx - cx;
+      if (dx * dx + dy * dy > r * r + r / 2) continue;
+      int16_t l = -dx - dy;
+      buf[((uint16_t)(xx >> 3) << 6) + ((yy - band_y0) << 3) + (xx & 7)] = l > r / 2 ? hi : l < -r / 2 ? dk : mid;
+    }
+  }
+}
+
 static void band_rect(uint8_t *buf, int16_t x0, int16_t y0, int16_t w, int16_t h, uint8_t col) {
   for (int16_t yy = y0; yy < y0 + h; yy++) {
     if (yy < band_y0 || yy >= band_y1) continue;
@@ -535,11 +556,16 @@ static void band_overlays(uint8_t *b) {
   for (uint8_t i = 0; i < N_BUMPERS; i++) {
     int16_t x = BUMPERS[i][0], y = BUMPERS[i][1];
     if (y + 14 < band_y0 || y - 14 >= band_y1) continue;
+    /* v7.3: Schatten, leuchtender Kragen (Lampe), Chromring, gewoelbte Kappe mit Glanzpunkt */
+    static const char *const BNAME[N_BUMPERS] = { "PEEK", "POKE", "SYS" };
+    band_disc(b, x + 2, y + 3, 14, C_SHADOW);
     band_disc(b, x, y, 13, (uint8_t)(C_BUMP0 + i));
-    band_disc(b, x, y, 9, C_C64_DARK);
-    band_rect(b, x - 6, y - 3, 3, 5, C_C64_LIGHT);   /* "READY."-Andeutung */
-    band_rect(b, x - 2, y - 3, 3, 5, C_C64_LIGHT);
-    band_rect(b, x + 3, y - 3, 3, 5, C_C64_LIGHT);   /* Cursor */
+    band_shade(b, x, y, 10, C_CHROME_HI, C_CHROME_MID, C_CHROME_DK);
+    band_shade(b, x, y, 8, C_CAP_HI, C_CAP, C_CAP_DK);
+    band_rect(b, x - 4, y - 6, 2, 2, C_BALL_HI);
+    int16_t n = 0;
+    while (BNAME[i][n]) n++;
+    band_text(b, x - n * 2 + 1, y - 2, BNAME[i], 1, C_CAP_TEXT);
   }
   if (band_y0 < 112 && band_y1 > 94) band_text(b, 107, 94, "LOAD\"*\",8,1", 2, C_HOLE_RING);
   if (band_y0 < 64 && band_y1 > 50) {
@@ -571,6 +597,14 @@ static void band_overlays(uint8_t *b) {
       band_text(b, LX[i] - 1, LY[i] - 2, LL[i], 1, C_BG);
     }
   }
+  /* v7.3: Roll-Over CIA 1 und CIA 2 */
+  if (band_y0 < CIA_Y + 8 && band_y1 > CIA_Y - 8)
+    for (uint8_t i = 0; i < 2; i++) {
+      int16_t cx = i ? CIA_RX : CIA_LX;
+      band_disc(b, cx, CIA_Y, ROLL_R, C_CHROME_MID);
+      band_disc(b, cx, CIA_Y, 5, (uint8_t)(C_CIA0 + i));
+      band_text(b, cx - 1, CIA_Y - 2, i ? "2" : "1", 1, C_BG);
+    }
   /* Kickback "FIRE" in der linken Outlane */
   if (band_y0 < 632 && band_y1 > 616) { band_rect(b, 18, 618, 14, 10, C_KICKBACK); }
   /* Apron: Einschaltbild */

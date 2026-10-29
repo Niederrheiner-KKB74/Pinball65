@@ -37,6 +37,10 @@
 #define ROLL_DX   128           /* v6.1: D vor der Rampeneinfahrt */
 #define ROLL_DY   356
 #define ROLL_R    7
+/* v7.3: Roll-Over CIA 1 und CIA 2 hinter VIC-II und SID (im Keil zur Wand) */
+#define CIA_LX    50
+#define CIA_RX    250
+#define CIA_Y     400
 
 /* Flipper */
 #define F_LEN   36
@@ -96,7 +100,9 @@ enum {
 enum { ARW_RAMP, ARW_KICK, ARW_ORBIT_L, ARW_ORBIT_R, ARW_6510, ARW_VIC, ARW_SID, ARW_PLA, N_ARROWS,
        C_ARROW_END = C_ARROW0 + N_ARROWS,
        C_GATE = C_ARROW_END,           /* v7.2: Tor der Abschussbahn: offen = unsichtbar, zu = Chrom */
-       C_PLUNGER, C_PLUNGER_DK, C_PLUNGER_TIP
+       C_PLUNGER, C_PLUNGER_DK, C_PLUNGER_TIP,
+       C_CIA0, C_CIA1,                  /* v7.3: Roll-Over CIA 1 und CIA 2 (Lampen) */
+       C_SAVE                           /* v7.3: Tasten in den Out-Lanes leuchten bei Ball-Save */
 };
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 
@@ -114,7 +120,8 @@ enum {
   C_DRV, C_DRV_DK, C_DRV_SLOT, C_DRV_LED, C_DRV_TEXT,
   C_KEY, C_KEY_TOP, C_KEY_EDGE, C_KEY_TEXT,
   C_WOOD0,                        /* 3 Holztoene */
-  C_ART_END = C_WOOD0 + 3
+  C_CAP_HI = C_WOOD0 + 3, C_CAP, C_CAP_DK, C_CAP_TEXT, C_SHADOW,   /* v7.3: Bumper */
+  C_ART_END
 };
 #define ATTIC_PAL (ATTIC_SIG + 0x3000UL)   /* 3 Byte je Farbe ab C_ART */
 #define N_ART_COLORS (C_ART_END - C_ART)
