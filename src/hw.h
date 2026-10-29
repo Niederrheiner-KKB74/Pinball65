@@ -44,8 +44,15 @@
 /* Der Lader (PINBALL65) baut alles im Attic-RAM auf und laedt dann das Spiel
  * (PB65GAME). Das Spiel prueft die Kennung; die Nummer aendert sich, wenn
  * sich der Aufbau der Daten aendert. */
-#define PB_SIG      "PB65DATAO"
+#define PB_SIG      "PB65DATAP"
 #define PB_SIG_LEN  9
+/* v7.4: Sicherungen fuer KERNAL-Aufrufe aus dem Spiel und Highscore */
+#define LOWRAM_SAVE (ATTIC_SIG + 0x1000UL)   /* $0800-$1FFF beim Start des Laders */
+#define ATTIC_KZP   (ATTIC_SIG + 0x3400UL)   /* Zeropage beim Start des Laders */
+#define ATTIC_HS    (ATTIC_SIG + 0x3800UL)   /* Highscore-Tabelle */
+#define HS_LOAD     0x0F00u                  /* Ladeadresse der Datei PB65HS */
+#define ATTIC_SAVESTUB (ATTIC_SIG + 0x3900UL) /* Speicher-Programm fuer den Highscore */
+#define SAVE_STUB_LEN 124
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */

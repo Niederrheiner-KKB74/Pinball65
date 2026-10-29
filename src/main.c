@@ -23,6 +23,7 @@
 #include "game.h"
 #include "sound.h"
 #include "music.h"
+#include "hiscore.h"
 
 /* Taste mit Wiederholung: sofort, dann nach 15 Bildern alle 3 Bilder */
 static uint8_t repeat(uint8_t down, uint8_t *cnt) {
@@ -80,7 +81,19 @@ static char *put_load(char *p, uint16_t load, uint16_t lmax) {
   return dmd_num(p, lmax, 3);
 }
 
+/* Zeile der Highscore-Liste: "1 ABC  1.234.560" */
+__attribute__((noinline)) static void hs_line(char *q, uint8_t i) {
+  q[0] = (char)('1' + i); q[1] = ' ';
+  for (uint8_t k = 0; k < 3; k++) q[2 + k] = hs[i].name[k];
+  q[5] = ' '; q[6] = ' ';
+  fmt_points(q + 7, hs[i].score);
+}
+
+static uint8_t blink_t;
+static uint8_t tick_blink(void) { return blink_t; }
+
 static void update_display(uint16_t load, uint16_t lmax) {
+  blink_t++;
   static char l1[DMD_COLS + 1], l2[DMD_COLS + 1];
   static uint8_t last_mode = 0xFF, tick;
   char *p;
@@ -89,7 +102,7 @@ static void update_display(uint16_t load, uint16_t lmax) {
   static uint16_t page_t;
   uint8_t type = 0;
   /* v6.6: nach Spielende wechseln vier Seiten alle 3 Sekunden */
-  if (game_over && !msg_timer) { if (++page_t >= 150) { page_t = 0; page = (uint8_t)((page + 1) & 3); } }
+  if (game_over && !msg_timer && !hs_entry) { if (++page_t >= 150) { page_t = 0; if (++page == 5) page = 0; } }
   else { page = 0; page_t = 0; }
 #ifdef PHYS_TUNE
   uint8_t mode = (uint8_t)(tune_on ? 10 + tune_sel : test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
@@ -98,7 +111,7 @@ static void update_display(uint16_t load, uint16_t lmax) {
   uint8_t mode = (uint8_t)(test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
                            msg_timer ? 7 : game_over ? 80 + page : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
 #endif
-  if (mode == last_mode && ++tick < 10) return;
+  if (mode == last_mode && ++tick < 10 && !hs_entry) return;
   last_mode = mode;
   tick = 0;
 #ifdef PHYS_TUNE
@@ -120,14 +133,23 @@ static void update_display(uint16_t load, uint16_t lmax) {
     dmd_num(p, (uint32_t)snap_y, 8);
   } else
 #endif
-  if (msg_timer) {
+  if (hs_entry && !msg_timer) {               /* v7.4: Name eingeben, Buchstabe blinkt */
+    dmd_put(l1, "ENTER YOUR NAME");
+    for (uint8_t k = 0; k < 3; k++) l2[k] = hs_name[k];
+    if (tick_blink() & 8) l2[hs_entry - 1] = '_';
+    l2[3] = ' '; l2[4] = ' ';
+    fmt_points(l2 + 5, score);
+  } else if (msg_timer) {
     dmd_put(l1, msg1);
     dmd_put(l2, msg2);
     type = msg_type;
   } else if (game_over) {
     if (page == 0) { dmd_put(l1, "?OUT OF DATA  ERROR"); fmt_points(l2, score); }
-    else if (page == 1) { dmd_put(l1, "HIGH SCORE"); fmt_points(l2, hiscore); }
-    else if (page == 2) { dmd_put(l1, "PRESS FIRE"); dmd_put(l2, "TO PLAY"); type = 1; }
+    else if (page < 4) {                       /* v7.4: Highscore-Liste, zwei Eintraege je Seite */
+      uint8_t i = (uint8_t)((page - 1) * 2);
+      hs_line(l1, i);
+      if (i + 1 < N_HS) hs_line(l2, (uint8_t)(i + 1)); else { dmd_put(l2, "PRESS FIRE"); type = 1; }
+    }
     else { dmd_put(l1, "LOAD\"*\",8,1"); dmd_put(l2, "READY."); type = 1; }
   } else if (state == ST_PLUNGER) {
     if (score) fmt_points(l1, score);
@@ -224,13 +246,13 @@ static void halt(const char *l1, const char *l2) {
 }
 
 int main(void) {
+  hs_init();                            /* v7.4: zuerst, bevor $0F00 ueberschrieben wird */
 #ifdef CODE_CHECK
   code_sum0 = code_sum();
 #endif
   tables_init();
   hw_init();
-  table_build_palette();
-  art_palette_load();                  /* v7.1: Grafikfarben vom Lader */
+  palette_load();                      /* v7.4: Palette vom Lader (Attic-RAM) */
   dmd_init();
   dma_fill(FB_A, C_BG, 40 * COL_BYTES); /* Tischbereich dunkel */
   dma_fill(FB_B, C_BG, 40 * COL_BYTES);

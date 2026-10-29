@@ -123,9 +123,9 @@ enum {
   C_CAP_HI = C_WOOD0 + 3, C_CAP, C_CAP_DK, C_CAP_TEXT, C_SHADOW,   /* v7.3: Bumper */
   C_ART_END
 };
-#define ATTIC_PAL (ATTIC_SIG + 0x3000UL)   /* 3 Byte je Farbe ab C_ART */
+#define ATTIC_PAL (ATTIC_SIG + 0x3000UL)   /* 3 Byte je Farbe, Index 0 bis C_ART_END - 1 */
 #define N_ART_COLORS (C_ART_END - C_ART)
-void art_palette_load(void);       /* im Spiel: Grafikfarben aus dem Attic-RAM setzen */
+void palette_load(void);           /* im Spiel: ganze Palette (bis C_ART_END) aus dem Attic-RAM */
 void table_store_art_palette(void);   /* im Lader: Grafikfarben ins Attic-RAM und setzen */
 
 /* Rollover-Lanes */

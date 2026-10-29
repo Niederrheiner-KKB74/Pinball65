@@ -15,6 +15,7 @@
 #include "dmd.h"
 #include "tables.h"
 #include "game.h"
+#include "hiscore.h"
 #include "music.h"
 #include "sound.h"
 #include "music.h"
@@ -129,6 +130,8 @@ static void rules_test(void) {
   state = ST_DRAIN; game_update(&in); state = ST_PLUNGER; game_update(&in);
   state = ST_DRAIN; game_update(&in); state = ST_PLUNGER; game_update(&in);
   check("nach Ball 3: Spielende", game_over, 1);
+  check("Punkte reichen: Namenseingabe", hs_entry, 1);
+  hs_entry = 0;                                   /* Eingabe wird unten eigens getestet */
   in.plunger = 1; game_input(&in);
   check("Plunger startet neu, kein Abschuss", in.plunger, 0);
   check("neues Spiel: Punkte", score, 0);
@@ -197,6 +200,36 @@ static void rules_test(void) {
   game_new(); state = ST_PLUNGER; game_update(&in); state = ST_PLAY; game_update(&in);
   { uint32_t s0 = score; LANE_PASS(126 + 24 * ((skill_lane + 1) % 3)); check("falsche Lane: kein Skill-Shot", score - s0 < 25000, 1);
     s0 = score; LANE_PASS(126 + 24 * skill_lane); check("nur die erste Lane zaehlt", score - s0 < 25000, 1); }
+  /* v7.4: Highscore-Liste und Namenseingabe */
+  hs_init();
+  check("HS Vorgabe Platz 1", hs[0].score, 500000);
+  check("HS Rang 450000", hs_rank(450000), 1);
+  check("HS Rang 100000 (gleich, dahinter)", hs_rank(100000), N_HS);
+  check("HS Rang 99999", hs_rank(99999), N_HS);
+  hs_insert(1, "ABC", 450000);
+  check("HS eingefuegt", hs[1].score == 450000 && hs[1].name[0] == 'A' && hs[2].score == 400000 && hs[4].score == 200000, 1);
+  {
+    memset(&in, 0, sizeof in);
+    score = 600000; game_over = 1; msg_timer = 0;
+    hs_rank_new = hs_rank(score); hs_entry = 1;
+    hs_name[0] = 'A'; hs_name[1] = hs_name[2] = ' ';
+    input_t k;
+#define TAP(field) do { memset(&k, 0, sizeof k); k.field = 1; game_input(&k); game_update(&k); msg_timer = 0; \
+                        memset(&k, 0, sizeof k); game_input(&k); game_update(&k); msg_timer = 0; } while (0)
+    TAP(right); TAP(right);                 /* A -> C */
+    TAP(plunger);
+    TAP(left); TAP(left);                   /* ' ' -> Z -> Y */
+    TAP(plunger);
+    TAP(right);                             /* ' ' -> A */
+    TAP(plunger);
+#undef TAP
+    check("HS Eingabe fertig", hs_entry, 0);
+    check("HS neuer Platz 1", hs[0].score, 600000);
+    check("HS Name CYA", hs[0].name[0] == 'C' && hs[0].name[1] == 'Y' && hs[0].name[2] == 'A', 1);
+    check("HS Platz 2 vorher Platz 1", hs[1].score, 500000);
+    hs[0].score = 0; hs_init();             /* Attic-Kopie zurueck */
+    check("HS aus Attic", hs[0].score, 600000);
+  }
   printf("Regeltest: %s\n", fails ? "FEHLER" : "alles ok");
   (void)step;
 }

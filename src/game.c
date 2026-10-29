@@ -31,6 +31,7 @@
 #include "dmd.h"
 #include "sound.h"
 #include "music.h"
+#include "hiscore.h"
 
 uint32_t score;
 uint8_t ball_no, mult, game_over;
@@ -48,7 +49,10 @@ static uint16_t spin_v, spin_ang;
 static uint8_t spin_shown = 0xFF;
 char msg1[DMD_COLS + 1], msg2[DMD_COLS + 1];
 uint8_t msg_timer, msg_type;           /* msg_type 1: Meldung wird getippt (v6.6) */
-uint32_t hiscore;
+/* v7.4: Namenseingabe nach Spielende: hs_entry = 1 + Position (1..3), 0 = keine */
+uint8_t hs_entry, hs_rank_new;
+char hs_name[4];
+static uint8_t hs_prev_pl;
 
 static uint16_t tgt_lit;
 static const uint16_t GROUP_MASK[4] = { 0x007, 0x078, 0x380, 0x1C00 };   /* VIC-II, 6510, SID, PLA */
@@ -256,6 +260,24 @@ void game_new(void) {
 }
 
 void game_input(input_t *in) {
+  /* v7.4: Namenseingabe: Plunger bestaetigt den Buchstaben */
+  if (hs_entry) {
+    if (in->plunger && !hs_prev_pl && !msg_timer) {
+      snd_play(SND_TARGET);
+      if (++hs_entry > 3) {
+        hs_entry = 0;
+        hs_insert(hs_rank_new, hs_name, score);
+        dmd_text("SAVING HIGH SCORE", "PLEASE WAIT");
+        dmd_flush();
+        hs_save();
+        message("HIGH SCORE SAVED", score);
+        hold = 1;
+      }
+    }
+    hs_prev_pl = in->plunger;
+    in->plunger = 0;
+    return;
+  }
   if (game_over && in->plunger && !hold) {
     game_new();
     snd_play(SND_START);
@@ -414,6 +436,11 @@ void game_update(const input_t *in) {
   } else if (skill_t == 255) skill_t = 250;           /* 5 s nach dem Abschuss */
   else if (skill_t) skill_t--;
   blink_n++;
+  if (hs_entry && !msg_timer) {                /* v7.4: Buchstabe mit den Flippern waehlen */
+    char *c = &hs_name[hs_entry - 1];
+    if (in->left && !prev_l) *c = *c == 'A' ? ' ' : *c == ' ' ? 'Z' : (char)(*c - 1);
+    if (in->right && !prev_r) *c = *c == 'Z' ? ' ' : *c == ' ' ? 'A' : (char)(*c + 1);
+  }
   if (in->left && !prev_l) {
     top_lit = (uint8_t)((top_lit >> 1) | ((top_lit & 1) << 2));
     snd_play(SND_FLIPPER);
@@ -520,8 +547,13 @@ void game_update(const input_t *in) {
     else {
       game_over = 1;
       music_play(MUS_TITLE);                 /* v6.9: Titelmusik im Wartebildschirm ... */
-      if (score > hiscore) {                 /* v6.6: Highscore (bis zum Ausschalten) */
-        hiscore = score;
+      hs_rank_new = hs_rank(score);
+      if (hs_rank_new < N_HS) {              /* v7.4: in die Liste, Name eingeben */
+        hs_entry = 1;
+        hs_name[0] = 'A'; hs_name[1] = hs_name[2] = ' '; hs_name[3] = 0;
+        hs_prev_pl = 1;
+      }
+      if (hs_rank_new == 0) {
         message("NEW HIGH SCORE", score);
         dmd_fx(FX_INVERT);
         music_play(MUS_FANFARE);

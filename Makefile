@@ -30,8 +30,12 @@ build/loadtest.prg: test/loadtest/loadtest.c test/loadtest/pattern.c
 	@mkdir -p build
 	$(CC) -Os -mcpu=mos6502 -o $@ $^
 
-build/pinball65.d81: build/pinball65.prg build/pb65game.prg build/loadtest.prg tools/mkd81.py
-	$(PYTHON) tools/mkd81.py $@ PINBALL65 build/pinball65.prg build/pb65game.prg build/loadtest.prg
+build/pb65hs.prg: tools/gen_hs.py
+	@mkdir -p build
+	$(PYTHON) tools/gen_hs.py $@
+
+build/pinball65.d81: build/pinball65.prg build/pb65game.prg build/loadtest.prg build/pb65hs.prg tools/mkd81.py
+	$(PYTHON) tools/mkd81.py $@ PINBALL65 build/pinball65.prg build/pb65game.prg build/pb65hs.prg build/loadtest.prg
 
 clean:
 	rm -rf build

@@ -30,6 +30,15 @@ void mask_load(int16_t y0) {
   dma_copy(CLS_FAR + (uint16_t)r0 * 40, CPUADDR(CLSWIN), CLS_ROWS * 40);
 }
 
+#ifdef PB_BUILDER
+/* v7.4: Der Lader setzt die Palette und legt sie im Attic-RAM ab (ATTIC_PAL);
+ * das Spiel uebernimmt sie von dort mit palette_load (spart dort rund 700 Byte) */
+static uint8_t PAL_SH[C_ART_END][3];
+static void pal_set(uint8_t i, uint8_t r, uint8_t g, uint8_t b) {
+  if (i < C_ART_END) { PAL_SH[i][0] = r; PAL_SH[i][1] = g; PAL_SH[i][2] = b; }
+  set_color(i, r, g, b);
+}
+#define set_color pal_set
 void table_build_palette(void) {
   set_color(0, 0, 0, 0);
   set_color(C_BG, 16, 12, 56);
@@ -80,10 +89,13 @@ void table_build_palette(void) {
 }
 
 
-void art_palette_load(void) {
-  dma_copy(ATTIC_PAL, CPUADDR(COLBUF), N_ART_COLORS * 3);
-  const uint8_t *c = COLBUF;
-  for (uint8_t i = 0; i < N_ART_COLORS; i++, c += 3) set_color((uint8_t)(C_ART + i), c[0], c[1], c[2]);
+#undef set_color
+#endif
+
+void palette_load(void) {
+  dma_copy(ATTIC_PAL, CPUADDR(COLBUF), C_ART_END * 3);
+  const uint8_t *c = COLBUF + 3;
+  for (uint8_t i = 1; i < C_ART_END; i++, c += 3) set_color(i, c[0], c[1], c[2]);
 }
 
 #ifdef PB_BUILDER
@@ -215,8 +227,8 @@ static const uint8_t ART_RGB[N_ART_COLORS][3] = {
 };
 _Static_assert(sizeof ART_RGB / 3 == N_ART_COLORS, "Grafikfarben passen nicht");
 void table_store_art_palette(void) {
-  dma_copy(CPUADDR(ART_RGB), ATTIC_PAL, N_ART_COLORS * 3);
-  art_palette_load();
+  for (uint8_t i = 0; i < N_ART_COLORS; i++) pal_set((uint8_t)(C_ART + i), ART_RGB[i][0], ART_RGB[i][1], ART_RGB[i][2]);
+  dma_copy(CPUADDR(PAL_SH), ATTIC_PAL, C_ART_END * 3);
 }
 
 /* Abgerundetes Rechteck (Radius r): Punkt innen? */
