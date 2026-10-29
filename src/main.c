@@ -144,7 +144,10 @@ static void update_display(uint16_t load, uint16_t lmax) {
     dmd_put(l2, msg2);
     type = msg_type;
   } else if (game_over) {
-    if (page == 0) { dmd_put(l1, "?OUT OF DATA  ERROR"); fmt_points(l2, score); }
+    if (page == 0) {
+      if (score) { dmd_put(l1, "?OUT OF DATA  ERROR"); fmt_points(l2, score); }
+      else { dmd_put(l1, "**** PINBALL 65 ****"); dmd_put(l2, "PRESS FIRE"); type = 1; }   /* v7.5: nach dem Laden */
+    }
     else if (page < 4) {                       /* v7.4: Highscore-Liste, zwei Eintraege je Seite */
       uint8_t i = (uint8_t)((page - 1) * 2);
       hs_line(l1, i);
@@ -269,6 +272,8 @@ int main(void) {
   if (!render_uses_dma()) halt("?DMA ERROR", "CORE 0.95 OR NEWER");
   snd_init();
   game_new();
+  game_over = 1;                        /* v7.5: Start im Attract-Modus mit Titelmusik */
+  music_play(MUS_TITLE);
   VICIV.bordercol = 0;
   code_check("NACH AUFBAU");
 

@@ -704,6 +704,16 @@ int main(void) {
   plunge_test();
   if (getenv("SHOTMAP")) shot_map();
   if (getenv("ORBIT")) orbit_test();
+  if (getenv("ATTRACT")) {                       /* v7.5: Lichtshow und Kamerafahrt */
+    input_t z; memset(&z, 0, sizeof z);
+    phys_init(); game_new(); game_over = 1;
+    for (int f = 1; f <= 1100; f++) {
+      game_input(&z); game_frame(&z); game_update(&z);
+      int16_t cam = camera_update();
+      if (f % 100 == 0) printf("   Attract %4d: Kamera %d\n", f, cam);
+      if (f == 40 || f == 300 || f == 560 || f == 820) { char nm[32]; sprintf(nm, "attract_%d.ppm", f); dump_table(nm); }
+    }
+  }
   if (getenv("MBSHOT")) dump_multi();
   if (getenv("DMDSHOT")) dump_dmd_typing();
   if (getenv("MUSIC")) {

@@ -11,6 +11,7 @@
  */
 #include "hiscore.h"
 #include "hw.h"
+#include "table.h"
 
 hs_entry_t hs[N_HS];
 
@@ -70,5 +71,6 @@ void hs_save(void) {
   dma_copy(ATTIC_SAVESTUB, 0x0E00u, SAVE_STUB_LEN);        /* vom Lader abgelegt (boot.c) */
   ((uint8_t *)0x0E00u)[84] = (uint8_t)HS_BYTES;            /* Ende = $0F00 + HS_BYTES */
   asm volatile("jsr $0E00" ::: "a", "x", "y", "memory");
+  mask_load(win_y0);                                       /* v7.5: Maskenfenster war ueberschrieben */
 #endif
 }

@@ -14,6 +14,7 @@
 #include "hw.h"
 #include "table.h"
 #include "physics.h"
+#include "game.h"
 
 /* ---------- Flipper: vorberechnete Spannen pro Winkelphase ---------- */
 #define NPH   25            /* Phasen im Abstand von 2 Winkeleinheiten */
@@ -181,7 +182,13 @@ static void draw_ball_col(int16_t bx, int16_t by) {
 /* ---------- Bild zusammensetzen ---------- */
 #define NONE 0xFF
 static int16_t buf_cam[2];
+#if defined(__mos__) && !defined(PB_BUILDER)
+/* v7.5: im Spiel auf der Stapelseite (wird jedes Bild neu gesetzt; Stapel braucht nur das obere Ende) */
+#define need_r0 ((uint8_t *)0x0100)
+#define need_r1 ((uint8_t *)0x0128)
+#else
 static uint8_t need_r0[40], need_r1[40];
+#endif
 /* Was steht in welchem Puffer? Damit muessen ruhende Flipper nicht in jedem
  * Bild neu gezeichnet werden. */
 static uint8_t drawn_phase[2][N_FLIP];          /* gezeichnete Flipperphase, NONE = keine */
@@ -353,6 +360,18 @@ int16_t camera_update(void) {
   int16_t target = (int16_t)(fy >> 16) - 100;
   if (target < 0) target = 0;
   if (target > TH - VIEW_H) target = TH - VIEW_H;
+  /* v7.5: Attract-Modus: Tisch langsam hoch und runter, an den Enden kurz Pause */
+  static int16_t at;
+  static int8_t adir = -1;
+  static uint8_t await;
+  if (game_over && !hs_entry) {
+    if (await) await--;
+    else {
+      at += adir;
+      if (at <= 0 || at >= TH - VIEW_H) { adir = (int8_t)-adir; await = 75; }
+    }
+    target = at;
+  } else at = target;
   int16_t diff = target * 16 - cam16;
   if (diff > -4 && diff < 4) cam16 = target * 16;   /* Rest einrasten, sonst bleibt 1 Pixel stehen */
   else cam16 += diff >> 2;

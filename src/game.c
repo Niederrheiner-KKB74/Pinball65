@@ -78,18 +78,12 @@ static int16_t play_x;
 static uint8_t lamp_shown[N_LAMPS];
 
 /* Lampenfarben: aus, an */
-static const uint8_t LAMP_RGB[N_LAMPS][2][3] = {
-  {{34, 84, 108}, {80, 200, 255}}, {{34, 84, 108}, {80, 200, 255}}, {{34, 84, 108}, {80, 200, 255}},
-  {{50, 100, 58}, {120, 240, 140}}, {{50, 100, 58}, {120, 240, 140}},
-  {{50, 100, 58}, {120, 240, 140}}, {{50, 100, 58}, {120, 240, 140}},
-  {{106, 50, 92}, {255, 120, 220}}, {{106, 50, 92}, {255, 120, 220}}, {{106, 50, 92}, {255, 120, 220}},
-  {{100, 60, 20}, {255, 150, 40}}, {{100, 60, 20}, {255, 150, 40}}, {{100, 60, 20}, {255, 150, 40}},   /* PLA */
-  {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
-  {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
-  {{100, 80, 24}, {255, 220, 80}}, {{100, 80, 24}, {255, 220, 80}},
-  {{200, 32, 46}, {255, 244, 210}}, {{200, 32, 46}, {255, 244, 210}}, {{200, 32, 46}, {255, 244, 210}},
-  {{216, 48, 64}, {255, 236, 120}}, {{216, 48, 64}, {255, 236, 120}},
+static const uint8_t LAMP_PAL[7][2][3] = {
+  {{34, 84, 108}, {80, 200, 255}}, {{50, 100, 58}, {120, 240, 140}}, {{106, 50, 92}, {255, 120, 220}},
+  {{100, 60, 20}, {255, 150, 40}}, {{100, 80, 24}, {255, 220, 80}}, {{200, 32, 46}, {255, 244, 210}},
+  {{216, 48, 64}, {255, 236, 120}},
 };
+static const uint8_t LAMP_COL[N_LAMPS] = { 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 6, 6 };
 _Static_assert(N_LAMPS == 25, "Lampentabelle passt nicht zur Palette");
 
 char *fmt_points(char *p, uint32_t v) {
@@ -115,6 +109,22 @@ static void message(const char *a, uint32_t pts) {
 
 static void add(uint16_t pts) { score += pts; }
 
+/* v7.5: Lichtshow im Attract-Modus. Jede Lampe hat eine Zeile (y / 40, 0 = oben);
+ * vier Muster wechseln alle gut 5 Sekunden: Lauflicht hoch, runter, Schachbrett, Fuellen */
+static const uint8_t LROW[N_LAMPS] = { 10, 10, 9, 5, 5, 5, 5, 10, 10, 9, 3, 3, 4, 1, 1, 1, 5, 12, 12, 8, 3, 3, 4, 13, 13 };
+static const uint8_t AROW[N_ARROWS] = { 9, 8, 8, 5, 6, 10, 10, 3 };
+static uint8_t show;
+static uint16_t show_t;
+__attribute__((noinline)) static uint8_t show_on(uint8_t row) {
+  uint8_t ph = (uint8_t)(show_t >> 2);
+  switch ((uint8_t)(show_t >> 8) & 3) {
+    case 0: return ((row + ph) & 7) < 2;
+    case 1: return ((uint8_t)(row - ph) & 7) < 2;
+    case 2: return (row ^ (ph >> 2)) & 1;
+    default: return row >= (uint8_t)(15 - (ph & 15));
+  }
+}
+
 static void lamps_apply(void) {
   for (uint8_t n = 0; n < N_LAMPS; n++) {
     uint8_t on;
@@ -123,9 +133,10 @@ static void lamps_apply(void) {
     else if (n < T + 3) on = (skill_t && n - T == skill_lane) ? (blink_n >> 3) & 1 : (top_lit >> (n - T)) & 1;
     else if (n < T + 7) on = (load_lit >> (n - T - 3)) & 1;
     else on = flash[n - T - 7] != 0;
+    if (show) on = show_on(LROW[n]);
     if (on == lamp_shown[n]) continue;
     lamp_shown[n] = on;
-    const uint8_t *c = LAMP_RGB[n][on];
+    const uint8_t *c = LAMP_PAL[LAMP_COL[n]][on];
     set_color((uint8_t)(C_LAMP0 + n), c[0], c[1], c[2]);
   }
 }
@@ -156,7 +167,7 @@ static void arrows_apply(uint8_t blink) {
       (n + 1 == GSIZE[g] && (need || g == 3)) ? 2 : (need || n) ? 1 : 0;
   }
   for (uint8_t i = 0; i < N_ARROWS; i++) {
-    uint8_t on = st[i] == 2 ? blink : st[i];
+    uint8_t on = show ? show_on(AROW[i]) : st[i] == 2 ? blink : st[i];
     if (on == arrow_shown[i]) continue;
     arrow_shown[i] = on;
     const uint8_t *c = ARROW_RGB[i];
@@ -574,11 +585,14 @@ void game_update(const input_t *in) {
     spin_v -= (spin_v >> 5) + 1;
   }
   spin_apply();
+  show = game_over && !hs_entry;
+  if (show) show_t++;
   lamps_apply();
   /* Ring des Kick-Out-Holes blinkt, solange eine Mission bereit ist */
   {
     static uint8_t blink, shown = 0xFF;
     uint8_t on = !(mission_ready && !mission_active) || ((++blink >> 3) & 1);
+    if (show) on = show_on(6);
     if (on != shown) {
       shown = on;
       if (on) set_color(C_KICK_RING, 255, 210, 60); else set_color(C_KICK_RING, 70, 50, 12);
@@ -587,6 +601,7 @@ void game_update(const input_t *in) {
     /* v7.3: Lampen CIA 1 und 2, Tasten in den Out-Lanes bei Ball-Save */
     static uint8_t cshown = 0xFF;
     uint8_t cs = (uint8_t)(cia_lit | (save_ready && ((blink >> 4) & 1) ? 4 : 0));
+    if (show) cs = (uint8_t)((show_on(10) ? 3 : 0) | (show_on(13) ? 4 : 0));
     if (cs != cshown) {
       cshown = cs;
       for (uint8_t i = 0; i < 2; i++)
