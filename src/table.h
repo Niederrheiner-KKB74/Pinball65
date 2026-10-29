@@ -102,8 +102,17 @@ enum { ARW_RAMP, ARW_KICK, ARW_ORBIT_L, ARW_ORBIT_R, ARW_6510, ARW_VIC, ARW_SID,
        C_GATE = C_ARROW_END,           /* v7.2: Tor der Abschussbahn: offen = unsichtbar, zu = Chrom */
        C_PLUNGER, C_PLUNGER_DK, C_PLUNGER_TIP,
        C_CIA0, C_CIA1,                  /* v7.3: Roll-Over CIA 1 und CIA 2 (Lampen) */
-       C_SAVE                           /* v7.3: Tasten in den Out-Lanes leuchten bei Ball-Save */
+       C_SAVE,                          /* v7.3: Tasten in den Out-Lanes leuchten bei Ball-Save */
+       C_MULT0,                         /* v7.6: Bonus-Leiter 2X, 3X, 4X, 5X (Lampen) */
+       C_MULT_END = C_MULT0 + 4
 };
+_Static_assert(C_MULT_END <= 96, "Spielfarben muessen vor C_ART enden");
+/* Farben der Bonus-Leiter: aus, an (Lader und Spiel) */
+static const uint8_t MULT_RGB[4][2][3] = {
+  {{70, 40, 16}, {255, 200, 60}}, {{80, 36, 20}, {255, 160, 50}}, {{86, 30, 30}, {255, 110, 60}}, {{90, 24, 44}, {255, 70, 110}},
+};
+#define LADDER_X 160                    /* v7.6: Bonus-Leiter zwischen den Slingshots */
+#define LADDER_Y 528                    /* oberer Rand der untersten Stufe (2X), Abstand 22 */
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 
 /* v7.1: Farben der Tischgrafik ab C_ART (Verlauf, Bildschirm, Regenbogen, Platine,

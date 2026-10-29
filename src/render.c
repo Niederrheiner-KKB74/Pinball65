@@ -182,13 +182,7 @@ static void draw_ball_col(int16_t bx, int16_t by) {
 /* ---------- Bild zusammensetzen ---------- */
 #define NONE 0xFF
 static int16_t buf_cam[2];
-#if defined(__mos__) && !defined(PB_BUILDER)
-/* v7.5: im Spiel auf der Stapelseite (wird jedes Bild neu gesetzt; Stapel braucht nur das obere Ende) */
-#define need_r0 ((uint8_t *)0x0100)
-#define need_r1 ((uint8_t *)0x0128)
-#else
 static uint8_t need_r0[40], need_r1[40];
-#endif
 /* Was steht in welchem Puffer? Damit muessen ruhende Flipper nicht in jedem
  * Bild neu gezeichnet werden. */
 static uint8_t drawn_phase[2][N_FLIP];          /* gezeichnete Flipperphase, NONE = keine */
@@ -361,7 +355,7 @@ int16_t camera_update(void) {
   if (target < 0) target = 0;
   if (target > TH - VIEW_H) target = TH - VIEW_H;
   /* v7.5: Attract-Modus: Tisch langsam hoch und runter, an den Enden kurz Pause */
-  static int16_t at;
+  static int16_t at = TH - VIEW_H;      /* Start unten bei der Abschussbahn */
   static int8_t adir = -1;
   static uint8_t await;
   if (game_over && !hs_entry) {

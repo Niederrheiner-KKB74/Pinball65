@@ -70,7 +70,12 @@ void hs_save(void) {
   hs_to((uint8_t *)HS_LOAD);                               /* Dateiinhalt bei $0F00 */
   dma_copy(ATTIC_SAVESTUB, 0x0E00u, SAVE_STUB_LEN);        /* vom Lader abgelegt (boot.c) */
   ((uint8_t *)0x0E00u)[84] = (uint8_t)HS_BYTES;            /* Ende = $0F00 + HS_BYTES */
+  /* v7.5: in $0200-$07FF liegen die Variablen des Spiels: beiseitelegen, KERNAL-Stand zurueck.
+   * Ab hier bis zum Zurueckholen keine Variablen ohne Startwert benutzen. */
+  dma_copy(0x0200u, ATTIC_GLOW, KLOW_LEN);
+  dma_copy(ATTIC_KLOW, 0x0200u, KLOW_LEN);
   asm volatile("jsr $0E00" ::: "a", "x", "y", "memory");
+  dma_copy(ATTIC_GLOW, 0x0200u, KLOW_LEN);
   mask_load(win_y0);                                       /* v7.5: Maskenfenster war ueberschrieben */
 #endif
 }

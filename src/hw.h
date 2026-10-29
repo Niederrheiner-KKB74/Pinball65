@@ -52,6 +52,9 @@
 #define ATTIC_HS    (ATTIC_SIG + 0x3800UL)   /* Highscore-Tabelle */
 #define HS_LOAD     0x0F00u                  /* Ladeadresse der Datei PB65HS */
 #define ATTIC_SAVESTUB (ATTIC_SIG + 0x3900UL) /* Speicher-Programm fuer den Highscore */
+#define ATTIC_KLOW  (ATTIC_SIG + 0x4000UL)   /* v7.5: $0200-$07FF beim Start des Laders (KERNAL) */
+#define ATTIC_GLOW  (ATTIC_SIG + 0x4800UL)   /* v7.5: $0200-$07FF des Spiels waehrend des Speicherns */
+#define KLOW_LEN    0x0600u
 #define SAVE_STUB_LEN 124
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL

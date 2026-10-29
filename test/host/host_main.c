@@ -88,6 +88,8 @@ static void rules_test(void) {
     ball.x = 100L << 16; ball.y = 60L << 16; game_update(&in); } while (0)
   for (int lane = 0; lane < 3; lane++) LANE_PASS(126 + 24 * lane);
   check("C 6 4 komplett: Multiplikator", mult, 2);
+  check("Bonus-Leiter: 2X an", pal[C_MULT0][0], MULT_RGB[0][1][0]);
+  check("Bonus-Leiter: 3X aus", pal[C_MULT0 + 1][0], MULT_RGB[1][0][0]);
   printf("   Meldung: %s / %s\n", msg1, msg2);
   /* Lane-Wechsel: eine Lampe an, rechter Flipper schiebt sie */
   LANE_PASS(126);

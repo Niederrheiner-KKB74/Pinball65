@@ -16,9 +16,9 @@ NM      := llvm-nm
 
 all: build/pinball65.d81
 
-build/pb65game.prg: $(GAME_SRC) $(HDR)
+build/pb65game.prg: $(GAME_SRC) $(HDR) src/game.ld
 	@mkdir -p build
-	$(CC) $(CFLAGS) -o $@ $(GAME_SRC)
+	$(CC) $(CFLAGS) -T src/game.ld -o $@ $(GAME_SRC)
 
 # Der Lader springt nach dem Laden zur Startadresse des Spiels (_start)
 build/pinball65.prg: $(BOOT_SRC) $(HDR) build/pb65game.prg

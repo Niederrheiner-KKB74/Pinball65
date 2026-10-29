@@ -25,7 +25,7 @@ struct dmajob {
 };
 _Static_assert(sizeof(struct dmajob) == 23, "DMA-Job muss 23 Byte haben");
 
-static struct dmajob job;
+static struct dmajob job = { .opt = { 0x0B } };   /* v7.5: mit Startwert in .data, nicht in $0200-$07FF */
 
 static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count, uint8_t trans) {
   job.opt[0] = 0x0B;                    /* F018B-Format */

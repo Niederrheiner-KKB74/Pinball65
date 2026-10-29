@@ -82,6 +82,7 @@ void table_build_palette(void) {
   set_color(C_CIA0, 100, 80, 24);
   set_color(C_CIA1, 100, 80, 24);
   set_color(C_SAVE, 140, 112, 84);
+  for (uint8_t k = 0; k < 4; k++) set_color((uint8_t)(C_MULT0 + k), MULT_RGB[k][0][0], MULT_RGB[k][0][1], MULT_RGB[k][0][2]);
   set_color(C_RAMP_RAIL, 220, 230, 255);    /* Rampe: Chromschienen ... */
   set_color(C_RAMP_RAIL_DK, 120, 130, 190);
   set_color(C_RAMP_FLOOR, 70, 150, 210);    /* ... und durchsichtiger Boden (Raster) */
@@ -617,6 +618,30 @@ static void band_overlays(uint8_t *b) {
       band_disc(b, cx, CIA_Y, 5, (uint8_t)(C_CIA0 + i));
       band_text(b, cx - 1, CIA_Y - 2, i ? "2" : "1", 1, C_BG);
     }
+  /* v7.6: Bonus-Leiter: vier Pfeile zwischen zwei Chromholmen, rechts 2X-5X, unten BONUS */
+  if (band_y0 < LADDER_Y + 34 && band_y1 > LADDER_Y - 72) {
+    for (int16_t x = LADDER_X - 19; x <= LADDER_X + 19; x += 38) {
+      band_box(b, x, LADDER_Y - 72, x, LADDER_Y + 18, C_CHROME_MID, C_CHROME_MID);
+      band_box(b, x + 1, LADDER_Y - 72, x + 1, LADDER_Y + 18, C_CHROME_HI, C_CHROME_HI);
+    }
+    static const char *const ML[4] = { "2X", "3X", "4X", "5X" };
+    for (uint8_t k = 0; k < 4; k++) {
+      int16_t y = LADDER_Y - 22 * k;
+      uint8_t col = (uint8_t)(C_MULT0 + k);
+      for (int16_t dx = -16; dx <= 16; dx++) {
+        int16_t a = (dx < 0 ? -dx : dx) * 12 / 17, t = y - 4 + a;
+        for (int16_t yy = t; yy <= t + 8; yy++) {
+          uint8_t edge = yy == t || yy == t + 8 || dx == -16 || dx == 16;
+          band_put_bg(b, LADDER_X + dx + 1, yy + 1, C_PCB_DK);           /* Schatten */
+          band_put_bg(b, LADDER_X + dx, yy, edge ? C_CHIP_EDGE : col);
+        }
+      }
+      band_box(b, LADDER_X + 22, y + 1, LADDER_X + 37, y + 11, C_PCB_DK, C_PCB_DK);
+      band_text5(b, LADDER_X + 24, y + 3, ML[k], col);
+    }
+    band_box(b, LADDER_X - 16, LADDER_Y + 20, LADDER_X + 16, LADDER_Y + 30, C_PCB_DK, C_PCB_DK);
+    band_text5(b, LADDER_X - 14, LADDER_Y + 22, "BONUS", C_KEY_TEXT);
+  }
   /* Kickback "FIRE" in der linken Outlane */
   if (band_y0 < 632 && band_y1 > 616) { band_rect(b, 18, 618, 14, 10, C_KICKBACK); }
   /* Apron: Einschaltbild */

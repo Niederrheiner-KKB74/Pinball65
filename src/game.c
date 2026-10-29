@@ -608,6 +608,18 @@ void game_update(const input_t *in) {
         if (cs & (1 << i)) set_color((uint8_t)(C_CIA0 + i), 255, 220, 80); else set_color((uint8_t)(C_CIA0 + i), 100, 80, 24);
       if (cs & 4) set_color(C_SAVE, 255, 214, 120); else set_color(C_SAVE, 140, 112, 84);
     }
+    /* v7.6: Bonus-Leiter zeigt den Multiplikator (2X unten bis 5X oben) */
+    static uint8_t mshown = 0xFF;
+    static const uint8_t MROW[4] = { 13, 12, 12, 11 };
+    uint8_t ms = 0;
+    for (uint8_t k = 0; k < 4; k++) if (show ? show_on(MROW[k]) : mult >= k + 2) ms |= (uint8_t)(1 << k);
+    if (ms != mshown) {
+      mshown = ms;
+      for (uint8_t k = 0; k < 4; k++) {
+        const uint8_t *c = MULT_RGB[k][(ms >> k) & 1];
+        set_color((uint8_t)(C_MULT0 + k), c[0], c[1], c[2]);
+      }
+    }
     /* v7.2: Tor der Abschussbahn sichtbar offen oder zu */
     static uint8_t gshown = 2;
     uint8_t go = phys_gate_open();
