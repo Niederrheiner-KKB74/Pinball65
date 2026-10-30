@@ -141,6 +141,8 @@ static void rules_test(void) {
   in.plunger = 1; game_input(&in);
   check("Plunger noch gehalten: gesperrt", in.plunger, 0);
   in.plunger = 0; game_input(&in); in.plunger = 1; game_input(&in);
+  check("v7.9: erster Druck bricht Vorschau ab", in.plunger == 0 && cam_peek == 0 && cam_snap == 1, 1);
+  in.plunger = 0; game_input(&in); in.plunger = 1; game_input(&in);
   check("neu gedrueckt: Abschuss frei", in.plunger, 1);
   char buf[20]; fmt_points(buf, 1234560); printf("   fmt_points: %s\n", buf);
   check("Tausenderpunkte", strcmp(buf, "1.234.560") == 0, 1);
@@ -266,7 +268,12 @@ static void bot_run(long frames) {
   int kick_trace = 0;
   long d_kick = 0, d_left = 0, d_mid = 0, d_right = 0, mis_done = 0, mis_start = 0, n_lane = 0, n_grp = 0;
   game_new(); phys_init();
+  double spd_sum = 0; long spd_n = 0, spd_fast = 0;
   for (long f = 0; f < frames; f++) {
+    if (state == ST_PLAY && !on_ramp) {                  /* v7.9: Tempo der Kugel (px pro Bild) */
+      double vx = ball.vx / 65536.0 * SUBSTEPS, vy = ball.vy / 65536.0 * SUBSTEPS;
+      double v = vx * vx + vy * vy; spd_sum += __builtin_sqrt(v); spd_n++; if (v > 12.0 * 12.0) spd_fast++;
+    }
     memset(&in, 0, sizeof in);
     seed = seed * 1103515245u + 12345u;
     int16_t x = (int16_t)(ball.x >> 16), y = (int16_t)(ball.y >> 16);
@@ -345,6 +352,7 @@ static void bot_run(long frames) {
   printf("Roboter: Missionen gestartet %ld, geschafft %ld\n", mis_start, mis_done);
   printf("Roboter: Ballverluste links %ld, Mitte %ld, rechts %ld (davon bis 3 s nach Kick-Out-Auswurf: %ld)\n", d_left, d_mid, d_right, d_kick);
   printf("Roboter: Rampe %lu geschafft, %lu zurueckgerollt, Kick-Out %lu\n", n_ramp, n_back, n_kick);
+  printf("Roboter: Tempo im Mittel %.2f px/Bild, schneller als 12 px/Bild: %.1f %%\n", spd_n ? spd_sum / spd_n : 0, spd_n ? 100.0 * spd_fast / spd_n : 0);
 }
 
 /* Rampe und Kick-Out-Hole: Ball gezielt hineinschicken */

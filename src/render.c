@@ -370,6 +370,7 @@ int16_t camera_update(void) {
     at = target;
     if (cam_peek && state == ST_PLUNGER) target = 0;   /* v7.8: oben zeigen */
   }
+  if (cam_snap) { cam_snap = 0; cam16 = target * 16; }   /* v7.9: Vorschau abgebrochen */
   int16_t diff = target * 16 - cam16;
   if (diff > -4 && diff < 4) cam16 = target * 16;   /* Rest einrasten, sonst bleibt 1 Pixel stehen */
   else {

@@ -29,7 +29,7 @@ char *mission_status(char *p);
 extern char msg1[], msg2[];
 extern uint8_t msg_timer, msg_type;   /* msg_type 1: Meldung wird getippt, 2: faehrt herein (v7.7) */
 extern uint8_t msg_live;
-extern uint8_t cam_peek;              /* v7.8: Kamera zeigt vor dem Abschuss oben */              /* v7.7: Meldung aendert sich jedes Bild (Bonus zaehlt) */
+extern uint8_t cam_peek, cam_snap;    /* v7.8: Kamera zeigt vor dem Abschuss oben; v7.9: sofort zur Kugel */              /* v7.7: Meldung aendert sich jedes Bild (Bonus zaehlt) */
 extern uint8_t hs_entry, hs_rank_new;  /* v7.4: Namenseingabe (1..3 = Buchstabe), Platz */
 extern char hs_name[4];
 

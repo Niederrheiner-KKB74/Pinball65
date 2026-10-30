@@ -67,7 +67,7 @@ static uint8_t flash[5];                      /* Bumper 0-2, Slingshots 3-4 */
 static uint8_t prev_state, prev_l, prev_r, hold;
 /* v7.8: vor dem Abschuss zeigt die Kamera erst den oberen Tisch (Skill-Shot-Lane),
  * dann faehrt sie zur Abschussbahn; Flipper in der Abschussbahn zeigen ihn erneut */
-uint8_t cam_peek;
+uint8_t cam_peek, cam_snap;
 static int16_t prev_y[2];               /* je Ball (Multiball) */
 static uint8_t roll_in[2];
 /* Multiball "RUN/STOP" (v6.4): bereit, wenn VIC-II, 6510 und SID je einmal komplett
@@ -307,6 +307,9 @@ void game_input(input_t *in) {
     in->plunger = 0;
     return;
   }
+  /* v7.9: Leertaste/Feuer bricht die Vorschau des oberen Tisches ab; der Druck
+   * zaehlt nicht als Abschuss (erst loslassen, dann spannen) */
+  if (state == ST_PLUNGER && cam_peek && in->plunger && !hold && !game_over) { cam_peek = 0; cam_snap = 1; hold = 1; }
   if (game_over && in->plunger && !hold) {
     game_new();
     snd_play(SND_START);

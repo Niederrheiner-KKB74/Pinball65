@@ -11,7 +11,7 @@
  * Einstellbare Werte (pro Substep bei 8 Substeps). Sie lassen sich im
  * laufenden Spiel mit F1/F3/F5/F7 aendern, siehe tune_* unten.
  * Startwerte aus dem Hardwaretest vom 24.10.2026: FLIPPER SPEED 1100,
- * WALL BOUNCE 80.
+ * WALL BOUNCE 80. v7.9: GRAVITY 260, FLIPPER SPEED 900 (Spiel war zu schnell).
  */
 #define SUBSTEPS     8
 enum { T_GRAVITY, T_FLIP_SPEED, T_WALL_BOUNCE, T_FLIP_BOUNCE, T_BUMPER_KICK, T_SLING_KICK, T_COUNT };
@@ -21,10 +21,10 @@ enum { T_GRAVITY, T_FLIP_SPEED, T_WALL_BOUNCE, T_FLIP_BOUNCE, T_BUMPER_KICK, T_S
 #define PHYS_TUNE 1
 #endif
 #ifndef PHYS_TUNE
-#define p_gravity     340L
-#define p_rest_v      (340L * 5)
-#define p_flip_up     1100
-#define p_flip_down   660
+#define p_gravity     260L        /* v7.9: 340 -> 260, Kugel langsamer */
+#define p_rest_v      (260L * 5)
+#define p_flip_up     900         /* v7.9: 1100 -> 900, Flipper beschleunigen weniger */
+#define p_flip_down   540
 #define p_wall_imp    (65536L + 80L * 256)
 #define p_flip_imp    (65536L + 72L * 256)
 #define p_bumper_kick 90000L

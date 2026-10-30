@@ -39,8 +39,8 @@ fix16 snap_x, snap_y;
 uint8_t tune_on, tune_sel;
 int32_t tune[T_COUNT];
 const tune_info_t TUNE_INFO[T_COUNT] = {
-  { "GRAVITY",      340,   100,    800,   10 },
-  { "FLIPPER SPEED", 1100, 200,   1400,   20 },
+  { "GRAVITY",      260,   100,    800,   10 },
+  { "FLIPPER SPEED", 900, 200,   1400,   20 },
   { "WALL BOUNCE",    80,    0,    230,    4 },
   { "FLIPPER BOUNCE", 72,    0,    200,    4 },
   { "BUMPER KICK", 90000, 20000, 160000, 2000 },

@@ -1,39 +1,40 @@
 /*
  * sfx_steps.c – Schritte der Klangeffekte (v6.9, seit v7.6.2 eigene Datei)
  *
- * v7.8: Flipper, Pop-Bumper und Slingshots klingen mechanischer: Rauschen durch
- * den Tiefpass des SID (SF in frames). Die Targets bleiben bei 8-Bit-Toenen.
+ * v7.8: Flipper, Pop-Bumper und Slingshots klingen mechanischer. v7.9: schaerfer,
+ * ohne Tiefpass (helles Rauschen, sehr kurz). Bit SF in frames schaltet den
+ * Tiefpass des SID zu (derzeit ungenutzt). Die Targets bleiben bei 8-Bit-Toenen.
  */
 #include "sound.h"
 
 /* Alle Schritte hintereinander; jeder Effekt endet mit wave = 0 */
 const fxstep_t STEPS[N_STEPS] = {
-  /* 0 Pop-Bumper (v7.8): Knall (gefiltertes Rauschen), dann ein tiefer, fallender Ton wie die Spule */
-  { 0x80, 0x08, 0x00, 0x3800, -0x0700, 2 | SF }, { 0x10, 0x09, 0x00, 0x0B00, -0x00C0, 6 }, { 0 },
-  /* 3 Slingshot (v7.8): Schnalzen des Gummis und Schlag der Spule */
-  { 0x80, 0x05, 0x00, 0x5000, -0x0C00, 1 | SF }, { 0x80, 0x07, 0x00, 0x1400, -0x0100, 3 | SF }, { 0 },
-  /* 6 Target: heller Doppelton */
+  /* 0 Pop-Bumper (v7.9): harter Knall (helles Rauschen), dann kurz der Schlag der Spule */
+  { 0x80, 0x01, 0x00, 0xC000, -0x2000, 1 }, { 0x80, 0x04, 0x00, 0x4800, -0x0800, 2 }, { 0x40, 0x05, 0x00, 0x0E00, -0x0100, 3 }, { 0 },
+  /* 4 Slingshot (v7.9): scharfes Schnalzen, kurzer Schlag */
+  { 0x80, 0x01, 0x00, 0xE000, -0x3000, 1 }, { 0x80, 0x03, 0x00, 0x5000, -0x1000, 2 }, { 0 },
+  /* 7 Target: heller Doppelton */
   { 0x10, 0x09, 0x00, 0x2200, 0, 3 }, { 0x10, 0x09, 0x00, 0x2D00, 0, 4 }, { 0 },
-  /* 9 Lane: drei Toene aufwaerts */
+  /* 10 Lane: drei Toene aufwaerts */
   { 0x20, 0x06, 0x00, 0x1100, 0, 2 }, { 0x20, 0x06, 0x00, 0x1560, 0, 2 }, { 0x20, 0x08, 0x00, 0x1980, 0, 4 }, { 0 },
-  /* 13 Flipper (v7.8): Klacken der Spule am Anschlag, dann dumpfes Nachschwingen */
-  { 0x80, 0x03, 0x00, 0x2800, -0x0800, 1 | SF }, { 0x80, 0x06, 0x00, 0x0A00, -0x0080, 3 | SF }, { 0 },
-  /* 16 Ballverlust: langer fallender Ton */
+  /* 14 Flipper (v7.9): trockenes Klacken der Spule am Anschlag */
+  { 0x80, 0x01, 0x00, 0xA000, -0x2000, 1 }, { 0x80, 0x03, 0x00, 0x3000, -0x0800, 2 }, { 0 },
+  /* 17 Ballverlust: langer fallender Ton */
   { 0x20, 0x0A, 0xA6, 0x1C00, -0x0050, 40 }, { 0x80, 0x0A, 0x00, 0x0400, 0, 6 }, { 0 },
-  /* 19 Gruppe komplett: Dur-Dreiklang aufwaerts */
+  /* 20 Gruppe komplett: Dur-Dreiklang aufwaerts */
   { 0x40, 0x06, 0x00, 0x1100, 0, 3 }, { 0x40, 0x06, 0x00, 0x1560, 0, 3 }, { 0x40, 0x06, 0x00, 0x1980, 0, 3 }, { 0x40, 0x0A, 0x84, 0x2200, 0, 10 }, { 0 },
-  /* 24 Spielstart: Einschalt-Piepen */
+  /* 25 Spielstart: Einschalt-Piepen */
   { 0x10, 0x00, 0xF0, 0x2D00, 0, 8 }, { 0x40, 0x08, 0x84, 0x0E00, 0x0100, 12 }, { 0 },
-  /* 27 Spinner: kurzes Ticken */
+  /* 28 Spinner: kurzes Ticken */
   { 0x40, 0x02, 0x00, 0x3000, 0, 1 }, { 0 },
-  /* 29 Kopf rattert (wird wiederholt) */
+  /* 30 1541: Kopf rattert (wird wiederholt) */
   { 0x80, 0x04, 0x00, 0x0300, 0, 2 }, { 0x40, 0x02, 0x00, 0x0280, 0, 1 }, { 0 },
-  /* 32 Rampe: lange steigend, dann Klingeln */
+  /* 33 Rampe: lange steigend, dann Klingeln */
   { 0x20, 0x0A, 0x84, 0x0800, 0x00E0, 24 }, { 0x10, 0x09, 0x00, 0x3300, 0, 6 }, { 0x10, 0x09, 0x00, 0x4400, 0, 8 }, { 0 },
-  /* 36 Klick (Bonus-Zaehler) */
+  /* 37 Klick (Bonus-Zaehler) */
   { 0x80, 0x00, 0x00, 0x3800, 0, 1 }, { 0 },
-  /* 38 Rampe hinauf: Rauschen, das anschwillt, hoeher wird und ausklingt (v7.7) */
+  /* 39 Rampe hinauf: Rauschen, das anschwillt, hoeher wird und ausklingt (v7.7) */
   { 0x80, 0x6A, 0x08, 0x0500, 0x0060, 22 }, { 0 },
-  /* 40 Abschuss (v7.7.1): dumpfer Schlag der Feder, dann ein kurzer steigender Zischer */
+  /* 41 Abschuss (v7.7.1): dumpfer Schlag der Feder, dann ein kurzer steigender Zischer */
   { 0x80, 0x09, 0x00, 0x0700, -0x0080, 2 }, { 0x40, 0x07, 0x00, 0x0500, -0x0060, 3 }, { 0x80, 0x48, 0x06, 0x1000, 0x0280, 8 }, { 0 },
 };
