@@ -9,8 +9,8 @@
 #include "hw.h"
 #include "music.h"
 
-static const uint8_t FX_START[SND_COUNT] = { 0, 3, 6, 9, 13, 15, 18, 23, 26, 28, 31 };
-static const uint8_t FX_VOICE[SND_COUNT] = { 0, 0, 1, 1, 2, 2, 1, 2, 1, 2, 1 };
+static const uint8_t FX_START[SND_COUNT] = { 0, 3, 6, 9, 13, 15, 18, 23, 26, 28, 31, 35, 37 };
+static const uint8_t FX_VOICE[SND_COUNT] = { 0, 0, 1, 1, 2, 2, 1, 2, 1, 2, 1, 0, 2 };
 
 static uint8_t cur_step[3], cur_frames[3];
 static uint16_t cur_freq[3];
@@ -47,6 +47,14 @@ static void step_start(uint8_t v, uint8_t i) {
 }
 
 void snd_play(uint8_t n) { step_start(FX_VOICE[n], FX_START[n]); }
+
+void snd_soft(uint8_t n) {
+  uint8_t v = FX_VOICE[n];
+  for (uint8_t k = 0; k < 3; k++) {
+    if (!cur_frames[v]) { step_start(v, FX_START[n]); return; }
+    if (++v == 3) v = 0;
+  }
+}
 
 void snd_update(void) {
   for (uint8_t v = 0; v < 3; v++) {

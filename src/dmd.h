@@ -13,13 +13,14 @@
 
 #define DMD_COLS 26              /* Zeichen pro Zeile (6 Punkte breit) */
 
-extern LOWDATA uint8_t FONT5X7[59][7];   /* v7.6.2: im Spiel aus dem Attic-RAM */
+extern const uint8_t FONT5X7[59][7];
 
 /* Legt die leere Punktzeile im Chip-RAM an (einmal nach hw_init) */
 void dmd_init(void);
 /* Setzt beide Zeilen (NULL = leer); Text wird zentriert */
 void dmd_text(const char *l1, const char *l2);
-/* v6.6: wie dmd_text; type = 1 tippt den Text Zeichen fuer Zeichen mit Cursor */
+/* v6.6: wie dmd_text; type = 1 tippt den Text Zeichen fuer Zeichen mit Cursor,
+ * type = 2 (v7.7) faehrt Zeile 1 von rechts herein, Zeile 2 erscheint danach */
 void dmd_show(const char *l1, const char *l2, uint8_t type);
 /* Einmal pro Bild aufrufen: Tippen, Cursor, Farbeffekte */
 void dmd_tick(void);

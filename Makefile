@@ -19,10 +19,12 @@ all: build/pinball65.d81
 build/pb65game.prg: $(GAME_SRC) $(HDR) src/game.ld
 	@mkdir -p build
 	$(CC) $(CFLAGS) -T src/game.ld -o $@ $(GAME_SRC)
+	llvm-objcopy -O binary -j .rodata build/pb65game.prg.elf build/game_rodata.bin
+	$(PYTHON) tools/bin2c.py build/game_rodata.bin build/game_rodata.h GAME_RODATA
 
 # Der Lader springt nach dem Laden zur Startadresse des Spiels (_start)
 build/pinball65.prg: $(BOOT_SRC) $(HDR) build/pb65game.prg
-	$(CC) $(CFLAGS) -DPB_BUILDER \
+	$(CC) $(CFLAGS) -DPB_BUILDER -Ibuild \
 	  -DGAME_ENTRY=0x$$($(NM) build/pb65game.prg.elf | awk '$$3 == "_start" { print $$1 }') \
 	  -o $@ $(BOOT_SRC)
 

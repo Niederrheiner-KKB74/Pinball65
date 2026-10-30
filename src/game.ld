@@ -1,18 +1,23 @@
-/* Pinball65 – Linker-Skript fuer das Spiel PB65GAME (v7.5)
+/* Pinball65 – Linker-Skript fuer das Spiel PB65GAME (v7.7)
  *
- * Wie das llvm-mos-Skript fuer den MEGA65, aber die Variablen ohne Startwert
- * (.bss, .noinit) liegen in $0200-$07FF. Diesen Bereich nutzt sonst nur das
- * KERNAL; das Spiel ruft es nur zum Speichern des Highscores auf und stellt
- * den Bereich dafuer aus dem Attic-RAM wieder her (hiscore.c). Geloescht
- * wird er erst in main() (siehe unten). So bleibt
- * $2001-$CFFF ganz fuer Programm, Konstanten und Startwerte.
+ * Wie das llvm-mos-Skript fuer den MEGA65, mit einem zweiten Bereich
+ * $E000-$FFF9 im RAM unter dem KERNAL:
+ * - $2001-$CFFF: Programm und Startwerte (.text, .data); nur das steht in der
+ *   Datei PB65GAME.
+ * - $E000-$FFF9: Konstanten (.rodata) und Variablen ohne Startwert (.bss,
+ *   .noinit). Die Konstanten zieht das Makefile aus der ELF-Datei, der Lader
+ *   bringt sie mit und legt sie im Attic-RAM ab (ATTIC_RODATA). main() blendet
+ *   das KERNAL aus, holt die Konstanten und loescht die Variablen (himem_init).
+ *   Der Startcode loescht .bss deshalb nicht (Groesse 0): er ruft danach noch
+ *   CHROUT auf, und dafuer muss das KERNAL bei $E000 noch eingeblendet sein.
+ * - $FFFA-$FFFF: Sprungvektoren (NMI und IRQ zeigen im Spiel auf ein RTI).
  */
 __basic_zp_start = 0x0002;
 __basic_zp_end = 0x0090;
 
 MEMORY {
     ram (rw)   : ORIGIN = 0x2001, LENGTH = 0xAFFF
-    lowram (rw) : ORIGIN = 0x0200, LENGTH = 0x0600
+    hiram (rw) : ORIGIN = 0xE000, LENGTH = 0x1FFA
 }
 
 __rc0 = __basic_zp_start;
@@ -30,16 +35,15 @@ SECTIONS {
     .basic_header : { *(.basic_header) }
     INCLUDE zp.ld
     INCLUDE text.ld
-    INCLUDE rodata.ld
     INCLUDE data.ld
-    .bss (NOLOAD) : { INCLUDE bss-sections.ld } >lowram
-    /* v7.6.1: Der Startcode loescht .bss NICHT (Groesse 0): er ruft danach noch
-     * CHROUT auf (Kleinschrift), und das KERNAL braucht dafuer $0200-$07FF.
-     * main() loescht den Bereich selbst als Erstes (lowbss_clear). */
+    .rodata : { INCLUDE rodata-sections.ld } >hiram
+    __rodata_start = ADDR(.rodata);
+    __rodata_size = SIZEOF(.rodata);
+    .bss (NOLOAD) : { INCLUDE bss-sections.ld } >hiram
     __bss_size = 0;
-    __lowbss_start = ADDR(.bss);
-    __lowbss_size = SIZEOF(.bss);
-    .noinit (NOLOAD) : { INCLUDE noinit-sections.ld } >lowram
+    .noinit (NOLOAD) : { INCLUDE noinit-sections.ld } >hiram
+    __hibss_start = ADDR(.bss);
+    __hibss_size = ADDR(.noinit) + SIZEOF(.noinit) - ADDR(.bss);
 }
 
 /* Soft-Stapel von $D000 abwaerts (gemessen etwa 64 Byte) */

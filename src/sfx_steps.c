@@ -1,15 +1,11 @@
 /*
  * sfx_steps.c – Schritte der Klangeffekte (v6.9, seit v7.6.2 eigene Datei)
- *
- * Im Spiel liegt die Tabelle nicht im Programm: der Lader legt sie im
- * Attic-RAM ab (ATTIC_STEPS), das Spiel holt sie beim Start nach $0200-$07FF.
+
  */
 #include "sound.h"
 
 /* Alle Schritte hintereinander; jeder Effekt endet mit wave = 0 */
-LOWDATA fxstep_t STEPS[N_STEPS]
-#ifndef GAME_LOWDATA
-= {
+const fxstep_t STEPS[N_STEPS] = {
   /* 0 Bumper: Knall und kurzer fallender Ton */
   { 0x80, 0x09, 0x00, 0x2800, -0x600, 2 }, { 0x40, 0x08, 0x00, 0x1400, -0x180, 5 }, { 0 },
   /* 3 Slingshot: kurzer Schnalzer */
@@ -33,6 +29,8 @@ LOWDATA fxstep_t STEPS[N_STEPS]
   { 0x80, 0x04, 0x00, 0x0300, 0, 2 }, { 0x40, 0x02, 0x00, 0x0280, 0, 1 }, { 0 },
   /* 31 Rampe: lange steigend, dann Klingeln */
   { 0x20, 0x0A, 0x84, 0x0800, 0x0E0, 24 }, { 0x10, 0x09, 0x00, 0x3300, 0, 6 }, { 0x10, 0x09, 0x00, 0x4400, 0, 8 }, { 0 },
-}
-#endif
-;
+  /* 35 Wand: kurzer Klick (v7.7) */
+  { 0x80, 0x00, 0x00, 0x3800, 0, 1 }, { 0 },
+  /* 37 Rampe hinauf: Rauschen, das anschwillt, hoeher wird und ausklingt (v7.7) */
+  { 0x80, 0x6A, 0x08, 0x0500, 0x0060, 22 }, { 0 },
+};

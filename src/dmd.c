@@ -11,6 +11,7 @@ static uint8_t dirty = 15;           /* Bit n: Zeichenzeile n (0-1 = Zeile 1, 2-
 /* v6.6 Tipp-Effekt: sichtbare Zeichen je Zeile (255 = alle) und Cursor-Block */
 static uint8_t vis[2] = { 255, 255 }, typing, cur_on, cur_ln, cur_ph, tick;
 static uint8_t fx, fx_t, fx_rnd = 1;
+static uint8_t slide;                /* v7.7: Zeile 1 faehrt von rechts herein (Punkte Versatz) */
 
 static uint8_t set_line(uint8_t n, const char *s) {
   char tmp[DMD_COLS + 1];
@@ -30,6 +31,8 @@ void dmd_show(const char *l1, const char *l2, uint8_t type) {
   ch |= set_line(1, l2);
   if (!ch) return;
   vis[0] = vis[1] = type ? 0 : 255;
+  slide = 0;
+  if (type == 2) { slide = 160; vis[0] = 255; type = 0; }   /* v7.7: hereinfahren, Zeile 2 danach */
   typing = type;
   cur_on = type;
   cur_ln = 0;
@@ -82,6 +85,7 @@ static void render_row(uint8_t cr) {
   while (line[ln][len]) len++;
   uint8_t cur = cur_on && cur_ln == ln;       /* Cursor-Block hinter dem Text */
   uint8_t x0 = (uint8_t)((uint8_t)(160 - ((len + cur_on) * 6 - 1)) >> 1);   /* Platz fuer den Cursor, damit nichts springt */
+  if (!ln) x0 += slide;
   uint8_t n = vis[ln] < len ? vis[ln] : len;
   uint8_t show_cur = cur && cur_ph;
   for (uint8_t q = 0; q < 4; q++) {           /* vier Punktreihen pro Zeichenzeile */
@@ -90,6 +94,7 @@ static void render_row(uint8_t cr) {
     uint8_t *row = b + (q << 4);              /* Pixelzeile 2q im ersten Zeichen */
     uint8_t dx = x0;
     for (uint8_t ci = 0; ci <= n; ci++, dx += 6) {
+      if (dx >= 160) break;                   /* v7.7: rechts ausserhalb (Hereinfahren) */
       uint8_t bits;
       if (ci == n) {
         if (!show_cur) break;
@@ -103,6 +108,7 @@ static void render_row(uint8_t cr) {
       for (uint8_t cx = 0; bits; cx++, bits = (uint8_t)(bits << 1) & 0x1F) {
         if (!(bits & 0x10)) continue;
         uint8_t px = dx + cx;                 /* Punkt px belegt Pixel 2px, 2px+1 */
+        if (px >= 160) break;
         uint8_t *d = row + ((uint16_t)(px >> 2) << 6) + ((px & 3) << 1);
         d[0] = C_DMD_ON; d[1] = C_DMD_EDGE; d[8] = C_DMD_EDGE;
       }
@@ -142,6 +148,11 @@ static void dmd_look(uint8_t m) {
 /* Einmal pro Bild: Tippen, Cursor blinken, Farbeffekte */
 void dmd_tick(void) {
   tick++;
+  if (slide && !(dirty & 3)) {               /* v7.7: naechster Schritt, wenn der vorige gezeichnet ist */
+    slide = slide > 16 ? (uint8_t)(slide - 16) : 0;
+    dirty |= 3;
+    if (!slide) { vis[1] = 255; dirty |= 12; }
+  }
   if (typing) {
     uint8_t ln = vis[0] < 255 ? 0 : 1;
     if (!(dirty & (3 << (ln * 2))) && !(tick & 1)) {     /* vorheriger Schritt ist gezeichnet */

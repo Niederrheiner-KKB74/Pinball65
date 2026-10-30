@@ -59,6 +59,10 @@ static void read_input(input_t *in) {
   uint8_t mk = (key_col(4) & 0x10) != 0;                   /* M: Musik an/aus */
   in->mute = mk && !prev_m;
   prev_m = mk;
+  static uint8_t prev_h;
+  uint8_t h = (c3 & 0x20) != 0;                             /* v7.7: H = Anleitung */
+  in->help = h && !prev_h;
+  prev_h = h;
   prev_t = t; prev_b = b; prev_d = d; prev_rs = rs;
 }
 
@@ -89,6 +93,38 @@ __attribute__((noinline)) static void hs_line(char *q, uint8_t i) {
   fmt_points(q + 7, hs[i].score);
 }
 
+/* v7.7: Anleitung im Wartebildschirm (Taste H). Flipper blaettern, sonst alle
+ * 4 Sekunden weiter, nach der letzten Seite zurueck */
+#define HELP_PAGES 12
+static const char HELP[HELP_PAGES][2][27] = {
+  { "FLIPPER LEFT: SHIFT OR A", "FLIPPER RIGHT: SHIFT OR L" },
+  { "PLUNGER: HOLD SPACE", "OR JOYSTICK FIRE" },
+  { "SKILL SHOT: FLIPPERS PICK", "A LANE, HIT IT AT LAUNCH" },
+  { "C 6 4 LANES: ALL THREE", "RAISE BONUS UP TO 5X" },
+  { "C 6 4 ALSO LIGHTS MISSION", "SHOOT 1541 TO START IT" },
+  { "MISSIONS: FORMAT DISK", "SYS 64738  PEEK & POKE" },
+  { "LOAD ERROR: LIGHT L O A D", "BEFORE TIME RUNS OUT" },
+  { "L O A D LANES: 25.000", "PRESS PLAY ON TAPE" },
+  { "RAMP: FAST LOADER", "5.000 UP TO 25.000" },
+  { "VIC-II 6510 SID TARGETS", "THEN RAMP: MULTIBALL" },
+  { "MULTIBALL: SHOOT 1541", "FOR JACKPOT 50.000" },
+  { "CIA 1 + CIA 2: IRQ", "SAVES NEXT OUTLANE BALL" },
+};
+
+static uint8_t help_page, help_t;
+static void help_input(const input_t *in) {
+  static uint8_t pl, pr;
+  if (!game_over || hs_entry) { help_page = 0; return; }
+  if (in->help) { help_page = help_page ? 0 : 1; help_t = 0; }
+  else if (help_page) {
+    if (in->right && !pr) { help_page++; help_t = 0; }
+    else if (in->left && !pl && help_page > 1) { help_page--; help_t = 0; }
+    else if (++help_t >= 200) { help_page++; help_t = 0; }
+    if (help_page > HELP_PAGES) help_page = 0;
+  }
+  pl = in->left; pr = in->right;
+}
+
 static uint8_t blink_t;
 static uint8_t tick_blink(void) { return blink_t; }
 
@@ -102,16 +138,16 @@ static void update_display(uint16_t load, uint16_t lmax) {
   static uint16_t page_t;
   uint8_t type = 0;
   /* v6.6: nach Spielende wechseln vier Seiten alle 3 Sekunden */
-  if (game_over && !msg_timer && !hs_entry) { if (++page_t >= 150) { page_t = 0; if (++page == 5) page = 0; } }
+  if (game_over && !msg_timer && !hs_entry && !help_page) { if (++page_t >= 150) { page_t = 0; if (++page == 6) page = 0; } }
   else { page = 0; page_t = 0; }
 #ifdef PHYS_TUNE
   uint8_t mode = (uint8_t)(tune_on ? 10 + tune_sel : test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
                            msg_timer ? 7 : game_over ? 80 + page : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
 #else
   uint8_t mode = (uint8_t)(test_active ? 1 : (snap_valid && state == ST_PLUNGER) ? 2 :
-                           msg_timer ? 7 : game_over ? 80 + page : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
+                           msg_timer ? 7 : game_over ? (help_page ? 100 + help_page : 80 + page) : 3 + state + (diag_on ? 30 : 0) + (mission_active ? 60 : 0));
 #endif
-  if (mode == last_mode && ++tick < 10 && !hs_entry) return;
+  if (mode == last_mode && ++tick < 10 && !hs_entry && !msg_live) return;
   last_mode = mode;
   tick = 0;
 #ifdef PHYS_TUNE
@@ -143,6 +179,10 @@ static void update_display(uint16_t load, uint16_t lmax) {
     dmd_put(l1, msg1);
     dmd_put(l2, msg2);
     type = msg_type;
+  } else if (game_over && help_page) {      /* v7.7: Seite der Anleitung */
+    dmd_put(l1, HELP[help_page - 1][0]);
+    dmd_put(l2, HELP[help_page - 1][1]);
+    type = 1;
   } else if (game_over) {
     if (page == 0) {
       if (score) { dmd_put(l1, "?OUT OF DATA  ERROR"); fmt_points(l2, score); }
@@ -153,7 +193,8 @@ static void update_display(uint16_t load, uint16_t lmax) {
       hs_line(l1, i);
       if (i + 1 < N_HS) hs_line(l2, (uint8_t)(i + 1)); else { dmd_put(l2, "PRESS FIRE"); type = 1; }
     }
-    else { dmd_put(l1, "LOAD\"*\",8,1"); dmd_put(l2, "READY."); type = 1; }
+    else if (page == 4) { dmd_put(l1, "LOAD\"*\",8,1"); dmd_put(l2, "READY."); type = 1; }
+    else { dmd_put(l1, "PRESS H FOR HELP"); dmd_put(l2, "PRESS FIRE TO PLAY"); type = 1; }   /* v7.7 */
   } else if (state == ST_PLUNGER) {
     if (score) fmt_points(l1, score);
     else dmd_put(l1, "LOAD\"*\",8,1");
@@ -249,21 +290,26 @@ static void halt(const char *l1, const char *l2) {
 }
 
 #if defined(__mos__) && !defined(PB_BUILDER)
-/* v7.6.1: Variablen in $0200-$07FF loeschen (src/game.ld); erst hier, weil der
- * Startcode vorher noch das KERNAL (CHROUT) aufruft */
-extern char __lowbss_start[], __lowbss_size[];
-#define lowbss_clear() do { asm volatile("" ::: "memory"); dma_fill(CPUADDR(__lowbss_start), 0, (uint16_t)__lowbss_size); \
-                            asm volatile("" ::: "memory"); } while (0)   /* Compiler: Speicher hat sich geaendert */
+/* v7.7: Speicher bei $E000-$FFF9 (src/game.ld): KERNAL ausblenden (MAP leer,
+ * $01 = $35), Konstanten vom Lader holen (Attic-RAM), Variablen loeschen,
+ * NMI und IRQ auf ein RTI. Erst in main(), weil der Startcode vorher noch das
+ * KERNAL aufruft (CHROUT). Bis dahin keine Konstanten und Variablen benutzen. */
+extern char __rodata_start[], __rodata_size[], __hibss_start[], __hibss_size[];
+static const uint8_t RTI_OP = 0x40;
+static void himem_init(void) {
+  asm volatile("lda #0\n tax\n tay\n .byte 0x4b\n .byte 0x5c\n nop\n lda #$35\n sta $01" ::: "a", "x", "y", "memory");
+  dma_copy(ATTIC_RODATA, CPUADDR(__rodata_start), (uint16_t)__rodata_size);
+  dma_fill(CPUADDR(__hibss_start), 0, (uint16_t)__hibss_size);
+  *(volatile uint16_t *)0xFFFA = (uint16_t)&RTI_OP;   /* NMI (RESTORE) */
+  *(volatile uint16_t *)0xFFFE = (uint16_t)&RTI_OP;   /* IRQ, BRK */
+  asm volatile("" ::: "memory");
+}
 #else
-#define lowbss_clear() ((void)0)
+#define himem_init() ((void)0)
 #endif
 
 int main(void) {
-  lowbss_clear();
-#ifdef GAME_LOWDATA
-  dma_copy(ATTIC_FONT, CPUADDR(FONT5X7), sizeof FONT5X7);   /* v7.6.2: Tabellen vom Lader */
-  dma_copy(ATTIC_STEPS, CPUADDR(STEPS), sizeof STEPS);
-#endif
+  himem_init();
   hs_init();                            /* v7.4: zuerst, bevor $0F00 ueberschrieben wird */
 #ifdef CODE_CHECK
   code_sum0 = code_sum();
@@ -305,6 +351,7 @@ int main(void) {
     read_input(&in);
     if (in.diag) diag_on ^= 1;
     if (in.mute) music_mute(!music_muted());
+    help_input(&in);
     game_input(&in);
     game_frame(&in);
     int16_t cam = camera_update();

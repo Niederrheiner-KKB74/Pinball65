@@ -106,6 +106,19 @@ static void message(const char *a, uint32_t pts) {
   msg_timer = 100;
   msg_type = 0;
 }
+/* v7.7: grosse Erfolge fahren von rechts ins Display */
+static void message_big(const char *a, uint32_t pts) { message(a, pts); msg_type = 2; }
+
+/* v7.7: Bonus am Ballende zaehlt hoch (msg_live: Display jedes Bild neu) */
+uint8_t msg_live;
+static uint32_t cnt_val, cnt_to;
+static uint16_t cnt_step;
+static void bonus_text(void) {
+  char *p = dmd_put(msg2, "BONUS ");
+  p = dmd_num(p, mult, 0);
+  p = dmd_put(p, "X ");
+  fmt_points(p, cnt_val);
+}
 
 static void add(uint16_t pts) { score += pts; }
 
@@ -209,7 +222,7 @@ static void mission_end(uint8_t ok) {
     dmd_put(msg1, "MISSION COMPLETE");
     fmt_points(msg2, pts);
     msg_timer = 120;
-    msg_type = 0;
+    msg_type = 2;
     dmd_fx(FX_INVERT);
     music_play(MUS_FANFARE);
     snd_play(SND_COMPLETE);
@@ -263,6 +276,7 @@ void game_new(void) {
   mission_ready = mission_active = mission_cur = mission_prog = missions_done = 0;
   grp_mask = mb_ready = 0;
   cia_lit = save_ready = saving = 0;
+  cnt_val = cnt_to = 0;
   prev_state = state;
   music_stop();                          /* v7.0: im Spiel keine Hintergrundmusik, nur Effekte und Jingles */
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
@@ -336,7 +350,7 @@ static void top_lane(uint8_t i) {
   snd_play(SND_LANE);
   if (skill_t && skill_t != 255) {
     skill_t = 0;
-    if (i == skill_lane) { add(25000); message("SKILL SHOT", 25000); snd_play(SND_COMPLETE); }
+    if (i == skill_lane) { add(25000); message_big("SKILL SHOT", 25000); snd_play(SND_COMPLETE); }
   }
   if (top_lit & bit) { add(200); return; }
   top_lit |= bit;
@@ -351,7 +365,7 @@ static void top_lane(uint8_t i) {
     dmd_put(p, "X");
     fmt_points(msg2, 5000);
     msg_timer = 100;
-    msg_type = 0;
+    msg_type = 2;
     snd_play(SND_COMPLETE);
     if (!mission_active && !mission_ready) {
       mission_ready = 1;
@@ -371,7 +385,7 @@ static void low_lane(uint8_t i) {
   if (load_lit == 15) {
     load_lit = 0;
     add(25000);
-    message("PRESS PLAY ON TAPE", 25000);
+    message_big("PRESS PLAY ON TAPE", 25000);
     dmd_fx(FX_INVERT);
     music_play(MUS_FANFARE);
     snd_play(SND_COMPLETE);
@@ -471,6 +485,12 @@ void game_update(const input_t *in) {
     if (ev_target)
       for (uint8_t i = 0; i < N_TARGETS; i++)
         if ((ev_target & ((uint16_t)1 << i)) && !tgt_cool[i]) { tgt_cool[i] = 15; target_hit(i); }
+    if (ev_ramp & EV_RAMP_ENTER) snd_play(SND_WHOOSH);
+    {                                        /* v7.7: Klick an Waenden, hoechstens alle 3 Bilder */
+      static uint8_t click_cool;
+      if (click_cool) click_cool--;
+      else if (ev_wall) { snd_soft(SND_CLICK); click_cool = 3; }
+    }
     if (ev_ramp & EV_RAMP_DONE) {
       if (ramps < 5) ramps++;
       uint16_t pts = (uint16_t)ramps * 5000u;
@@ -486,7 +506,7 @@ void game_update(const input_t *in) {
         dmd_put(msg1, "RUN/STOP");
         dmd_put(msg2, "MULTIBALL");
         msg_timer = 100;
-        msg_type = 0;
+        msg_type = 2;
         dmd_fx(FX_BLINK);
         music_play(MUS_MULTI);
         snd_play(SND_START);
@@ -497,7 +517,7 @@ void game_update(const input_t *in) {
       dmd_put(msg2, "LOADING");
       msg_timer = KICK_HOLD;
       msg_type = 1;
-      if (multi) { score += 50000UL; message("JACKPOT", 50000UL); dmd_fx(FX_INVERT); music_play(MUS_FANFARE); }
+      if (multi) { score += 50000UL; message_big("JACKPOT", 50000UL); dmd_fx(FX_INVERT); music_play(MUS_FANFARE); }
       if (mission_active) mission_event(MS_KICK);
       else if (mission_ready && !multi) mission_start();
     }
@@ -540,11 +560,10 @@ void game_update(const input_t *in) {
     score += b;
     /* v6.6: Fehlermeldung flackert, darunter der Bonus */
     dmd_put(msg1, "?BALL LOST  ERROR");
-    char *p = dmd_put(msg2, "BONUS ");
-    p = dmd_num(p, mult, 0);
-    p = dmd_put(p, "X ");
-    fmt_points(p, b);
-    msg_timer = 50;
+    cnt_val = 0; cnt_to = b;
+    cnt_step = (uint16_t)(1000u * mult * (1 + (bonus >> 5)));   /* hoechstens etwa 32 Schritte */
+    bonus_text();
+    msg_timer = (uint8_t)(bonus < 40 ? 50 + bonus : 90);
     msg_type = 0;
     dmd_fx(FX_FLICKER);
     snd_play(SND_DRAIN);
@@ -565,7 +584,7 @@ void game_update(const input_t *in) {
         hs_prev_pl = 1;
       }
       if (hs_rank_new == 0) {
-        message("NEW HIGH SCORE", score);
+        message_big("NEW HIGH SCORE", score);
         dmd_fx(FX_INVERT);
         music_play(MUS_FANFARE);
       } else music_play(MUS_OVER);           /* ... nach dem Abschiedsstueck */
@@ -576,11 +595,20 @@ void game_update(const input_t *in) {
   for (uint8_t i = 0; i < N_TARGETS; i++) if (tgt_cool[i]) tgt_cool[i]--;
   for (uint8_t i = 0; i < 5; i++) if (flash[i]) flash[i]--;
   if (msg_timer) msg_timer--;
+  msg_live = 0;
+  if (cnt_val < cnt_to) {                    /* v7.7: Bonus zaehlt hoch, je Schritt ein Klick */
+    cnt_val += cnt_step;
+    if (cnt_val > cnt_to) cnt_val = cnt_to;
+    bonus_text();
+    snd_soft(SND_CLICK);
+    msg_live = 1;
+  }
   /* Spinner dreht sich aus */
   if (spin_v) {
     uint16_t a = spin_ang + spin_v;
     uint8_t turns = (uint8_t)((a >> 8) - (spin_ang >> 8));
-    if (turns) { add((uint16_t)turns * 100u); snd_play(SND_SPIN); }
+    if (turns) add((uint16_t)turns * 100u);
+    if ((uint8_t)((a >> 6) - (spin_ang >> 6))) snd_soft(SND_SPIN);   /* v7.7: Klackern bei jedem Streifen */
     spin_ang = a;
     spin_v -= (spin_v >> 5) + 1;
   }

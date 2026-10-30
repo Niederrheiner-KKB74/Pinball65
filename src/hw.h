@@ -52,21 +52,10 @@
 #define ATTIC_HS    (ATTIC_SIG + 0x3800UL)   /* Highscore-Tabelle */
 #define HS_LOAD     0x0F00u                  /* Ladeadresse der Datei PB65HS */
 #define ATTIC_SAVESTUB (ATTIC_SIG + 0x3900UL) /* Speicher-Programm fuer den Highscore */
-#define ATTIC_KLOW  (ATTIC_SIG + 0x4000UL)   /* v7.5: $0200-$07FF beim Start des Laders (KERNAL) */
-#define ATTIC_GLOW  (ATTIC_SIG + 0x4800UL)   /* v7.5: $0200-$07FF des Spiels waehrend des Speicherns */
-#define KLOW_LEN    0x0600u
-#define ATTIC_FONT  (ATTIC_SIG + 0x5000UL)   /* v7.6.2: Schrift 5x7 fuer das Spiel */
-#define ATTIC_STEPS (ATTIC_SIG + 0x5200UL)   /* v7.6.2: Schritte der Klangeffekte */
-
-/* v7.6.2: Tabellen, die das Spiel nicht im Programm mitbringt: im Spiel Variablen
- * in $0200-$07FF (vom Lader ueber das Attic-RAM gefuellt), sonst Konstanten */
-#if defined(__mos__) && !defined(PB_BUILDER)
-#define GAME_LOWDATA 1
-#define LOWDATA
-#else
-#define LOWDATA const
-#endif
-#define SAVE_STUB_LEN 124
+#define ATTIC_RODATA (ATTIC_SIG + 0x4000UL)  /* v7.7: Konstanten des Spiels (bis 8 KB), kommen nach $E000 */
+#define SAVE_STUB_LEN 144
+#define SAVE_STUB_X   94      /* v7.7: X fuer SAVE (Ende der Daten) */
+#define SAVE_STUB_KZ  44      /* v7.7: Z fuer MAP (KERNAL einblenden) */
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */

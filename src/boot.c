@@ -21,6 +21,7 @@
 #include "dmd.h"
 #include "tables.h"
 #include "sound.h"
+#include "game_rodata.h"            /* v7.7: erzeugt aus PB65GAME (Makefile) */
 
 #ifndef GAME_ENTRY
 #error "GAME_ENTRY (Startadresse von PB65GAME) fehlt, siehe Makefile"
@@ -101,39 +102,59 @@ static const char HS_NAME[] = "PB65HS";
 #define LOWRAM_LEN  0x1800u
 
 /* v7.4: Speicher-Programm fuer den Highscore (6502, laeuft bei $0E00, siehe hiscore.c).
- * Der Lader legt es im Attic-RAM ab, damit es im Spiel keinen Platz kostet. */
+ * Der Lader legt es im Attic-RAM ab, damit es im Spiel keinen Platz kostet.
+ * v7.7: Das Spiel blendet das KERNAL bei $E000 aus (MAP leer, $01 = $35); das
+ * Programm blendet es fuer SAVE wieder ein (MAP wie beim Laden, siehe kernal_map)
+ * und danach wieder aus. */
 static const uint8_t SAVE_STUB[] = {
   0xA2, 0x02, 0xB5, 0x00, 0x9D, 0x00, 0x0C, 0xE8, 0xD0, 0xF8, /*   0 Zeropage des Spiels nach $0C00 */
-  0xA5, 0x01, 0x8D, 0x71, 0x0E,                         /*  10 $01 merken */
-  0xAD, 0x30, 0xD0, 0x8D, 0x72, 0x0E,                   /*  15 $D030 merken */
+  0xA5, 0x01, 0x8D, 0x85, 0x0E,                         /*  10 $01 merken ($0E85) */
+  0xAD, 0x30, 0xD0, 0x8D, 0x86, 0x0E,                   /*  15 $D030 merken ($0E86) */
   0xA2, 0x02, 0xBD, 0x00, 0x0D, 0x95, 0x00, 0xE8, 0xD0, 0xF8, /*  21 Zeropage des KERNAL aus $0D00 */
   0xA9, 0x00, 0x8D, 0x03, 0xD7,                         /*  31 DMA im F018A-Format */
-  0xA3, 0x00,                                           /*  36 LDZ #0 */
-  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /*  38 SETBNK 0,0 */
-  0xA9, 0x3F, 0x85, 0x01,                               /*  45 $01 = $3F */
-  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /*  49 $D030 = $64 */
-  0x58,                                                 /*  54 CLI */
-  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /*  55 SETLFS 0,8,1 */
-  0xA9, 0x09, 0xA2, 0x73, 0xA0, 0x0E, 0x20, 0xBD, 0xFF, /*  64 SETNAM "@0:PB65HS" ($0E73) */
-  0xA9, 0x00, 0x85, 0xFB, 0xA9, 0x0F, 0x85, 0xFC,       /*  73 $FB/$FC = $0F00 */
-  0xA9, 0xFB, 0xA2, 0x00, 0xA0, 0x0F, 0x20, 0xD8, 0xFF, /*  81 SAVE bis $0F00 + HS_BYTES (X wird eingesetzt) */
-  0x78,                                                 /*  90 SEI */
-  0xA2, 0x02, 0xBD, 0x00, 0x0C, 0x95, 0x00, 0xE8, 0xD0, 0xF8, /*  91 Zeropage des Spiels zurueck */
-  0xAD, 0x71, 0x0E, 0x85, 0x01,                         /* 101 $01 zurueck */
-  0xAD, 0x72, 0x0E, 0x8D, 0x30, 0xD0,                   /* 106 $D030 zurueck */
-  0x60,                                                 /* 112 RTS */
-  0x00, 0x00,                                           /* 113 gemerkte Werte */
-  '@', '0', ':', 'P', 'B', '6', '5', 'H', 'S',          /* 115 Dateiname */
+  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0xA3, 0x83, 0x5C, 0xEA, /*  36 MAP: KERNAL bei $E000 einblenden (Z bei 44 eingesetzt) */
+  0xA3, 0x00,                                           /*  46 LDZ #0 */
+  0xA9, 0x00, 0xA2, 0x00, 0x20, 0x6B, 0xFF,             /*  48 SETBNK 0,0 */
+  0xA9, 0x3F, 0x85, 0x01,                               /*  55 $01 = $3F */
+  0xA9, 0x64, 0x8D, 0x30, 0xD0,                         /*  59 $D030 = $64 */
+  0x58,                                                 /*  64 CLI */
+  0xA9, 0x00, 0xA2, 0x08, 0xA0, 0x01, 0x20, 0xBA, 0xFF, /*  65 SETLFS 0,8,1 */
+  0xA9, 0x09, 0xA2, 0x87, 0xA0, 0x0E, 0x20, 0xBD, 0xFF, /*  74 SETNAM "@0:PB65HS" ($0E87) */
+  0xA9, 0x00, 0x85, 0xFB, 0xA9, 0x0F, 0x85, 0xFC,       /*  83 $FB/$FC = $0F00 */
+  0xA9, 0xFB, 0xA2, 0x00, 0xA0, 0x0F, 0x20, 0xD8, 0xFF, /*  91 SAVE bis $0F00 + HS_BYTES (X bei 94 eingesetzt) */
+  0x78,                                                 /* 100 SEI */
+  0xA9, 0x00, 0xA2, 0x00, 0xA0, 0x00, 0xA3, 0x00, 0x5C, 0xEA, /* 101 MAP leer: RAM bei $E000 */
+  0xA2, 0x02, 0xBD, 0x00, 0x0C, 0x95, 0x00, 0xE8, 0xD0, 0xF8, /* 111 Zeropage des Spiels zurueck */
+  0xAD, 0x85, 0x0E, 0x85, 0x01,                         /* 121 $01 zurueck */
+  0xAD, 0x86, 0x0E, 0x8D, 0x30, 0xD0,                   /* 126 $D030 zurueck */
+  0x60,                                                 /* 132 RTS */
+  0x00, 0x00,                                           /* 133 gemerkte Werte */
+  '@', '0', ':', 'P', 'B', '6', '5', 'H', 'S',          /* 135 Dateiname */
 };
-_Static_assert(sizeof SAVE_STUB == 124, "Adressen im Speicher-Programm pruefen");
+_Static_assert(sizeof SAVE_STUB == 144, "Adressen im Speicher-Programm pruefen");
 _Static_assert(sizeof SAVE_STUB == SAVE_STUB_LEN, "Laenge in hw.h");
 
+/* v7.7: Wie ist das KERNAL bei $E000 eingeblendet? Vergleich mit dem C65-KERNAL
+ * ($3E000, dann ueber MAP) und dem C64-KERNAL ($2E000, dann ueber $01).
+ * Ergebnis: Z-Wert fuer MAP im Speicher-Programm, 0xFF = unbekannt */
+static uint8_t kernal_map(void) {
+  for (uint8_t k = 0; k < 2; k++) {
+    dma_copy(k ? 0x2FF00UL : 0x3FF00UL, CPUADDR(COLBUF), 256);
+    uint8_t same = 1;
+    for (uint16_t i = 0; i < 256; i++) if (COLBUF[i] != ((const volatile uint8_t *)0xFF00u)[i]) { same = 0; break; }
+    if (same) return k ? 0x00 : 0x83;
+  }
+  return 0xFF;
+}
+
+
 static void start_game(void) {
+  uint8_t kz = kernal_map();
+  if (kz == 0xFF) halt("?KERNAL MAP  ERROR", "READY.");
   dma_copy(CPUADDR(SAVE_STUB), ATTIC_SAVESTUB, SAVE_STUB_LEN);
+  dma_fill(ATTIC_SAVESTUB + SAVE_STUB_KZ, kz, 1);
   dma_copy(CPUADDR(zp_save), ATTIC_KZP, 256);
-  dma_copy(0x0200u, ATTIC_KLOW, KLOW_LEN);
-  dma_copy(CPUADDR(FONT5X7), ATTIC_FONT, sizeof FONT5X7);   /* v7.6.2: Tabellen fuers Spiel */
-  dma_copy(CPUADDR(STEPS), ATTIC_STEPS, sizeof STEPS);              /* v7.5: KERNAL-Bereich, das Spiel legt dort Variablen ab */
+  dma_copy(CPUADDR(GAME_RODATA), ATTIC_RODATA, sizeof GAME_RODATA);   /* v7.7: Konstanten des Spiels */
   dma_copy(LOWRAM_SAVE, LOWRAM_FROM, LOWRAM_LEN);
   uint8_t *s = (uint8_t *)STUB_ADDR;
   for (uint8_t i = 0; i < sizeof STUB; i++) s[i] = STUB[i];
@@ -169,7 +190,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING V7.6.2");
+  dmd_text("SEARCHING FOR *", "BUILDING V7.7");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
