@@ -248,7 +248,18 @@ static void halt(const char *l1, const char *l2) {
   for (;;) {}
 }
 
+#if defined(__mos__) && !defined(PB_BUILDER)
+/* v7.6.1: Variablen in $0200-$07FF loeschen (src/game.ld); erst hier, weil der
+ * Startcode vorher noch das KERNAL (CHROUT) aufruft */
+extern char __lowbss_start[], __lowbss_size[];
+#define lowbss_clear() do { asm volatile("" ::: "memory"); dma_fill(CPUADDR(__lowbss_start), 0, (uint16_t)__lowbss_size); \
+                            asm volatile("" ::: "memory"); } while (0)   /* Compiler: Speicher hat sich geaendert */
+#else
+#define lowbss_clear() ((void)0)
+#endif
+
 int main(void) {
+  lowbss_clear();
   hs_init();                            /* v7.4: zuerst, bevor $0F00 ueberschrieben wird */
 #ifdef CODE_CHECK
   code_sum0 = code_sum();

@@ -3,7 +3,8 @@
  * Wie das llvm-mos-Skript fuer den MEGA65, aber die Variablen ohne Startwert
  * (.bss, .noinit) liegen in $0200-$07FF. Diesen Bereich nutzt sonst nur das
  * KERNAL; das Spiel ruft es nur zum Speichern des Highscores auf und stellt
- * den Bereich dafuer aus dem Attic-RAM wieder her (hiscore.c). So bleibt
+ * den Bereich dafuer aus dem Attic-RAM wieder her (hiscore.c). Geloescht
+ * wird er erst in main() (siehe unten). So bleibt
  * $2001-$CFFF ganz fuer Programm, Konstanten und Startwerte.
  */
 __basic_zp_start = 0x0002;
@@ -32,7 +33,12 @@ SECTIONS {
     INCLUDE rodata.ld
     INCLUDE data.ld
     .bss (NOLOAD) : { INCLUDE bss-sections.ld } >lowram
-    INCLUDE bss-symbols.ld
+    /* v7.6.1: Der Startcode loescht .bss NICHT (Groesse 0): er ruft danach noch
+     * CHROUT auf (Kleinschrift), und das KERNAL braucht dafuer $0200-$07FF.
+     * main() loescht den Bereich selbst als Erstes (lowbss_clear). */
+    __bss_size = 0;
+    __lowbss_start = ADDR(.bss);
+    __lowbss_size = SIZEOF(.bss);
     .noinit (NOLOAD) : { INCLUDE noinit-sections.ld } >lowram
 }
 
