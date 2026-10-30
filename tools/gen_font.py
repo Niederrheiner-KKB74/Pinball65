@@ -64,14 +64,15 @@ def main():
         f.write("/* Automatisch erzeugt von tools/gen_font.py - nicht von Hand aendern */\n")
         f.write('#include "dmd.h"\n\n')
         f.write("/* Zeichen %d..%d, je 7 Zeilen, Bit 4 = linke Spalte; fehlende Zeichen leer */\n" % (lo, hi))
-        f.write("const uint8_t FONT5X7[%d][7] = {\n" % (hi - lo + 1))
+        f.write("/* Im Spiel: Variable in $0200-$07FF, der Lader fuellt sie ueber das Attic-RAM (v7.6.2) */\n")
+        f.write("LOWDATA uint8_t FONT5X7[%d][7]\n#ifndef GAME_LOWDATA\n= {\n" % (hi - lo + 1))
         for code in range(lo, hi + 1):
             ch = chr(code)
             rows = GLYPHS.get(ch, ["     "] * 7)
             assert len(rows) == 7 and all(len(r) == 5 for r in rows), ch
             vals = [sum(1 << (4 - i) for i, c in enumerate(r) if c == '#') for r in rows]
             f.write("  {" + ", ".join(str(v) for v in vals) + "},  /* %r */\n" % ch)
-        f.write("};\n")
+        f.write("}\n#endif\n;\n")
     print("geschrieben:", os.path.normpath(out))
 
 if __name__ == "__main__":

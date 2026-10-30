@@ -9,10 +9,11 @@
 #define DMD_H
 
 #include <stdint.h>
+#include "hw.h"
 
 #define DMD_COLS 26              /* Zeichen pro Zeile (6 Punkte breit) */
 
-extern const uint8_t FONT5X7[59][7];
+extern LOWDATA uint8_t FONT5X7[59][7];   /* v7.6.2: im Spiel aus dem Attic-RAM */
 
 /* Legt die leere Punktzeile im Chip-RAM an (einmal nach hw_init) */
 void dmd_init(void);

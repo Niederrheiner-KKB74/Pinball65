@@ -260,6 +260,10 @@ extern char __lowbss_start[], __lowbss_size[];
 
 int main(void) {
   lowbss_clear();
+#ifdef GAME_LOWDATA
+  dma_copy(ATTIC_FONT, CPUADDR(FONT5X7), sizeof FONT5X7);   /* v7.6.2: Tabellen vom Lader */
+  dma_copy(ATTIC_STEPS, CPUADDR(STEPS), sizeof STEPS);
+#endif
   hs_init();                            /* v7.4: zuerst, bevor $0F00 ueberschrieben wird */
 #ifdef CODE_CHECK
   code_sum0 = code_sum();
@@ -282,6 +286,7 @@ int main(void) {
   render_init();
   if (!render_uses_dma()) halt("?DMA ERROR", "CORE 0.95 OR NEWER");
   snd_init();
+  tick_init();
   game_new();
   game_over = 1;                        /* v7.5: Start im Attract-Modus mit Titelmusik */
   music_play(MUS_TITLE);
@@ -305,6 +310,7 @@ int main(void) {
     int16_t cam = camera_update();
     uint16_t ta = raster_line();
     game_update(&in);
+    for (uint8_t n = ticks_elapsed(); n; n--) snd_update();   /* v7.6.2: Tempo unabhaengig von der Bildrate */
     uint16_t t1 = raster_line();
     uint8_t back = front ^ 1;
     render_frame(back, cam);

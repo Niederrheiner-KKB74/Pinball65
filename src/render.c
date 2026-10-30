@@ -361,8 +361,9 @@ int16_t camera_update(void) {
   if (game_over && !hs_entry) {
     if (await) await--;
     else {
-      at += adir;
-      if (at <= 0 || at >= TH - VIEW_H) { adir = (int8_t)-adir; await = 75; }
+      at += adir;                       /* v7.6.2: Richtung nach dem Rand, nicht umkehren (pendelte sonst am Rand) */
+      if (at <= 0) { at = 0; adir = 1; await = 75; }
+      else if (at >= TH - VIEW_H) { at = TH - VIEW_H; adir = -1; await = 75; }
     }
     target = at;
   } else at = target;

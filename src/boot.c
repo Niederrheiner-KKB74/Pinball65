@@ -20,6 +20,7 @@
 #include "render.h"
 #include "dmd.h"
 #include "tables.h"
+#include "sound.h"
 
 #ifndef GAME_ENTRY
 #error "GAME_ENTRY (Startadresse von PB65GAME) fehlt, siehe Makefile"
@@ -130,7 +131,9 @@ _Static_assert(sizeof SAVE_STUB == SAVE_STUB_LEN, "Laenge in hw.h");
 static void start_game(void) {
   dma_copy(CPUADDR(SAVE_STUB), ATTIC_SAVESTUB, SAVE_STUB_LEN);
   dma_copy(CPUADDR(zp_save), ATTIC_KZP, 256);
-  dma_copy(0x0200u, ATTIC_KLOW, KLOW_LEN);              /* v7.5: KERNAL-Bereich, das Spiel legt dort Variablen ab */
+  dma_copy(0x0200u, ATTIC_KLOW, KLOW_LEN);
+  dma_copy(CPUADDR(FONT5X7), ATTIC_FONT, sizeof FONT5X7);   /* v7.6.2: Tabellen fuers Spiel */
+  dma_copy(CPUADDR(STEPS), ATTIC_STEPS, sizeof STEPS);              /* v7.5: KERNAL-Bereich, das Spiel legt dort Variablen ab */
   dma_copy(LOWRAM_SAVE, LOWRAM_FROM, LOWRAM_LEN);
   uint8_t *s = (uint8_t *)STUB_ADDR;
   for (uint8_t i = 0; i < sizeof STUB; i++) s[i] = STUB[i];
@@ -166,7 +169,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING V7.6.1");
+  dmd_text("SEARCHING FOR *", "BUILDING V7.6.2");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */

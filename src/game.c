@@ -632,5 +632,7 @@ void game_update(const input_t *in) {
       if (ron) set_color(C_RAMP_RAIL, 220, 230, 255); else set_color(C_RAMP_RAIL, 255, 70, 60);
     }
   }
-  snd_update();
+#if !defined(__mos__) || defined(PB_BUILDER)
+  snd_update();                          /* im Spiel ruft main() es nach dem Zeittakt auf (v7.6.2) */
+#endif
 }

@@ -9,9 +9,21 @@
 #define SOUND_H
 
 #include <stdint.h>
+#include "hw.h"
 
 enum { SND_BUMPER, SND_SLING, SND_TARGET, SND_LANE, SND_FLIPPER, SND_DRAIN,
        SND_COMPLETE, SND_START, SND_SPIN, SND_DRIVE, SND_RAMP, SND_COUNT };
+
+/* Ein Schritt eines Klangeffekts */
+typedef struct {
+  uint8_t wave;       /* Steuerregister ohne Gate: $10 Dreieck, $20 Saege, $40 Puls, $80 Rauschen; 0 = Ende */
+  uint8_t ad, sr;
+  uint16_t freq;
+  int16_t step;       /* Aenderung pro Bild */
+  uint8_t frames;
+} fxstep_t;
+#define N_STEPS 35                  /* Anzahl der Schritte in sfx_steps.c */
+extern LOWDATA fxstep_t STEPS[N_STEPS];
 
 void snd_init(void);
 void snd_play(uint8_t fx);

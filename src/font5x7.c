@@ -2,7 +2,10 @@
 #include "dmd.h"
 
 /* Zeichen 32..90, je 7 Zeilen, Bit 4 = linke Spalte; fehlende Zeichen leer */
-const uint8_t FONT5X7[59][7] = {
+/* Im Spiel: Variable in $0200-$07FF, der Lader fuellt sie ueber das Attic-RAM (v7.6.2) */
+LOWDATA uint8_t FONT5X7[59][7]
+#ifndef GAME_LOWDATA
+= {
   {0, 0, 0, 0, 0, 0, 0},  /* ' ' */
   {4, 4, 4, 4, 4, 0, 4},  /* '!' */
   {10, 10, 0, 0, 0, 0, 0},  /* '"' */
@@ -62,4 +65,6 @@ const uint8_t FONT5X7[59][7] = {
   {17, 17, 10, 4, 10, 17, 17},  /* 'X' */
   {17, 17, 10, 4, 4, 4, 4},  /* 'Y' */
   {31, 1, 2, 4, 8, 16, 31},  /* 'Z' */
-};
+}
+#endif
+;

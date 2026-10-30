@@ -9,40 +9,6 @@
 #include "hw.h"
 #include "music.h"
 
-typedef struct {
-  uint8_t wave;       /* Steuerregister ohne Gate: $10 Dreieck, $20 Saege, $40 Puls, $80 Rauschen; 0 = Ende */
-  uint8_t ad, sr;
-  uint16_t freq;
-  int16_t step;       /* Aenderung pro Bild */
-  uint8_t frames;
-} fxstep_t;
-
-/* Alle Schritte hintereinander; jeder Effekt endet mit wave = 0 */
-static const fxstep_t STEPS[] = {
-  /* 0 Bumper: Knall und kurzer fallender Ton */
-  { 0x80, 0x09, 0x00, 0x2800, -0x600, 2 }, { 0x40, 0x08, 0x00, 0x1400, -0x180, 5 }, { 0 },
-  /* 3 Slingshot: kurzer Schnalzer */
-  { 0x80, 0x06, 0x00, 0x4000, 0, 1 }, { 0x40, 0x06, 0x00, 0x0A00, 0x200, 3 }, { 0 },
-  /* 6 Target: heller Doppelton */
-  { 0x10, 0x09, 0x00, 0x2200, 0, 3 }, { 0x10, 0x09, 0x00, 0x2D00, 0, 4 }, { 0 },
-  /* 9 Lane: drei Toene aufwaerts */
-  { 0x20, 0x06, 0x00, 0x1100, 0, 2 }, { 0x20, 0x06, 0x00, 0x1560, 0, 2 }, { 0x20, 0x08, 0x00, 0x1980, 0, 4 }, { 0 },
-  /* 13 Flipper: dumpfer Schlag */
-  { 0x80, 0x03, 0x00, 0x0600, -0x80, 2 }, { 0 },
-  /* 15 Ballverlust: langer fallender Ton */
-  { 0x20, 0x0A, 0xA6, 0x1C00, -0x50, 40 }, { 0x80, 0x0A, 0x00, 0x0400, 0, 6 }, { 0 },
-  /* 18 Gruppe komplett: Dur-Dreiklang aufwaerts */
-  { 0x40, 0x06, 0x00, 0x1100, 0, 3 }, { 0x40, 0x06, 0x00, 0x1560, 0, 3 }, { 0x40, 0x06, 0x00, 0x1980, 0, 3 },
-  { 0x40, 0x0A, 0x84, 0x2200, 0, 10 }, { 0 },
-  /* 23 Spielstart: Einschalt-Piepen */
-  { 0x10, 0x00, 0xF0, 0x2D00, 0, 8 }, { 0x40, 0x08, 0x84, 0x0E00, 0x100, 12 }, { 0 },
-  /* 26 Spinner: kurzes Ticken */
-  { 0x40, 0x02, 0x00, 0x3000, 0, 1 }, { 0 },
-  /* 28 1541: Kopf rattert (wird wiederholt) */
-  { 0x80, 0x04, 0x00, 0x0300, 0, 2 }, { 0x40, 0x02, 0x00, 0x0280, 0, 1 }, { 0 },
-  /* 31 Rampe: lange steigend, dann Klingeln */
-  { 0x20, 0x0A, 0x84, 0x0800, 0x0E0, 24 }, { 0x10, 0x09, 0x00, 0x3300, 0, 6 }, { 0x10, 0x09, 0x00, 0x4400, 0, 8 }, { 0 },
-};
 static const uint8_t FX_START[SND_COUNT] = { 0, 3, 6, 9, 13, 15, 18, 23, 26, 28, 31 };
 static const uint8_t FX_VOICE[SND_COUNT] = { 0, 0, 1, 1, 2, 2, 1, 2, 1, 2, 1 };
 

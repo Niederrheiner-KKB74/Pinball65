@@ -118,6 +118,33 @@ uint16_t raster_line(void) {
 uint16_t raster_diff(uint16_t a, uint16_t b) { return b >= a ? b - a : b + 312 - a; }
 
 /* Wartet auf den Beginn des unteren Rahmens (Zeile 251, PAL) */
+/* v7.6.2: Zeittakt fuer Musik und Klang mit CIA 2, Timer A (frei laufend, 16 Bit).
+ * Dauert ein Bild laenger als 1/50 s, laufen Musik und Effekte trotzdem im
+ * richtigen Tempo: es werden so viele Schritte nachgeholt, wie Zeit vergangen ist. */
+#define FIELD_CYC 19705u                 /* CIA-Takte pro PAL-Halbbild (985 kHz / 50) */
+static uint16_t tick_prev, tick_acc;
+static uint16_t tick_read(void) {
+  uint8_t hi, lo;
+  do { hi = CIA2.ta_hi; lo = CIA2.ta_lo; } while (hi != CIA2.ta_hi);
+  return (uint16_t)((hi << 8) | lo);
+}
+void tick_init(void) {
+  CIA2.icr = 0x7F;                      /* keine NMI */
+  CIA2.ta_lo = 0xFF; CIA2.ta_hi = 0xFF;
+  CIA2.cra = 0x11;                      /* laden, starten, frei laufend */
+  tick_prev = tick_read();
+  tick_acc = 0;
+}
+uint8_t ticks_elapsed(void) {
+  uint16_t now = tick_read();
+  tick_acc += (uint16_t)(tick_prev - now);   /* zaehlt abwaerts */
+  tick_prev = now;
+  uint8_t n = 0;
+  while (tick_acc >= FIELD_CYC && n < 3) { tick_acc -= FIELD_CYC; n++; }
+  if (tick_acc >= FIELD_CYC) tick_acc = 0;   /* nach langer Pause nicht nachholen */
+  return n;
+}
+
 void wait_vblank(void) {
   while (raster_line() >= 251) {}
   while (raster_line() < 251) {}

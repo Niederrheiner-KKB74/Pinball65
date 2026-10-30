@@ -76,6 +76,7 @@ void hs_save(void) {
   dma_copy(ATTIC_KLOW, 0x0200u, KLOW_LEN);
   asm volatile("jsr $0E00" ::: "a", "x", "y", "memory");
   dma_copy(ATTIC_GLOW, 0x0200u, KLOW_LEN);
+  tick_init();                                             /* falls das KERNAL CIA 2 umgestellt hat */
   mask_load(win_y0);                                       /* v7.5: Maskenfenster war ueberschrieben */
 #endif
 }

@@ -55,6 +55,17 @@
 #define ATTIC_KLOW  (ATTIC_SIG + 0x4000UL)   /* v7.5: $0200-$07FF beim Start des Laders (KERNAL) */
 #define ATTIC_GLOW  (ATTIC_SIG + 0x4800UL)   /* v7.5: $0200-$07FF des Spiels waehrend des Speicherns */
 #define KLOW_LEN    0x0600u
+#define ATTIC_FONT  (ATTIC_SIG + 0x5000UL)   /* v7.6.2: Schrift 5x7 fuer das Spiel */
+#define ATTIC_STEPS (ATTIC_SIG + 0x5200UL)   /* v7.6.2: Schritte der Klangeffekte */
+
+/* v7.6.2: Tabellen, die das Spiel nicht im Programm mitbringt: im Spiel Variablen
+ * in $0200-$07FF (vom Lader ueber das Attic-RAM gefuellt), sonst Konstanten */
+#if defined(__mos__) && !defined(PB_BUILDER)
+#define GAME_LOWDATA 1
+#define LOWDATA
+#else
+#define LOWDATA const
+#endif
 #define SAVE_STUB_LEN 124
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
@@ -93,6 +104,8 @@ uint16_t raster_line(void);
 /* Rasterzeilen von a bis b (innerhalb eines Bildes, mit Ueberlauf bei 312) */
 uint16_t raster_diff(uint16_t a, uint16_t b);
 void wait_vblank(void);
+void tick_init(void);               /* v7.6.2: Zeittakt fuer Musik und Klang (CIA 2) */
+uint8_t ticks_elapsed(void);        /* vergangene 1/50 s seit dem letzten Aufruf */
 
 /* Tastaturmatrix (C64-Belegung): Spalte 0..7, liefert gedrueckte Zeilen als Bits */
 uint8_t key_col(uint8_t col);
