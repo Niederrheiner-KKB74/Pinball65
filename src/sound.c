@@ -9,11 +9,12 @@
 #include "hw.h"
 #include "music.h"
 
-static const uint8_t FX_START[SND_COUNT] = { 0, 3, 6, 9, 13, 15, 18, 23, 26, 28, 31, 35, 37, 39 };
+static const uint8_t FX_START[SND_COUNT] = { 0, 3, 6, 9, 13, 16, 19, 24, 27, 29, 32, 36, 38, 40 };
 static const uint8_t FX_VOICE[SND_COUNT] = { 0, 0, 1, 1, 2, 2, 1, 2, 1, 2, 1, 0, 2, 0 };
 
 static uint8_t cur_step[3], cur_frames[3];
 static uint16_t cur_freq[3];
+static uint8_t filt;                 /* v7.8: Stimmen durch den Tiefpass (Bit v) */
 
 static void voice_freq(uint8_t v, uint16_t f) {
   uint8_t r = (uint8_t)(v * 7);
@@ -28,7 +29,11 @@ void snd_init(void) {
     sid_poke((uint8_t)(v * 7 + 3), 0x08);
     cur_frames[v] = 0;
   }
-  sid_poke(0x18, 0x0F);                         /* Lautstaerke voll, kein Filter */
+  /* v7.8: Tiefpass fuer die mechanischen Klaenge (Stimmen werden je Schritt zugeschaltet) */
+  sid_poke(0x15, 0x00);
+  sid_poke(0x16, 0x30);                         /* Grenzfrequenz mittel-tief */
+  sid_poke(0x17, 0x60);                         /* Resonanz 6, noch keine Stimme */
+  sid_poke(0x18, 0x1F);                         /* Tiefpass, Lautstaerke voll */
   music_init();
 }
 
@@ -41,9 +46,11 @@ static void step_start(uint8_t v, uint8_t i) {
   sid_poke((uint8_t)(r + 5), f->ad);
   sid_poke((uint8_t)(r + 6), f->sr);
   voice_freq(v, f->freq);
+  uint8_t m = (uint8_t)(1 << v), nf = (f->frames & SF) ? (uint8_t)(filt | m) : (uint8_t)(filt & ~m);
+  if (nf != filt) { filt = nf; sid_poke(0x17, (uint8_t)(0x60 | filt)); }
   sid_poke((uint8_t)(r + 4), (uint8_t)(f->wave | 1));
   cur_freq[v] = f->freq;
-  cur_frames[v] = f->frames;
+  cur_frames[v] = f->frames & 0x7F;
 }
 
 void snd_play(uint8_t n) { step_start(FX_VOICE[n], FX_START[n]); }

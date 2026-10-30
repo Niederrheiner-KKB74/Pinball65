@@ -232,6 +232,23 @@ static void rules_test(void) {
     hs[0].score = 0; hs_init();             /* Attic-Kopie zurueck */
     check("HS aus Attic", hs[0].score, 600000);
   }
+  /* v7.8: Targets VIC-II, 6510, SID nur von vorn */
+  {
+    static const struct { int tx, ty; double nx, ny; const char *nm; } TT[3] = {
+      { 65, 403, 0.84, 0.54, "VIC-II" }, { 224, 210, -0.84, 0.54, "6510" }, { 235, 403, -0.84, 0.54, "SID" } };
+    for (int g = 0; g < 3; g++)
+      for (int side = 0; side < 2; side++) {
+        double sg = side ? -1 : 1;
+        phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
+        input_t z; memset(&z, 0, sizeof z);
+        uint16_t hit = 0;
+        ball.x = (fix16)((TT[g].tx + sg * TT[g].nx * 9) * 65536); ball.y = (fix16)((TT[g].ty + sg * TT[g].ny * 9) * 65536);
+        ball.vx = (fix16)(-sg * TT[g].nx * 0.6 * 65536); ball.vy = (fix16)(-sg * TT[g].ny * 0.6 * 65536);
+        for (int f = 0; f < 6; f++) { game_frame(&z); hit |= ev_target; }
+        char nm[48]; sprintf(nm, "Target %s %s", TT[g].nm, side ? "von hinten" : "von vorn");
+        check(nm, hit != 0, side ? 0 : 1);
+      }
+  }
   printf("Regeltest: %s\n", fails ? "FEHLER" : "alles ok");
   (void)step;
 }
@@ -706,6 +723,17 @@ int main(void) {
   plunge_test();
   if (getenv("SHOTMAP")) shot_map();
   if (getenv("ORBIT")) orbit_test();
+  if (getenv("PEEK")) {                          /* v7.8: Kamera vor dem Abschuss */
+    input_t z; memset(&z, 0, sizeof z);
+    phys_init(); game_new();
+    for (int f = 1; f <= 260; f++) {
+      memset(&z, 0, sizeof z);
+      if (f >= 200 && f < 230) z.plunger = 1;
+      game_input(&z); game_frame(&z); game_update(&z);
+      int16_t cam = camera_update();
+      if (f % 20 == 0) printf("   Peek %3d: Kamera %3d Zustand %d\n", f, cam, state);
+    }
+  }
   if (getenv("ATTRACT")) {                       /* v7.5: Lichtshow und Kamerafahrt */
     input_t z; memset(&z, 0, sizeof z);
     phys_init(); game_new(); game_over = 1;

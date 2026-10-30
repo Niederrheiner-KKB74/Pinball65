@@ -20,9 +20,10 @@ typedef struct {
   uint8_t ad, sr;
   uint16_t freq;
   int16_t step;       /* Aenderung pro Bild */
-  uint8_t frames;
+  uint8_t frames;     /* Dauer in Bildern; Bit 7 (SF, v7.8): Stimme durch den Tiefpass */
 } fxstep_t;
-#define N_STEPS 43                  /* Anzahl der Schritte in sfx_steps.c */
+#define SF 0x80
+#define N_STEPS 44                  /* Anzahl der Schritte in sfx_steps.c */
 extern const fxstep_t STEPS[N_STEPS];
 
 void snd_init(void);

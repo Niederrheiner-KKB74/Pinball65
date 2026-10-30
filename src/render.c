@@ -366,10 +366,19 @@ int16_t camera_update(void) {
       else if (at >= TH - VIEW_H) { at = TH - VIEW_H; adir = -1; await = 75; }
     }
     target = at;
-  } else at = target;
+  } else {
+    at = target;
+    if (cam_peek && state == ST_PLUNGER) target = 0;   /* v7.8: oben zeigen */
+  }
   int16_t diff = target * 16 - cam16;
   if (diff > -4 && diff < 4) cam16 = target * 16;   /* Rest einrasten, sonst bleibt 1 Pixel stehen */
-  else cam16 += diff >> 2;
+  else {
+    int16_t d = diff >> 2;
+    if (state == ST_PLUNGER) {                         /* v7.8: in der Abschussbahn ruhig fahren */
+      if (d > 8 * 16) d = 8 * 16; else if (d < -8 * 16) d = -8 * 16;
+    }
+    cam16 += d;
+  }
   return cam16 >> 4;
 }
 

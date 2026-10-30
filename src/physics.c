@@ -136,6 +136,18 @@ static uint8_t near_wall(int16_t cx, int16_t cy) {
   return 0;
 }
 
+/* v7.8: Targets VIC-II, 6510 und SID zaehlen nur von vorn. n zeigt von der Wand
+ * zur Kugel; vorn ist die Seite zur Spielflaeche (Richtung je Gruppe aus der
+ * Lage der Target-Reihe, siehe TARGETS in table.c). PLA zaehlt weiter von beiden Seiten. */
+static uint8_t target_front(uint8_t i, fix16 nx, fix16 ny) {
+  int8_t fx, fy;
+  if (i < 3) { fx = 34; fy = 22; }           /* VIC-II: nach rechts unten */
+  else if (i < 7) { fx = -40; fy = 26; }     /* 6510: nach links unten */
+  else if (i < 10) { fx = -34; fy = 22; }    /* SID: nach links unten */
+  else return 1;
+  return (int32_t)(int16_t)(nx >> 8) * fx + (int32_t)(int16_t)(ny >> 8) * fy > 0;
+}
+
 static void collide_mask(void) {
   int16_t cx = (int16_t)(ball.x >> 16), cy = (int16_t)(ball.y >> 16);
   if (!near_wall(cx, cy)) return;
@@ -159,7 +171,7 @@ static void collide_mask(void) {
   fix16 imp = (-vn < REST_V || kind == M_RAIL) ? vn : fmul(vn, p_wall_imp);   /* v6.3: Schiene ohne Abprall */
   ball.vx -= fmul(imp, nx);
   ball.vy -= fmul(imp, ny);
-  if (kind >= M_TARGET) ev_target |= (uint16_t)1 << (kind - M_TARGET);
+  if (kind >= M_TARGET && target_front((uint8_t)(kind - M_TARGET), nx, ny)) ev_target |= (uint16_t)1 << (kind - M_TARGET);
   if (kind == M_SLING_L || kind == M_SLING_R) {
     uint8_t s = kind - M_SLING_L;
     if (!sling_cool[s]) {

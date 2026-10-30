@@ -65,6 +65,9 @@ static uint8_t skill_t, blink_n;
 static uint8_t tgt_cool[N_TARGETS];
 static uint8_t flash[5];                      /* Bumper 0-2, Slingshots 3-4 */
 static uint8_t prev_state, prev_l, prev_r, hold;
+/* v7.8: vor dem Abschuss zeigt die Kamera erst den oberen Tisch (Skill-Shot-Lane),
+ * dann faehrt sie zur Abschussbahn; Flipper in der Abschussbahn zeigen ihn erneut */
+uint8_t cam_peek;
 static int16_t prev_y[2];               /* je Ball (Multiball) */
 static uint8_t roll_in[2];
 /* Multiball "RUN/STOP" (v6.4): bereit, wenn VIC-II, 6510 und SID je einmal komplett
@@ -278,6 +281,7 @@ void game_new(void) {
   cia_lit = save_ready = saving = 0;
   cnt_val = cnt_to = 0;
   prev_state = state;
+  cam_peek = 120;
   music_stop();                          /* v7.0: im Spiel keine Hintergrundmusik, nur Effekte und Jingles */
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
   for (uint8_t n = 0; n < N_ARROWS; n++) arrow_shown[n] = 9;
@@ -456,9 +460,11 @@ void game_update(const input_t *in) {
   /* Lane-Wechsel und Flipperklang beim Druecken */
   if (state == ST_PLUNGER) {
     if (skill_t != 255) { skill_t = 255; skill_lane = (uint8_t)(ball_no >= 3 ? ball_no - 3 : ball_no); }
-    if (in->left && !prev_l) skill_lane = skill_lane ? skill_lane - 1 : 2;
-    if (in->right && !prev_r) skill_lane = skill_lane == 2 ? 0 : skill_lane + 1;
-  } else if (skill_t == 255) { skill_t = 250; snd_play(SND_LAUNCH); }   /* 5 s nach dem Abschuss; v7.7.1: Klang */
+    if (in->left && !prev_l) { skill_lane = skill_lane ? skill_lane - 1 : 2; cam_peek = 100; }
+    if (in->right && !prev_r) { skill_lane = skill_lane == 2 ? 0 : skill_lane + 1; cam_peek = 100; }
+    if (prev_state != ST_PLUNGER && !game_over) cam_peek = 120;   /* neuer Ball */
+    if (cam_peek) cam_peek--;
+  } else if (skill_t == 255) { skill_t = 250; cam_peek = 0; snd_play(SND_LAUNCH); }   /* 5 s nach dem Abschuss; v7.7.1: Klang */
   else if (skill_t) skill_t--;
   blink_n++;
   if (hs_entry && !msg_timer) {                /* v7.4: Buchstabe mit den Flippern waehlen */
