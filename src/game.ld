@@ -34,9 +34,12 @@ REGION_ALIAS("c_writeable", ram)
 SECTIONS {
     .basic_header : { *(.basic_header) }
     INCLUDE zp.ld
+    /* v8.0: Ausstieg zu BASIC; muss unter $A000 liegen (BASIC-ROM wird eingeblendet) */
+    .lowtext : { *(.lowtext) } >ram
     INCLUDE text.ld
     INCLUDE data.ld
-    .rodata : { INCLUDE rodata-sections.ld } >hiram
+    /* v8.0: dazu selten gebrauchter Code (.hitext, Makro HICODE in hw.h) */
+    .rodata : { INCLUDE rodata-sections.ld *(.hitext .hitext.*) } >hiram
     __rodata_start = ADDR(.rodata);
     __rodata_size = SIZEOF(.rodata);
     .bss (NOLOAD) : { INCLUDE bss-sections.ld } >hiram

@@ -33,7 +33,7 @@ static void hs_from(const uint8_t *p) {
   for (uint8_t i = 0; i < N_HS * sizeof(hs_entry_t); i++) q[i] = p[3 + i];
 }
 
-void hs_init(void) {
+HICODE void hs_init(void) {
 #ifdef __mos__
   const uint8_t *f = (const uint8_t *)HS_LOAD;            /* vom Lader geladen? */
   if (hs_valid(f)) hs_from(f);
@@ -48,20 +48,20 @@ void hs_init(void) {
   dma_copy(CPUADDR(COLBUF), ATTIC_HS, HS_BYTES);
 }
 
-uint8_t hs_rank(uint32_t score) {
+HICODE uint8_t hs_rank(uint32_t score) {
   uint8_t r = 0;
   while (r < N_HS && hs[r].score >= score) r++;
   return r;
 }
 
-void hs_insert(uint8_t rank, const char *name, uint32_t score) {
+HICODE void hs_insert(uint8_t rank, const char *name, uint32_t score) {
   for (uint8_t i = N_HS - 1; i > rank; i--) hs[i] = hs[i - 1];
   for (uint8_t k = 0; k < 3; k++) hs[rank].name[k] = name[k];
   hs[rank].score = score;
 }
 
 
-void hs_save(void) {
+HICODE void hs_save(void) {
   hs_to(COLBUF);
   dma_copy(CPUADDR(COLBUF), ATTIC_HS, HS_BYTES);
 #ifdef __mos__

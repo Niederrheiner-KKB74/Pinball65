@@ -86,7 +86,7 @@ static char *put_load(char *p, uint16_t load, uint16_t lmax) {
 }
 
 /* Zeile der Highscore-Liste: "1 ABC  1.234.560" */
-__attribute__((noinline)) static void hs_line(char *q, uint8_t i) {
+HICODE static void hs_line(char *q, uint8_t i) {
   q[0] = (char)('1' + i); q[1] = ' ';
   for (uint8_t k = 0; k < 3; k++) q[2 + k] = hs[i].name[k];
   q[5] = ' '; q[6] = ' ';
@@ -112,7 +112,7 @@ static const char HELP[HELP_PAGES][2][27] = {
 };
 
 static uint8_t help_page, help_t;
-static void help_input(const input_t *in) {
+HICODE static void help_input(const input_t *in) {
   static uint8_t pl, pr;
   if (!game_over || hs_entry) { help_page = 0; return; }
   if (in->help) { help_page = help_page ? 0 : 1; help_t = 0; }
@@ -307,8 +307,79 @@ static void himem_init(void) {
   *(volatile uint16_t *)0xFFFE = (uint16_t)&RTI_OP;   /* IRQ, BRK */
   asm volatile("" ::: "memory");
 }
+
+/* ---------- v8.0: Ausstieg zu BASIC (RUN/STOP im Wartebildschirm) ----------
+ * Nach dem Vorbild von Vyper: Grafikregister, Palette und Farb-RAM so, wie der
+ * Lader sie beim Start von BASIC vorfand (ATTIC_BVIC, ATTIC_BCOL), dazu der
+ * Speicher $0800-$1FFF und die Zeropage; dann mit dem Stapelzeiger von damals
+ * per RTS zurueck in den SYS-Befehl. Die BASIC-Zeile des Laders wird
+ * zurueckgeschrieben und das Programm geleert (der Lader ist ja nicht mehr da). */
+/* mit Startwert: in $2001-$CFFF (nach dem Einblenden des KERNAL noch sichtbar); der
+ * Assembler-Teil liest sie, deshalb global, volatile und "used" */
+__attribute__((used)) volatile uint8_t exit_kmode = 0xFF, exit_sp = 0xFF, exit_d030 = 0xFF;
+__attribute__((used)) volatile uint8_t exit_job_lo = 0xFF, exit_job_hi = 0xFF;
+static uint8_t exit_buf[BVIC_LEN];
+
+/* Letzter Schritt in Assembler, unter $A000 (src/game.ld: .lowtext), ohne Zeropage */
+asm(".pushsection .lowtext,\"ax\",@progbits\n"
+    "exit_final:\n"
+    "  sei\n"
+    "  lda exit_kmode\n"
+    "  beq 1f\n"
+    "  lda #0\n  ldx #0\n  ldy #0\n  .byte 0xa3, 0x83\n  .byte 0x5c\n  nop\n"   /* MAP: KERNAL bei $E000 */
+    "1:\n"
+    "  .byte 0xa3, 0x00\n"                                                   /* LDZ #0 */
+    "  lda #$3f\n  sta $01\n"
+    "  lda #0\n  sta $d702\n"
+    "  lda exit_job_hi\n  sta $d701\n"
+    "  lda exit_job_lo\n  sta $d705\n"                                       /* Zeropage zurueck (DMA) */
+    "  lda #0\n  sta $d703\n"                                                /* DMA wie das KERNAL es erwartet */
+    "  ldx exit_sp\n"                                                          /* vor $D030: danach ROM bei $C000 */
+    "  lda exit_d030\n  sta $d030\n"
+    "  txs\n"
+    "  cli\n"
+    "  rts\n"
+    ".popsection\n");
+
+HICODE static void vic_set(uint8_t r) { ((volatile uint8_t *)0xD000u)[r] = exit_buf[r]; }
+
+HICODE static void exit_to_basic(void) {
+  while (key_col(7) & 0x80) {}                         /* RUN/STOP loslassen, sonst BREAK */
+  music_stop();
+  for (uint8_t r = 0; r < 0x18; r++) { sid_poke(r, 0); sid2_poke(r, 0); }
+  sid_poke(0x18, 0x0F); sid2_poke(0x18, 0x0F);           /* still, Lautstaerke wie nach dem Einschalten */
+  dma_copy(ATTIC_KZP, CPUADDR(exit_buf), 2);
+  exit_sp = exit_buf[0];
+  exit_d030 = exit_buf[1];
+  dma_copy(ATTIC_KMODE, CPUADDR(exit_buf), 1);
+  exit_kmode = exit_buf[0];
+  dma_copy(ATTIC_BVIC, CPUADDR(exit_buf), BVIC_LEN);   /* exit_buf liegt bei $E000, noch sichtbar */
+  /* Speicher wie beim Start des Laders */
+  dma_copy(ATTIC_BCOL, COLRAM, 4096);
+  dma_copy(LOWRAM_SAVE, 0x0800u, 0x1800u);
+  dma_copy(ATTIC_BHDR, 0x2001u, BHDR_LEN);
+  *(volatile uint8_t *)0x2001u = 0;                     /* leeres Programm */
+  *(volatile uint8_t *)0x2002u = 0;
+  /* Grafik: HOTREG aus, Register zurueck, HOTREG zuletzt (wie Vyper) */
+  VICIV.key = 0x47; VICIV.key = 0x53;
+  uint8_t hot = (uint8_t)(*(volatile uint8_t *)0xD05Du & 0x7F);
+  *(volatile uint8_t *)0xD05Du = hot; *(volatile uint8_t *)0xD05Du = hot;
+  static const uint8_t REGS[] = { 0x31, 0x54, 0x58, 0x59, 0x5E, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65,
+                                  0x68, 0x69, 0x6A, 0x7B, 0x6B, 0x57, 0x6C, 0x6D, 0x6E, 0x70 };
+  for (uint8_t i = 0; i < sizeof REGS; i++) vic_set(REGS[i]);
+  for (uint16_t i = 0; i < 0x300; i++) ((volatile uint8_t *)0xD100u)[i] = exit_buf[0x80 + i];
+  vic_set(0x20); vic_set(0x21);
+  vic_set(0x5D);                                        /* HOTREG zuletzt */
+  exit_job_lo = 0;
+  {
+    uint16_t j = dma_prepare_copy(ATTIC_KZP + 2, 0x0002u, 254);
+    exit_job_lo = (uint8_t)j; exit_job_hi = (uint8_t)(j >> 8);
+  }
+  asm volatile("jmp exit_final" ::: "memory");
+}
 #else
 #define himem_init() ((void)0)
+#define exit_to_basic() ((void)0)
 #endif
 
 int main(void) {
@@ -355,6 +426,7 @@ int main(void) {
     if (in.diag) diag_on ^= 1;
     if (in.mute) music_mute(!music_muted());
     help_input(&in);
+    if (in.mb && game_over && !hs_entry) exit_to_basic();   /* v8.0: RUN/STOP im Wartebildschirm */
     game_input(&in);
     game_frame(&in);
     int16_t cam = camera_update();

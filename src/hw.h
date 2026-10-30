@@ -53,12 +53,25 @@
 #define HS_LOAD     0x0F00u                  /* Ladeadresse der Datei PB65HS */
 #define ATTIC_SAVESTUB (ATTIC_SIG + 0x3900UL) /* Speicher-Programm fuer den Highscore */
 #define ATTIC_RODATA (ATTIC_SIG + 0x4000UL)  /* v7.7: Konstanten des Spiels (bis 8 KB), kommen nach $E000 */
+/* v8.0: Code im Bereich $E000 (mit den Konstanten geladen); nur fuer Funktionen,
+ * die erst nach himem_init laufen */
+#if defined(__mos__) && !defined(PB_BUILDER)
+#define HICODE __attribute__((noinline, section(".hitext")))
+#else
+#define HICODE
+#endif
 #define SAVE_STUB_LEN 144
 #define SAVE_STUB_X   94      /* v7.7: X fuer SAVE (Ende der Daten) */
 #define SAVE_STUB_KZ  43      /* v7.7.1: Z fuer MAP (KERNAL einblenden); v7.7 setzte faelschlich 44 = MAP-Befehl */
 #define SAVE_STUB_MAP1 44     /* v7.7.1: MAP-Befehle im Speicher-Programm (ohne MAP: NOP) */
 #define SAVE_STUB_MAP2 109
 #define ATTIC_KMODE (ATTIC_SIG + 0x3A00UL)  /* v7.7.1: KERNAL ueber MAP (0x83) oder ueber $01 (0) */
+/* v8.0: Zustand von BASIC beim Start des Laders, fuer den Ausstieg (RUN/STOP) */
+#define ATTIC_BHDR  (ATTIC_SIG + 0x3A80UL)  /* $2001-$2016: BASIC-Zeile des Laders */
+#define BHDR_LEN    22
+#define ATTIC_BVIC  (ATTIC_SIG + 0x3B00UL)  /* $D000-$D07F, dann Palette $D100-$D3FF */
+#define BVIC_LEN    0x380
+#define ATTIC_BCOL  (ATTIC_SIG + 0x6000UL)  /* Farb-RAM, 4 KB */
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */
@@ -83,6 +96,7 @@ void hw_video_init(void);
 uint8_t attic_ok(void);
 void dma_copy(uint32_t src, uint32_t dst, uint16_t count);
 void dma_fill(uint32_t dst, uint8_t value, uint16_t count);
+uint16_t dma_prepare_copy(uint32_t src, uint32_t dst, uint16_t count);   /* v8.0 */
 /* Kopie, bei der Quellbytes mit Wert 0 das Ziel nicht ueberschreiben */
 void dma_copy_trans(uint32_t src, uint32_t dst, uint16_t count);
 uint8_t dma_trans_ok(void);

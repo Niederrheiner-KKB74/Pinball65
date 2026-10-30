@@ -27,7 +27,7 @@ _Static_assert(sizeof(struct dmajob) == 23, "DMA-Job muss 23 Byte haben");
 
 static struct dmajob job = { .opt = { 0x0B } };   /* v7.5: mit Startwert in .data, nicht in $0200-$07FF */
 
-static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count, uint8_t trans) {
+static void job_fill(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count, uint8_t trans) {
   job.opt[0] = 0x0B;                    /* F018B-Format */
   job.opt[1] = 0x80; job.opt[2] = (uint8_t)(src >> 20);   /* Quell-MB */
   job.opt[3] = 0x81; job.opt[4] = (uint8_t)(dst >> 20);   /* Ziel-MB */
@@ -43,6 +43,10 @@ static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count, uin
   job.dst_bank = (uint8_t)(dst >> 16) & 0x0F;
   job.cmd_msb = 0;
   job.modulo = 0;
+}
+
+static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count, uint8_t trans) {
+  job_fill(cmd, src, dst, count, trans);
   asm volatile("" ::: "memory");
   DMA.enable_f018b = 1;
   DMA.addr_bank = 0;
@@ -52,6 +56,14 @@ static void dma_run(uint8_t cmd, uint32_t src, uint32_t dst, uint16_t count, uin
 }
 
 void dma_copy(uint32_t src, uint32_t dst, uint16_t count) { dma_run(0x00, src, dst, count, 0); }
+
+/* v8.0: Job fuer eine Kopie vorbereiten, ohne ihn zu starten (Ausstieg zu BASIC:
+ * die Zeropage wird zuletzt aus Assembler kopiert); liefert die Adresse des Jobs */
+uint16_t dma_prepare_copy(uint32_t src, uint32_t dst, uint16_t count) {
+  job_fill(0x00, src, dst, count, 0);
+  asm volatile("" ::: "memory");
+  return (uint16_t)&job;
+}
 void dma_copy_trans(uint32_t src, uint32_t dst, uint16_t count) { dma_run(0x00, src, dst, count, 1); }
 void dma_fill(uint32_t dst, uint8_t value, uint16_t count) { dma_run(0x03, value, dst, count, 0); }
 

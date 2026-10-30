@@ -54,8 +54,16 @@ static const char GAME_NAME[] = "PB65GAME";
  * Das MEGA65-KERNAL nutzt die ganze Zeropage; v3.1 und v3.2 hingen beim
  * Nachladen im KERNAL bei $E65A, weil llvm-mos $02-$8F ueberschrieben hatte.
  * Das Lade-Programm stellt sie vor dem LOAD wieder her. */
-__attribute__((section(".noinit"), used)) uint8_t zp_save[256];
+/* v8.0: im Codebereich, damit es unter $A000 liegt (der Lader ist inzwischen so gross,
+ * dass .noinit bei $C000 laege; dort ist beim Start noch ROM eingeblendet) */
+__attribute__((section(".text.zp_save"), used)) uint8_t zp_save[256];
+/* v8.0: zp_save[0] = Stapelzeiger beim Aufruf aus BASIC, zp_save[1] = $D030
+ * (vor dem Startcode); damit kehrt das Spiel bei RUN/STOP zu BASIC zurueck */
 asm(".pushsection .init.005,\"ax\",@progbits\n"
+    "  tsx\n"
+    "  stx zp_save\n"
+    "  lda $d030\n"
+    "  sta zp_save+1\n"
     "  ldx #2\n"
     "1:\n"
     "  lda $00,x\n"
@@ -190,6 +198,13 @@ static void start_game(void) {
 
 int main(void) {
   dma_copy(LOWRAM_FROM, LOWRAM_SAVE, LOWRAM_LEN);   /* vor jeder Benutzung der Puffer */
+  /* v8.0: Zustand von BASIC fuer den Ausstieg sichern: Register $D000-$D07F,
+   * Palette, Farb-RAM, BASIC-Zeile des Laders */
+  for (uint8_t i = 0; i < 0x80; i++) COLBUF[i] = ((const volatile uint8_t *)0xD000u)[i];
+  for (uint16_t i = 0; i < 0x300; i++) COLBUF[0x80 + i] = ((const volatile uint8_t *)0xD100u)[i];
+  dma_copy(CPUADDR(COLBUF), ATTIC_BVIC, BVIC_LEN);
+  dma_copy(COLRAM, ATTIC_BCOL, 4096);
+  dma_copy(0x2001u, ATTIC_BHDR, BHDR_LEN);
   tables_init();
   asm volatile("sei");
   hw_video_init();
@@ -201,7 +216,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "IN LOADER");
-  dmd_text("SEARCHING FOR *", "BUILDING V7.9.1");
+  dmd_text("SEARCHING FOR *", "BUILDING V8.0");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */
