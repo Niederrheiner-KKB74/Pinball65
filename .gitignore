@@ -5,3 +5,4 @@ test/host/*.ppm
 test/host/*.png
 test/sim/simtest
 test/sim/simtest.elf
+test/host/*.sid
