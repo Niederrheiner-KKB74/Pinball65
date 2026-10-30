@@ -369,6 +369,7 @@ int16_t camera_update(void) {
   } else {
     at = target;
     if (cam_peek && state == ST_PLUNGER) target = 0;   /* v7.8: oben zeigen */
+    if (hs_entry) target = TH - VIEW_H;                /* v8.1: Namenseingabe: unten bei den Flippern */
   }
   if (cam_snap) { cam_snap = 0; cam16 = target * 16; }   /* v7.9: Vorschau abgebrochen */
   int16_t diff = target * 16 - cam16;

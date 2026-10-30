@@ -466,6 +466,7 @@ void game_update(const input_t *in) {
     if (in->left && !prev_l) { skill_lane = skill_lane ? skill_lane - 1 : 2; cam_peek = 100; }
     if (in->right && !prev_r) { skill_lane = skill_lane == 2 ? 0 : skill_lane + 1; cam_peek = 100; }
     if (prev_state != ST_PLUNGER && !game_over) cam_peek = 120;   /* neuer Ball */
+    if (game_over || hs_entry) cam_peek = 0;                     /* v8.1: nicht nach dem Spiel */
     if (cam_peek) cam_peek--;
   } else if (skill_t == 255) { skill_t = 250; cam_peek = 0; snd_play(SND_LAUNCH); }   /* 5 s nach dem Abschuss; v7.7.1: Klang */
   else if (skill_t) skill_t--;
