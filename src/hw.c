@@ -97,13 +97,20 @@ void show_buffer(uint8_t b) {
 }
 
 /* Attic-RAM pruefen: Muster hinschreiben, zuruecklesen, vergleichen */
+/* v7.9.1: bis zu dreimal versuchen (zwischendurch ein Bild warten), falls das
+ * Attic-RAM direkt nach dem Start noch nicht bereit ist */
 uint8_t attic_ok(void) {
   uint8_t *a = COLBUF, *b = COLBUF + 256;
-  for (uint16_t i = 0; i < 256; i++) { a[i] = (uint8_t)(i * 7 + 3); b[i] = 0; }
-  dma_copy(CPUADDR(a), ATTIC_BG + 0x7F000UL, 256);
-  dma_copy(ATTIC_BG + 0x7F000UL, CPUADDR(b), 256);
-  for (uint16_t i = 0; i < 256; i++) if (a[i] != b[i]) return 0;
-  return 1;
+  for (uint8_t t = 0; t < 3; t++) {
+    for (uint16_t i = 0; i < 256; i++) { a[i] = (uint8_t)(i * 7 + 3 + t); b[i] = 0; }
+    dma_copy(CPUADDR(a), ATTIC_BG + 0x7F000UL, 256);
+    dma_copy(ATTIC_BG + 0x7F000UL, CPUADDR(b), 256);
+    uint16_t i = 0;
+    while (i < 256 && a[i] == b[i]) i++;
+    if (i == 256) return 1;
+    wait_vblank();
+  }
+  return 0;
 }
 
 uint16_t raster_line(void) {

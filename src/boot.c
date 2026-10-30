@@ -200,8 +200,8 @@ int main(void) {
   dma_fill(DISP_ADDR, C_DMD_BG, DISP_ROWS * ROW_BYTES);
   show_buffer(0);
 
-  if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING V7.9");
+  if (!attic_ok()) halt("?ATTIC RAM  ERROR", "IN LOADER");
+  dmd_text("SEARCHING FOR *", "BUILDING V7.9.1");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */

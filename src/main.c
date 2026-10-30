@@ -326,7 +326,7 @@ int main(void) {
   dma_fill(DISP_ADDR, C_DMD_BG, DISP_ROWS * ROW_BYTES);
   show_buffer(0);
 
-  if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");   /* Hintergrund braucht das Attic-RAM */
+  if (!attic_ok()) halt("?ATTIC RAM  ERROR", "IN GAME");   /* Hintergrund braucht das Attic-RAM */
   /* Tischdaten baut der Lader PINBALL65; wurde das Spiel direkt gestartet: */
   if (!data_ok()) halt("?FILE NOT FOUND  ERROR", "RUN\"PINBALL65\"");
   code_check("NACH ATTIC-TEST");
