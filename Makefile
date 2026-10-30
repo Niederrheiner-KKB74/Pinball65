@@ -20,11 +20,12 @@ build/pb65game.prg: $(GAME_SRC) $(HDR) src/game.ld
 	@mkdir -p build
 	$(CC) $(CFLAGS) -T src/game.ld -o $@ $(GAME_SRC)
 	llvm-objcopy -O binary -j .rodata build/pb65game.prg.elf build/game_rodata.bin
-	$(PYTHON) tools/bin2c.py build/game_rodata.bin build/game_rodata.h GAME_RODATA
+	$(PYTHON) -c "import sys; d=open('build/game_rodata.bin','rb').read(); open('build/pb65hi.prg','wb').write(bytes([0x01,0x20])+d)"
 
 # Der Lader springt nach dem Laden zur Startadresse des Spiels (_start)
 build/pinball65.prg: $(BOOT_SRC) $(HDR) build/pb65game.prg
-	$(CC) $(CFLAGS) -DPB_BUILDER -Ibuild \
+	$(CC) $(CFLAGS) -DPB_BUILDER \
+	  -DGAME_HI_SIZE=$$(stat -c %s build/game_rodata.bin) \
 	  -DGAME_ENTRY=0x$$($(NM) build/pb65game.prg.elf | awk '$$3 == "_start" { print $$1 }') \
 	  -o $@ $(BOOT_SRC)
 
@@ -37,7 +38,7 @@ build/pb65hs.prg: tools/gen_hs.py
 	$(PYTHON) tools/gen_hs.py $@
 
 build/pinball65.d81: build/pinball65.prg build/pb65game.prg build/loadtest.prg build/pb65hs.prg tools/mkd81.py
-	$(PYTHON) tools/mkd81.py $@ PINBALL65 build/pinball65.prg build/pb65game.prg build/pb65hs.prg build/loadtest.prg
+	$(PYTHON) tools/mkd81.py $@ PINBALL65 build/pinball65.prg build/pb65game.prg build/pb65hi.prg build/pb65hs.prg build/loadtest.prg
 
 clean:
 	rm -rf build
