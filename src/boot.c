@@ -134,17 +134,23 @@ static const uint8_t SAVE_STUB[] = {
 _Static_assert(sizeof SAVE_STUB == 144, "Adressen im Speicher-Programm pruefen");
 _Static_assert(sizeof SAVE_STUB == SAVE_STUB_LEN, "Laenge in hw.h");
 
-/* v7.7: Wie ist das KERNAL bei $E000 eingeblendet? Vergleich mit dem C65-KERNAL
- * ($3E000, dann ueber MAP) und dem C64-KERNAL ($2E000, dann ueber $01).
- * Ergebnis: Z-Wert fuer MAP im Speicher-Programm, 0xFF = unbekannt */
+/* v7.7.1: Wie ist das KERNAL bei $E000 eingeblendet? Erst pruefen, dass dort
+ * das C65- oder C64-KERNAL ($3E000, $2E000) zu sehen ist; dann, ob es mit
+ * $01 = $35 verschwindet (dann blendet $01 es ein, MAP bleibt unangetastet)
+ * oder nicht (dann MAP, Z = $83: $E000 -> $3E000). 0xFF = unbekannt */
+static uint8_t page_is(uint32_t phys) {
+  dma_copy(phys, CPUADDR(COLBUF), 256);
+  for (uint16_t i = 0; i < 256; i++) if (COLBUF[i] != ((const volatile uint8_t *)0xFF00u)[i]) return 0;
+  return 1;
+}
 static uint8_t kernal_map(void) {
-  for (uint8_t k = 0; k < 2; k++) {
-    dma_copy(k ? 0x2FF00UL : 0x3FF00UL, CPUADDR(COLBUF), 256);
-    uint8_t same = 1;
-    for (uint16_t i = 0; i < 256; i++) if (COLBUF[i] != ((const volatile uint8_t *)0xFF00u)[i]) { same = 0; break; }
-    if (same) return k ? 0x00 : 0x83;
-  }
-  return 0xFF;
+  if (!page_is(0x3FF00UL) && !page_is(0x2FF00UL)) return 0xFF;
+  volatile uint8_t *port = (volatile uint8_t *)1;
+  uint8_t p = *port;
+  *port = 0x35;
+  uint8_t still = page_is(0x3FF00UL) || page_is(0x2FF00UL);
+  *port = p;
+  return still ? 0x83 : 0x00;
 }
 
 
@@ -153,6 +159,11 @@ static void start_game(void) {
   if (kz == 0xFF) halt("?KERNAL MAP  ERROR", "READY.");
   dma_copy(CPUADDR(SAVE_STUB), ATTIC_SAVESTUB, SAVE_STUB_LEN);
   dma_fill(ATTIC_SAVESTUB + SAVE_STUB_KZ, kz, 1);
+  if (!kz) {                                   /* KERNAL ueber $01: MAP nicht anfassen */
+    dma_fill(ATTIC_SAVESTUB + SAVE_STUB_MAP1, 0xEA, 1);
+    dma_fill(ATTIC_SAVESTUB + SAVE_STUB_MAP2, 0xEA, 1);
+  }
+  dma_fill(ATTIC_KMODE, kz, 1);
   dma_copy(CPUADDR(zp_save), ATTIC_KZP, 256);
   dma_copy(CPUADDR(GAME_RODATA), ATTIC_RODATA, sizeof GAME_RODATA);   /* v7.7: Konstanten des Spiels */
   dma_copy(LOWRAM_SAVE, LOWRAM_FROM, LOWRAM_LEN);
@@ -190,7 +201,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "READY.");
-  dmd_text("SEARCHING FOR *", "BUILDING V7.7");
+  dmd_text("SEARCHING FOR *", "BUILDING V7.7.1");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */

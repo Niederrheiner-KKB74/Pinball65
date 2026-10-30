@@ -55,7 +55,10 @@
 #define ATTIC_RODATA (ATTIC_SIG + 0x4000UL)  /* v7.7: Konstanten des Spiels (bis 8 KB), kommen nach $E000 */
 #define SAVE_STUB_LEN 144
 #define SAVE_STUB_X   94      /* v7.7: X fuer SAVE (Ende der Daten) */
-#define SAVE_STUB_KZ  44      /* v7.7: Z fuer MAP (KERNAL einblenden) */
+#define SAVE_STUB_KZ  43      /* v7.7.1: Z fuer MAP (KERNAL einblenden); v7.7 setzte faelschlich 44 = MAP-Befehl */
+#define SAVE_STUB_MAP1 44     /* v7.7.1: MAP-Befehle im Speicher-Programm (ohne MAP: NOP) */
+#define SAVE_STUB_MAP2 109
+#define ATTIC_KMODE (ATTIC_SIG + 0x3A00UL)  /* v7.7.1: KERNAL ueber MAP (0x83) oder ueber $01 (0) */
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */

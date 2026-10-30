@@ -19,7 +19,7 @@ bctx_t pb;                         /* v6.9: Zustand des aktuellen Balls (ball, o
 flipper_t flip[N_FLIP];
 uint8_t ev_bumper, ev_sling;
 uint16_t ev_target;
-uint8_t ev_ramp, ev_kick, ev_wall;
+uint8_t ev_ramp, ev_kick;
 #define ramp_seg  (pb.rseg)
 #define kick_cool (pb.kc)
 #define in_lane   (pb.inl)
@@ -156,7 +156,6 @@ static void collide_mask(void) {
   for (uint8_t k = 0; k < 16 && ball_hits_mask(); k++) { ball.x += nx >> 1; ball.y += ny >> 1; }
   fix16 vn = fmul(ball.vx, nx) + fmul(ball.vy, ny);
   if (vn >= 0) return;
-  if (-vn > WALL_CLICK_V && kind < M_TARGET && kind != M_SLING_L && kind != M_SLING_R) ev_wall = 1;   /* v7.7: Klick */
   fix16 imp = (-vn < REST_V || kind == M_RAIL) ? vn : fmul(vn, p_wall_imp);   /* v6.3: Schiene ohne Abprall */
   ball.vx -= fmul(imp, nx);
   ball.vy -= fmul(imp, ny);
@@ -464,7 +463,7 @@ void game_frame(const input_t *in) {
   flip[2].pressed = in->right;
   ev_bumper = ev_sling = 0;
   ev_target = 0;
-  ev_ramp = ev_kick = ev_saved = ev_wall = 0;
+  ev_ramp = ev_kick = ev_saved = 0;
   kick_tick();
   if (multi) { phys_swap(); kick_tick(); phys_swap(); }
 

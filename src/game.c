@@ -458,7 +458,7 @@ void game_update(const input_t *in) {
     if (skill_t != 255) { skill_t = 255; skill_lane = (uint8_t)(ball_no >= 3 ? ball_no - 3 : ball_no); }
     if (in->left && !prev_l) skill_lane = skill_lane ? skill_lane - 1 : 2;
     if (in->right && !prev_r) skill_lane = skill_lane == 2 ? 0 : skill_lane + 1;
-  } else if (skill_t == 255) skill_t = 250;           /* 5 s nach dem Abschuss */
+  } else if (skill_t == 255) { skill_t = 250; snd_play(SND_LAUNCH); }   /* 5 s nach dem Abschuss; v7.7.1: Klang */
   else if (skill_t) skill_t--;
   blink_n++;
   if (hs_entry && !msg_timer) {                /* v7.4: Buchstabe mit den Flippern waehlen */
@@ -486,11 +486,6 @@ void game_update(const input_t *in) {
       for (uint8_t i = 0; i < N_TARGETS; i++)
         if ((ev_target & ((uint16_t)1 << i)) && !tgt_cool[i]) { tgt_cool[i] = 15; target_hit(i); }
     if (ev_ramp & EV_RAMP_ENTER) snd_play(SND_WHOOSH);
-    {                                        /* v7.7: Klick an Waenden, hoechstens alle 3 Bilder */
-      static uint8_t click_cool;
-      if (click_cool) click_cool--;
-      else if (ev_wall) { snd_soft(SND_CLICK); click_cool = 3; }
-    }
     if (ev_ramp & EV_RAMP_DONE) {
       if (ramps < 5) ramps++;
       uint16_t pts = (uint16_t)ramps * 5000u;

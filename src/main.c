@@ -296,8 +296,11 @@ static void halt(const char *l1, const char *l2) {
  * KERNAL aufruft (CHROUT). Bis dahin keine Konstanten und Variablen benutzen. */
 extern char __rodata_start[], __rodata_size[], __hibss_start[], __hibss_size[];
 static const uint8_t RTI_OP = 0x40;
+static uint8_t kmode = 0xFF;          /* mit Startwert: liegt in $2001-$CFFF, nicht bei $E000 */
 static void himem_init(void) {
-  asm volatile("lda #0\n tax\n tay\n .byte 0x4b\n .byte 0x5c\n nop\n lda #$35\n sta $01" ::: "a", "x", "y", "memory");
+  dma_copy(ATTIC_KMODE, CPUADDR(&kmode), 1);   /* v7.7.1: vom Lader ermittelt */
+  if (kmode) asm volatile("lda #0\n tax\n tay\n .byte 0x4b\n .byte 0x5c\n nop" ::: "a", "x", "y", "memory");   /* MAP leer */
+  asm volatile("lda #$35\n sta $01" ::: "a", "memory");
   dma_copy(ATTIC_RODATA, CPUADDR(__rodata_start), (uint16_t)__rodata_size);
   dma_fill(CPUADDR(__hibss_start), 0, (uint16_t)__hibss_size);
   *(volatile uint16_t *)0xFFFA = (uint16_t)&RTI_OP;   /* NMI (RESTORE) */

@@ -104,11 +104,10 @@ extern uint16_t ev_target;
 #define EV_RAMP_DONE  1
 #define EV_RAMP_BACK  2
 #define EV_RAMP_ENTER 4           /* v7.7: Ball faehrt auf die Rampe */
-#define WALL_CLICK_V  0x3000L     /* v7.7: ab diesem Aufpralltempo (pro Teilschritt) klickt die Wand */
 #define EV_KICK_IN    1
 #define EV_KICK_OUT   2
 #define KICK_HOLD     75           /* Bilder im Loch (1,5 s) */
-extern uint8_t ev_ramp, ev_kick, ev_wall;   /* ev_wall (v7.7): Ball prallt hart gegen eine Wand */
+extern uint8_t ev_ramp, ev_kick;
 extern uint8_t state, pull;
 extern uint16_t bumper_hits, sling_hits, collisions;
 #ifdef PB_BUILDER

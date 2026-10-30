@@ -12,7 +12,7 @@
 #include "hw.h"
 
 enum { SND_BUMPER, SND_SLING, SND_TARGET, SND_LANE, SND_FLIPPER, SND_DRAIN,
-       SND_COMPLETE, SND_START, SND_SPIN, SND_DRIVE, SND_RAMP, SND_CLICK, SND_WHOOSH, SND_COUNT };
+       SND_COMPLETE, SND_START, SND_SPIN, SND_DRIVE, SND_RAMP, SND_CLICK, SND_WHOOSH, SND_LAUNCH, SND_COUNT };
 
 /* Ein Schritt eines Klangeffekts */
 typedef struct {
@@ -22,7 +22,7 @@ typedef struct {
   int16_t step;       /* Aenderung pro Bild */
   uint8_t frames;
 } fxstep_t;
-#define N_STEPS 39                  /* Anzahl der Schritte in sfx_steps.c */
+#define N_STEPS 43                  /* Anzahl der Schritte in sfx_steps.c */
 extern const fxstep_t STEPS[N_STEPS];
 
 void snd_init(void);

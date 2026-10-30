@@ -9,8 +9,8 @@
 #include "hw.h"
 #include "music.h"
 
-static const uint8_t FX_START[SND_COUNT] = { 0, 3, 6, 9, 13, 15, 18, 23, 26, 28, 31, 35, 37 };
-static const uint8_t FX_VOICE[SND_COUNT] = { 0, 0, 1, 1, 2, 2, 1, 2, 1, 2, 1, 0, 2 };
+static const uint8_t FX_START[SND_COUNT] = { 0, 3, 6, 9, 13, 15, 18, 23, 26, 28, 31, 35, 37, 39 };
+static const uint8_t FX_VOICE[SND_COUNT] = { 0, 0, 1, 1, 2, 2, 1, 2, 1, 2, 1, 0, 2, 0 };
 
 static uint8_t cur_step[3], cur_frames[3];
 static uint16_t cur_freq[3];
