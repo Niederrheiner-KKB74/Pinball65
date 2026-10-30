@@ -225,6 +225,9 @@ static const uint8_t ART_RGB[N_ART_COLORS][3] = {
   {88, 66, 48}, {140, 112, 84}, {40, 30, 22}, {240, 232, 210},
   {110, 70, 36}, {120, 76, 38}, {130, 82, 40},
   {255, 252, 240}, {226, 218, 196}, {160, 150, 128}, {60, 50, 150}, {8, 6, 18},
+  {66, 66, 76}, {8, 8, 10}, {120, 120, 130}, {140, 140, 150},
+  {222, 214, 192}, {250, 246, 232}, {150, 140, 118}, {176, 166, 142},
+  {206, 164, 64}, {252, 216, 116}, {140, 100, 30}, {84, 56, 16},
 };
 _Static_assert(sizeof ART_RGB / 3 == N_ART_COLORS, "Grafikfarben passen nicht");
 void table_store_art_palette(void) {
@@ -287,20 +290,45 @@ static void band_text5(uint8_t *buf, int16_t x, int16_t y, const char *str, uint
     }
   }
 }
-static void band_chip(uint8_t *b, int16_t x, int16_t y, int16_t w, const char *label) {
-  if (band_y0 > y + 18 || band_y1 < y - 4) return;
-  band_box(b, x, y, x + w, y + 13, C_CHIP, C_CHIP_EDGE);
-  for (int16_t px = x + 3; px < x + w - 1; px += 5) {
-    band_box(b, px, y - 3, px + 2, y - 1, C_PIN, C_PIN);
-    band_box(b, px, y + 14, px + 2, y + 16, C_PIN, C_PIN);
+/* v8.1: Chip im DIL-Gehaeuse mit dicht stehenden Beinchen (pins je Seite, Abstand 2),
+ * plastischem Gehaeuse, Kerbe, Pin-1-Markierung, Name und Teilenummer.
+ * cer: Keramik (cremefarben) mit goldenem Deckel, Beschriftung auf dem Deckel */
+static void band_text(uint8_t *buf, int16_t x, int16_t y, const char *str, uint8_t s, uint8_t col);
+static void band_chip(uint8_t *b, int16_t x, int16_t y, uint8_t pins, const char *name, const char *part, uint8_t cer) {
+  int16_t w = pins * 2 + 2, h = 17;
+  if (band_y0 > y + h + 3 || band_y1 < y - 4) return;
+  for (uint8_t k = 0; k < pins; k++) {
+    int16_t px = x + 1 + 2 * k;
+    band_put_bg(b, px, y - 3, C_CHIP_TEXT); band_put_bg(b, px, y - 2, C_PIN); band_put_bg(b, px, y - 1, C_PIN_DK);
+    band_put_bg(b, px, y + h, C_PIN_DK); band_put_bg(b, px, y + h + 1, C_PIN); band_put_bg(b, px, y + h + 2, C_CHIP_PART);
   }
-  band_box(b, x + 2, y + 5, x + 4, y + 8, C_CHIP_EDGE, C_CHIP_EDGE);
-  int16_t n = 0;
-  while (label[n]) n++;
-  band_text5(b, x + (w + 1 - n * 6) / 2 + 1, y + 3, label, C_CHIP_TEXT);
+  uint8_t body = cer ? C_CER : C_CHIP, hi = cer ? C_CER_HI : C_CHIP_HI, lo = cer ? C_CER_LO : C_CHIP_LO,
+          edge = cer ? C_CER_EDGE : C_CHIP_EDGE;
+  band_box(b, x, y, x + w - 1, y + h - 1, body, edge);
+  band_box(b, x + 1, y, x + w - 2, y, hi, hi);
+  band_box(b, x + 1, y + h - 1, x + w - 2, y + h - 1, lo, lo);
+  for (int16_t dy = -3; dy <= 3; dy++)                      /* Kerbe an der Stirnseite */
+    for (int16_t dx = 0; dx < 4; dx++)
+      if (dx * dx + dy * dy <= 9) band_put_bg(b, x + dx, y + h / 2 + dy, lo);
+  band_box(b, x + 5, y + h - 4, x + 6, y + h - 4, lo, lo); /* Pin-1-Markierung */
+  int16_t n = 0, m = 0;
+  while (name[n]) n++;
+  while (part[m]) m++;
+  if (cer) {                                                 /* goldener Deckel mit Beschriftung */
+    int16_t lx = x + 6, ly = y + 2, lw = w - 12;
+    band_box(b, lx, ly, lx + lw - 1, ly + 12, C_GOLD, C_GOLD);
+    band_box(b, lx, ly, lx + lw - 1, ly, C_GOLD_HI, C_GOLD_HI);
+    band_box(b, lx, ly, lx, ly + 12, C_GOLD_HI, C_GOLD_HI);
+    band_box(b, lx + 1, ly + 12, lx + lw - 1, ly + 12, C_GOLD_DK, C_GOLD_DK);
+    band_box(b, lx + lw - 1, ly + 1, lx + lw - 1, ly + 12, C_GOLD_DK, C_GOLD_DK);
+    band_text(b, x + (w - (n * 4 - 1)) / 2, y + 4, name, 1, C_GOLD_TEXT);
+    band_text(b, x + (w - (m * 4 - 1)) / 2, y + 10, part, 1, C_GOLD_DK);
+  } else {
+    band_text5(b, x + (w - (n * 6 - 1)) / 2 + 1, y + 2, name, C_CHIP_TEXT);
+    band_text(b, x + (w - (m * 4 - 1)) / 2 + 1, y + 11, part, 1, C_CHIP_PART);
+  }
 }
 /* v7.3: quadratische Taste wie beim C64 (26 x 26), Oberseite leuchtet bei Ball-Save */
-static void band_text(uint8_t *buf, int16_t x, int16_t y, const char *str, uint8_t s, uint8_t col);
 static void band_key(uint8_t *b, int16_t x, int16_t y, const char *l1, const char *l2) {
   if (band_y0 > y + 26 || band_y1 < y) return;
   band_box(b, x, y, x + 25, y + 25, C_KEY, C_KEY_EDGE);
@@ -319,10 +347,10 @@ static void band_art(uint8_t *b) {
     band_text5(b, 134, 209, "READY.", C_SCR_TEXT);
     band_box(b, 170, 209, 174, 215, C_SCR_TEXT, C_SCR_TEXT);
   }
-  band_chip(b, 40, 424, 44, "VIC-II");
-  band_chip(b, 216, 424, 44, "SID");
-  band_chip(b, 222, 244, 40, "6510");
-  band_chip(b, 70, 178, 30, "PLA");
+  band_chip(b, 40, 422, 20, "VIC-II", "6569R3", 1);   /* v8.1: echte Teilenummern */
+  band_chip(b, 223, 422, 14, "SID", "6581", 0);
+  band_chip(b, 221, 241, 20, "6510", "CPU", 0);
+  band_chip(b, 70, 176, 14, "PLA", "906114", 0);
   if (band_y0 <= 298 && band_y1 > 232) {        /* v7.2: 5,25-Zoll-Diskette um das Kick-Out-Hole */
     const int16_t X0 = KICK_X - 30, Y0 = KICK_Y - 34, X1 = KICK_X + 30, Y1 = KICK_Y + 30;
     band_box(b, X0, Y0, X1, Y1, C_CHIP, C_CHIP_EDGE);                 /* schwarze Huelle */

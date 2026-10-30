@@ -130,6 +130,9 @@ enum {
   C_KEY, C_KEY_TOP, C_KEY_EDGE, C_KEY_TEXT,
   C_WOOD0,                        /* 3 Holztoene */
   C_CAP_HI = C_WOOD0 + 3, C_CAP, C_CAP_DK, C_CAP_TEXT, C_SHADOW,   /* v7.3: Bumper */
+  C_CHIP_HI, C_CHIP_LO, C_PIN_DK, C_CHIP_PART,                     /* v8.1: Chips plastischer */
+  C_CER, C_CER_HI, C_CER_LO, C_CER_EDGE,                           /* v8.1: VIC-II in Keramik ... */
+  C_GOLD, C_GOLD_HI, C_GOLD_DK, C_GOLD_TEXT,                       /* ... mit goldenem Deckel */
   C_ART_END
 };
 #define ATTIC_PAL (ATTIC_SIG + 0x3000UL)   /* 3 Byte je Farbe, Index 0 bis C_ART_END - 1 */
