@@ -363,7 +363,13 @@ static void band_art(uint8_t *b) {
         int16_t dx = x - KICK_X, dy = y - KICK_Y, d = dx * dx + dy * dy;
         if (d <= 225 && d >= 144) band_put_bg(b, x, y, C_KEY);
       }
-    band_box(b, KICK_X - 4, KICK_Y + 16, KICK_X + 4, Y1 - 3, C_KEY, C_DRV_DK);   /* Schlitz fuer den Lesekopf */
+    /* Schreib-/Leseoeffnung, oben und unten abgerundet wie bei einer echten Diskette (v8.3) */
+    for (int16_t y = KICK_Y + 15; y <= Y1 - 2; y++)
+      for (int16_t x = KICK_X - 3; x <= KICK_X + 3; x++) {
+        int16_t cy = y < KICK_Y + 18 ? KICK_Y + 18 : y > Y1 - 5 ? Y1 - 5 : y, dx = x - KICK_X, dy = y - cy;
+        int16_t d = dx * dx + dy * dy;
+        if (d <= 10) band_put_bg(b, x, y, d >= 5 ? C_DRV_DK : C_KEY);
+      }
     band_box(b, KICK_X + 18, KICK_Y - 3, KICK_X + 21, KICK_Y + 0, C_KEY, C_KEY); /* Indexloch */
   }
   band_key(b, 12, 526, "RUN", "STOP");
@@ -466,6 +472,11 @@ static uint8_t art_px(int16_t x, int16_t y) {
       return (uint8_t)(C_TGT0 + (k - M_TARGET));
     }
     if (k == M_GATE_UP && !(x <= 292 && y > 139)) return C_GATE;   /* v7.2: Tor (Farbe zeigt offen/zu) */
+    /* v8.3: Fuehrungen an der Rampeneinfahrt und am 1541-Loch als Drahtfuehrung:
+     * nur die Kanten in Chrom, innen scheint die Tischgrafik durch */
+    if (((x >= 96 && x <= 160 && y >= 278 && y <= 350) || (x >= 158 && x <= 200 && y >= 250 && y <= 310)) &&
+        mask_solid(x, y - 1) && mask_solid(x, y + 1) && mask_solid(x - 1, y) && mask_solid(x + 1, y))
+      return art_bg(x, y);
     if (y > 0 && !mask_solid(x, y - 1)) return C_CHROME_HI;
     if (x > 0 && !mask_solid(x - 1, y)) return C_CHROME_MID;
     return C_CHROME_DK;
