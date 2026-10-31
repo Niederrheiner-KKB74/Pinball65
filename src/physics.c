@@ -281,7 +281,7 @@ static void ramp_place(void) {
 }
 
 static void ramp_step(void) {
-  if (ramp_s < RAMP_CLIMB_END) ramp_v -= GRAVITY >> 1;   /* v5.4: halbe Steigung, Rampe leichter */
+  if (ramp_s < RAMP_CLIMB_END) ramp_v -= GRAVITY >> 2;   /* v5.4: halbe Steigung, v8.2: Viertel (rollt seltener zurueck) */
   else if (ramp_s >= RAMP_DESC_START) { ramp_v += GRAVITY >> 1; if (ramp_v > MAX_V) ramp_v = MAX_V; }
   else { ramp_v -= ramp_v >> 9; if (ramp_v < RAMP_V_MIN) ramp_v = RAMP_V_MIN; }
   ramp_s += ramp_v;
@@ -329,6 +329,13 @@ __attribute__((noinline)) static void ball_step(void) {
   ball.x += ball.vx;
   ball.y += ball.vy;
   int16_t bx = (int16_t)(ball.x >> 16);
+  /* v8.2: Einfahrhilfe: eine Kugel, die schnell nach oben knapp neben die Einfahrt
+   * zielt, wird unterhalb der Muendung leicht zur Mitte gelenkt */
+  {
+    int16_t by = (int16_t)(ball.y >> 16), dx = RAMP_ASSIST_X - bx;
+    if (ball.vy < -RAMP_ASSIST_V && by > RAMP_Y0 && by < RAMP_Y0 + 50 && dx > -RAMP_ASSIST_W && dx < RAMP_ASSIST_W)
+      ball.vx += (fix16)dx * RAMP_ASSIST_K;
+  }
   /* Einfahrt der Rampe: Ball kreuzt die Linie RAMP_Y0 nach oben */
   if (prev_y >= ((fix16)RAMP_Y0 << 16) && ball.y < ((fix16)RAMP_Y0 << 16) &&
       bx >= RAMP_LANE_X0 && bx <= RAMP_LANE_X1) {

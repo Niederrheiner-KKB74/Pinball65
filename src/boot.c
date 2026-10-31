@@ -242,7 +242,7 @@ int main(void) {
   show_buffer(0);
 
   if (!attic_ok()) halt("?ATTIC RAM  ERROR", "IN LOADER");
-  dmd_text("SEARCHING FOR *", "BUILDING V8.1");
+  dmd_text("SEARCHING FOR *", "BUILDING V8.2");
   dmd_flush();
 
   /* alte Kennung loeschen, falls der Aufbau abbricht */

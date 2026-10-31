@@ -409,6 +409,7 @@ static void pose(const char *name, int x, int y, int ramp) {
 /* Vom rechten Flipper in die Rampe? Ball faellt an Stelle x auf den Flipper,
  * Flipperknopf wird bei Hoehe yk gedrueckt. Zaehlt Treffer im Raster. */
 static int16_t cross_x[400]; static int cross_n;
+static int near_n, near_hit, near_x; static double near_vx;
 static void flipper_sweep(void) {
   input_t in;
   int hits = 0, tries = 0;
@@ -418,8 +419,9 @@ static void flipper_sweep(void) {
     for (int yk = 548; yk <= 584; yk += 3) {
       phys_init(); game_new(); state = ST_PLAY; in_lane_reset();
       ball.x = (fix16)x << 16; ball.y = 498L << 16; ball.vx = 0; ball.vy = 0;
-      int got = 0, pressed = 0;
+      int got = 0, pressed = 0, trace = 0;
       for (int f = 0; f < 250 && state == ST_PLAY; f++) {
+
         memset(&in, 0, sizeof in);
         if ((ball.y >> 16) >= yk && !pressed) pressed = 1;
         if (pressed && pressed < 12) { in.right = 1; pressed++; }
@@ -427,14 +429,21 @@ static void flipper_sweep(void) {
         game_frame(&in);
         if (on_ramp) { got = 1; break; }
         if (py0 >= (310L << 16) && ball.y < (310L << 16) && cross_n < 400) cross_x[cross_n++] = (int16_t)(ball.x >> 16);
+        if (getenv("RAMPX") && py0 >= (380L << 16) && ball.y < (380L << 16)) {
+          int bxx = (int)(ball.x >> 16); double vx = ball.vx / 65536.0, vy = ball.vy / 65536.0;
+          int ff = f; fix16 sx = ball.x, sy = ball.y, svx = ball.vx, svy = ball.vy; (void)sx; (void)sy; (void)svx; (void)svy;
+          printf("      x380=%d vx=%.2f vy=%.2f f=%d\n", bxx, vx, vy, ff);
+          if (bxx > 110 && bxx < 165 && vy < -1.5) { trace = 1; near_n++; near_x = bxx; near_vx = vx; }
+        }
       }
       tries++; hits += got;
+      if (trace) { near_hit += got; if (getenv("RAMPX")) printf("      -> x380=%d vx=%.2f %s\n", near_x, near_vx, got ? "REIN" : "vorbei"); }
       line[k++] = got ? '#' : '.';
     }
     line[k] = 0;
     printf("   x=%3d %s\n", x, line);
   }
-  printf("   rechter Flipper -> Rampe: %d von %d\n", hits, tries);
+  printf("   rechter Flipper -> Rampe: %d von %d (nahe an der Einfahrt %d, davon rein %d)\n", hits, tries, near_n, near_hit);
   { int hist[16] = {0}; for (int i = 0; i < cross_n; i++) { int b = cross_x[i] / 20; if (b >= 0 && b < 16) hist[b]++; }
     printf("   Schuesse ueber y 310 nach x (je 20 px):"); for (int b = 0; b < 16; b++) printf(" %d", hist[b]); printf("\n"); }
   for (int x = 70; x <= 140; x += 5) {

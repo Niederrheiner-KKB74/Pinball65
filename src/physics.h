@@ -104,6 +104,12 @@ extern uint16_t ev_target;
 #define EV_RAMP_DONE  1
 #define EV_RAMP_BACK  2
 #define EV_RAMP_ENTER 4           /* v7.7: Ball faehrt auf die Rampe */
+#define RAMP_ASSIST_X 128         /* v8.2: Einfahrhilfe: Mitte, halbe Breite, Mindesttempo nach oben, Staerke */
+#define RAMP_ASSIST_W 30
+#define RAMP_ASSIST_V 65536L
+#ifndef RAMP_ASSIST_K
+#define RAMP_ASSIST_K 0x80
+#endif
 #define EV_KICK_IN    1
 #define EV_KICK_OUT   2
 #define KICK_HOLD     75           /* Bilder im Loch (1,5 s) */

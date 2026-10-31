@@ -141,10 +141,11 @@ static const int16_t SEGS[][5] = {
    * v6.1: Seitenwaende bis y 282 und ein spitzes Dach dahinter (unter der Rampe):
    * von hinten kommt der Ball nicht mehr durch die Einfahrt, und auf dem Dach
    * kann er nicht liegen bleiben. Ein Ball in der Einfahrt ist ab y 300 auf der
-   * Rampe und beruehrt diese Waende nicht. */
-  {115, 282, 115, 330, M_WALL}, {141, 282, 141, 330, M_WALL},
+   * Rampe und beruehrt diese Waende nicht. v8.2: Trichter ab y 318 statt 330 und weiter
+   * (100/156 statt 106/150): Rampe vom rechten Flipper fast dreimal so oft. */
+  {115, 282, 115, 318, M_WALL}, {141, 282, 141, 318, M_WALL},
   {115, 282, 129, 272, M_WALL}, {129, 272, 141, 282, M_WALL},
-  {115, 330, 106, 344, M_WALL}, {141, 330, 150, 344, M_WALL},
+  {115, 318, 100, 346, M_WALL}, {141, 318, 156, 346, M_WALL},   /* v8.2: Trichter weiter */
   {290, 268, 279, 294, M_WALL},           /* Fuehrung ueber dem Drehpunkt des dritten Flippers */
 };
 #define NSEGS (sizeof(SEGS) / sizeof(SEGS[0]))
