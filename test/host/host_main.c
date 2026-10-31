@@ -769,6 +769,9 @@ int main(void) {
     dump_music("mus_fanfare.sid", MUS_FANFARE, 50 * 3);
     dump_music("mus_multi.sid", MUS_MULTI, 50 * 3);
     dump_music("mus_over.sid", MUS_OVER, 50 * 5);
+    dump_music("mus_play1.sid", MUS_PLAY1, 6 * 64 * 5 + 100);   /* v8.5 */
+    dump_music("mus_play2.sid", MUS_PLAY2, 256 * 6 + 100);
+    dump_music("mus_play3.sid", MUS_PLAY3, 6 * 64 * 5 + 100);
   }
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);

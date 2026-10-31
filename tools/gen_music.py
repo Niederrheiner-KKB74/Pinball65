@@ -31,6 +31,10 @@ INSTR = {
     "hat":   (0x80, 0x02, 0x00, 0x000, 0x00, 0, 0),
     "fan":   (0x20, 0x09, 0xA8, 0x000, 0x00, 3, 6),
     "chime": (0x10, 0x0A, 0x00, 0x000, 0x00, 0, 0),
+    # v8.5: fuer die Spielmusik
+    "saw":   (0x20, 0x08, 0x89, 0x000, 0x00, 3, 8),     # Saegezahn-Melodie mit Vibrato
+    "pluck": (0x40, 0x03, 0x40, 0x400, 0x20, 0, 0),     # kurzer Puls fuer Riffs
+    "sbass": (0x20, 0x06, 0x48, 0x000, 0x00, 0, 0),     # Saegezahn-Bass
 }
 INAMES = list(INSTR)
 DRUMS = {"K": ("kick", "C4"), "S": ("snare", "A5"), "H": ("hat", "C6")}
@@ -52,6 +56,67 @@ P["mel2"] = ("@lead A5:3 G5:1 E5:2 C5:2 =:4 -:4 "
              "E5:2 C5:2 A4:2 F4:2 =:4 -:4 "
              "G#4:2 B4:2 E5:4 =:4 D5:2 C5:2")
 P["silence"] = "-:32"
+# ================================================================ v8.5: Spielmusik
+def bars(*b): return " ".join(b)
+DR  = "K:2 H:2 S:2 H:2 K:2 K:2 S:2 H:2"
+DRF = "K:2 H:2 S:2 H:2 K:2 S:1 S:1 S:2 S:2"
+DR2 = "K:2 H:1 H:1 S:2 H:2 K:1 K:1 H:2 S:2 H:2"     # zweite Variante, treibender
+DRH = "H:2 H:2 H:2 H:2 H:2 H:2 H:2 H:2"            # nur Hi-Hat (Uebergang)
+
+# --- Stueck 1 "FAST LOADER": e-Moll, Em - C - D - H, schnell
+def oct8(lo, hi): return " ".join(f"{n}:2" for n in [lo, hi] * 4)
+P["g1_bass"] = "@bass " + bars(oct8("E2", "E3"), oct8("C2", "C3"), oct8("D2", "D3"), oct8("B1", "B2"))
+P["g1_arp"]  = "@arpm E3:16 @arpM C3:16 D3:16 B2:16"
+P["g1_mela"] = ("@saw B4:2 E5:2 G5:2 F#5:2 E5:4 B4:4 "
+                "C5:2 E5:2 G5:4 E5:2 C5:2 E5:4 "
+                "D5:2 F#5:2 A5:4 G5:2 F#5:2 D5:4 "
+                "D#5:4 F#5:4 B5:6 -:2")
+P["g1_melb"] = ("@saw G5:3 F#5:1 E5:2 B4:2 G4:4 B4:4 "
+                "E5:3 D5:1 C5:2 G4:2 E4:4 G4:4 "
+                "F#5:2 A5:2 D6:4 C6:2 A5:2 F#5:4 "
+                "D#5:2 F#5:2 B5:4 A5:2 F#5:2 D#5:4")
+P["g1_dr"]   = bars(DR, DR, DR, DRF)
+P["g1_dr2"]  = bars(DR2, DR2, DR2, DRF)
+
+# --- Stueck 2 "SPRITE DANCE": D dorisch, locker und funky
+P["g2_bass"] = "@sbass " + bars(
+    "D2:3 D3:1 -:2 D2:2 F2:2 A2:2 C3:2 A2:2",
+    "G1:3 G2:1 -:2 G1:2 B1:2 D2:2 F2:2 D2:2") 
+P["g2_bass2"] = "@sbass " + bars(
+    "F2:3 F3:1 -:2 F2:2 A2:2 C3:2 F3:2 C3:2",
+    "C2:3 C3:1 -:2 C2:2 E2:2 G2:2 C3:2 G2:2",
+    "G1:3 G2:1 -:2 G1:2 B1:2 D2:2 G2:2 D2:2",
+    "A1:3 A2:1 -:2 A1:2 C#2:2 E2:2 A2:2 G2:2")
+P["g2_riff"] = "@pluck " + bars(
+    "-:2 F4:1 A4:1 -:2 C5:2 -:2 A4:1 C5:1 D5:2 -:2",
+    "-:2 F4:1 B4:1 -:2 D5:2 -:2 B4:1 D5:1 F5:2 -:2")
+P["g2_mel"] = "@lead " + bars(
+    "A4:2 C5:2 D5:3 F5:1 E5:2 D5:2 C5:2 A4:2",
+    "B4:2 D5:2 G5:4 F5:2 D5:2 B4:4",
+    "A4:2 C5:2 D5:3 F5:1 E5:2 D5:2 C5:2 E5:2",
+    "D5:8 =:4 -:4")
+P["g2_mel2"] = "@lead " + bars(
+    "C5:2 F5:2 A5:4 G5:2 F5:2 C5:4",
+    "E5:2 G5:2 C6:4 B5:2 G5:2 E5:4",
+    "D5:2 G5:2 B5:4 A5:2 G5:2 D5:4",
+    "C#5:2 E5:2 A5:6 =:2 -:4")
+P["g2_dr"]  = bars("K:3 H:1 S:2 H:2 -:1 K:1 K:2 S:2 H:2", "K:3 H:1 S:2 H:2 -:1 K:1 K:2 S:2 S:1 S:1")
+
+# --- Stueck 3 "RASTER RUN": a-Moll, Am - F - C - G, treibend mit Wechselbass
+def pump(a, b): return " ".join(f"{n}:2" for n in [a, a, b, a, a, b, a, b])
+P["g3_bass"] = "@bass " + bars(pump("A2", "E3"), pump("F2", "C3"), pump("C2", "G2"), pump("G2", "D3"))
+P["g3_arp"]  = "@arpm A3:16 @arpM F3:16 C3:16 G3:16"
+P["g3_mel"]  = ("@saw E5:4 A5:4 G5:2 E5:2 C5:4 "
+                "F5:4 C5:4 A4:4 C5:4 "
+                "E5:2 G5:2 C6:4 B5:2 G5:2 E5:4 "
+                "D5:4 G5:4 B5:6 -:2")
+P["g3_mel2"] = ("@saw A5:3 G5:1 E5:2 A5:2 C6:4 A5:4 "
+                "F5:3 E5:1 C5:2 F5:2 A5:4 F5:4 "
+                "G5:3 F5:1 E5:2 C5:2 G4:4 C5:4 "
+                "D5:2 E5:2 G5:2 B5:2 D6:6 -:2")
+P["g3_dr"]   = bars(DR2, DR2, DR2, DRF)
+P["g3_drh"]  = bars(DRH, DRH, DRH, DRF)
+
 # Jingles
 P["fan_hi"] = "@fan C5:1 E5:1 G5:1 C6:1 E5:1 G5:1 C6:6 =:4 -:2"
 P["fan_lo"] = "@bass C3:4 G2:4 C3:6 -:2"
@@ -66,6 +131,16 @@ P["go_lo"] = "@bass A2:8 G2:8 F2:4 E2:8 -:4"
 # name: (Tempo in Bildern pro Schritt, Wiederholen?, [Folge Stimme 1, 2, 3])
 SONGS = [
     ("MUS_GAME",    6, True,  [["bass1"], ["arp1"], ["drum1"]]),
+    # v8.5: Spielmusik, drei Stuecke im Wechsel
+    ("MUS_PLAY1",   5, True,  [["g1_bass"] * 6,
+                               ["g1_arp", "g1_arp", "g1_mela", "g1_melb", "g1_mela", "g1_melb"],
+                               ["g1_dr", "g1_dr", "g1_dr2", "g1_dr2", "g1_arp", "g1_dr2"]]),
+    ("MUS_PLAY2",   6, True,  [["g2_bass", "g2_bass", "g2_bass", "g2_bass", "g2_bass2", "g2_bass2"],
+                               ["g2_riff", "g2_riff", "g2_mel", "g2_mel2", "g2_mel2"],
+                               ["g2_dr"] * 8]),
+    ("MUS_PLAY3",   5, True,  [["g3_bass"] * 6,
+                               ["g3_arp", "g3_mel", "g3_mel2", "g3_arp", "g3_mel", "g3_mel2"],
+                               ["g3_drh", "g3_dr", "g3_dr", "g3_dr", "g3_dr", "g3_dr"]]),
     ("MUS_TITLE",   6, True,  [["bass1", "bass1"], ["mel1", "mel2"], ["drum1", "drum1"]]),
     ("MUS_FANFARE", 5, False, [["fan_lo"], ["fan_hi"], ["fan_dr"]]),
     ("MUS_MULTI",   4, False, [["mb_lo"], ["mb_hi"], ["mb_dr"]]),
