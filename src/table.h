@@ -111,7 +111,8 @@ _Static_assert(C_MULT_END <= 96, "Spielfarben muessen vor C_ART enden");
 static const uint8_t MULT_RGB[4][2][3] = {
   {{70, 40, 16}, {255, 200, 60}}, {{80, 36, 20}, {255, 160, 50}}, {{86, 30, 30}, {255, 110, 60}}, {{90, 24, 44}, {255, 70, 110}},
 };
-#define LADDER_X 160                    /* v7.6: Bonus-Leiter zwischen den Slingshots */
+#define LADDER_X 151                    /* v7.6: Bonus-Leiter zwischen den Slingshots; v8.4: 9 Pixel nach links,
+                                           damit Leiter samt Beschriftung mittig steht */
 #define LADDER_Y 528                    /* oberer Rand der untersten Stufe (2X), Abstand 22 */
 #define N_LAMPS (C_LAMP_END - C_LAMP0)
 

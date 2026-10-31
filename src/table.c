@@ -329,6 +329,26 @@ static void band_chip(uint8_t *b, int16_t x, int16_t y, uint8_t pins, const char
     band_text(b, x + (w - (m * 4 - 1)) / 2 + 1, y + 11, part, 1, C_CHIP_PART);
   }
 }
+/* v8.4: CIA 6526 hochkant (40 Beinchen), Beschriftung CIA / Nummer / 6526 untereinander */
+static void band_chip_v(uint8_t *b, int16_t x, int16_t y, const char *num) {
+  const int16_t w = 17, h = 42;
+  if (band_y0 > y + h || band_y1 < y) return;
+  for (uint8_t k = 0; k < 20; k++) {
+    int16_t py = y + 1 + 2 * k;
+    band_put_bg(b, x - 3, py, C_CHIP_TEXT); band_put_bg(b, x - 2, py, C_PIN); band_put_bg(b, x - 1, py, C_PIN_DK);
+    band_put_bg(b, x + w, py, C_PIN_DK); band_put_bg(b, x + w + 1, py, C_PIN); band_put_bg(b, x + w + 2, py, C_CHIP_PART);
+  }
+  band_box(b, x, y, x + w - 1, y + h - 1, C_CHIP, C_CHIP_EDGE);
+  band_box(b, x, y + 1, x, y + h - 2, C_CHIP_HI, C_CHIP_HI);
+  band_box(b, x + w - 1, y + 1, x + w - 1, y + h - 2, C_CHIP_LO, C_CHIP_LO);
+  for (int16_t dx = -3; dx <= 3; dx++)                      /* Kerbe oben */
+    for (int16_t dy = 0; dy < 4; dy++)
+      if (dx * dx + dy * dy <= 9) band_put_bg(b, x + w / 2 + dx, y + dy, C_CHIP_LO);
+  band_box(b, x + 3, y + 5, x + 3, y + 6, C_CHIP_LO, C_CHIP_LO);   /* Pin-1-Markierung */
+  band_text5(b, x, y + 8, "CIA", C_CHIP_TEXT);
+  band_text5(b, x + 6, y + 18, num, C_CHIP_TEXT);
+  band_text(b, x + 1, y + 29, "6526", 1, C_CHIP_PART);
+}
 /* v7.3: quadratische Taste wie beim C64 (26 x 26), Oberseite leuchtet bei Ball-Save */
 static void band_key(uint8_t *b, int16_t x, int16_t y, const char *l1, const char *l2) {
   if (band_y0 > y + 26 || band_y1 < y) return;
@@ -352,6 +372,8 @@ static void band_art(uint8_t *b) {
   band_chip(b, 223, 422, 14, "SID", "6581", 0);
   band_chip(b, 221, 241, 20, "6510", "CPU", 0);
   band_chip(b, 70, 176, 14, "PLA", "906114", 0);
+  band_chip_v(b, 100, 452, "1");                    /* v8.4: CIA 1 und CIA 2 neben der Bonus-Leiter */
+  band_chip_v(b, 203, 452, "2");
   if (band_y0 <= 298 && band_y1 > 232) {        /* v7.2: 5,25-Zoll-Diskette um das Kick-Out-Hole */
     const int16_t X0 = KICK_X - 30, Y0 = KICK_Y - 34, X1 = KICK_X + 30, Y1 = KICK_Y + 30;
     band_box(b, X0, Y0, X1, Y1, C_CHIP, C_CHIP_EDGE);                 /* schwarze Huelle */
