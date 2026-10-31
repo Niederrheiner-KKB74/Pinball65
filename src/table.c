@@ -247,6 +247,35 @@ static uint8_t in_rrect(int16_t x, int16_t y, int16_t x0, int16_t y0, int16_t x1
 
 /* Hintergrund der Tischgrafik an (x, y): Holzleisten, Bildschirm, Regenbogen,
  * Platine, sonst Farbverlauf */
+/* v8.6: Leiterbahnen im unteren Tisch (waagerecht, senkrecht oder im 45-Grad-Winkel),
+ * von den Chips zu Durchkontaktierungen; bewusst unregelmaessig und nicht zu dicht */
+static const int16_t TRACES[][4] = {
+  {97, 458, 72, 458}, {72, 458, 52, 478}, {52, 478, 52, 520},           /* CIA 1 nach links */
+  {97, 470, 84, 470}, {84, 470, 84, 488},
+  {108, 496, 108, 512}, {108, 512, 120, 524}, {120, 524, 120, 562},     /* CIA 1 nach unten */
+  {223, 462, 236, 462}, {236, 462, 250, 476}, {250, 476, 250, 534},     /* CIA 2 nach rechts */
+  {212, 496, 212, 508}, {212, 508, 196, 524}, {196, 524, 196, 548},     /* CIA 2 nach unten */
+  {58, 442, 30, 442}, {30, 442, 30, 500},                               /* VIC-II nach aussen */
+  {244, 442, 270, 442}, {270, 442, 286, 458}, {286, 458, 286, 516},     /* SID nach aussen */
+  {24, 560, 64, 560}, {64, 560, 80, 576}, {80, 576, 100, 576},          /* unten links */
+  {296, 552, 262, 552}, {262, 552, 248, 566},                           /* unten rechts */
+};
+#define N_TRACES (sizeof TRACES / sizeof TRACES[0])
+static const int16_t PADS[][2] = {
+  {52, 520}, {84, 488}, {120, 562}, {250, 534}, {196, 548}, {30, 500}, {286, 516},
+  {24, 560}, {100, 576}, {296, 552}, {248, 566}, {142, 584}, {176, 470},
+};
+#define N_PADS (sizeof PADS / sizeof PADS[0])
+static uint8_t on_trace(const int16_t *t, int16_t x, int16_t y) {
+  int16_t dx = t[2] - t[0], dy = t[3] - t[1];
+  int16_t lo = t[0] < t[2] ? t[0] : t[2], hi = t[0] < t[2] ? t[2] : t[0];
+  int16_t ly = t[1] < t[3] ? t[1] : t[3], hy = t[1] < t[3] ? t[3] : t[1];
+  if (x < lo || x > hi || y < ly || y > hy) return 0;
+  if (!dy) return y == t[1];
+  if (!dx) return x == t[0];
+  return (x - t[0]) * (dy > 0 ? 1 : -1) * (dx > 0 ? 1 : -1) == (y - t[1]);
+}
+
 static uint8_t art_bg(int16_t x, int16_t y) {
   if (x < 9 || x > 311) return (uint8_t)(C_WOOD0 + (x % 3));
   if (in_rrect(x, y, 34, 14, 286, 236, 26)) {
@@ -259,10 +288,12 @@ static uint8_t art_bg(int16_t x, int16_t y) {
     return (uint8_t)(C_RB0 + s / 9);
   }
   if (s > 50) {                                 /* Platine unterhalb des Regenbogens */
-    int16_t gx = (x - 14) % 22, gy = (y - 470) % 26;
-    if (y >= 456 && x >= 12 && x <= 308) {
-      if (gx >= -2 && gx <= 2 && gy >= -2 && gy <= 2 && y >= 468 && x > 11 && (gx * gx + gy * gy) <= 5 && y < 600) return C_PAD;
-      if (gx == 0 || (gy == 0 && y >= 470 && y < 600)) return C_COPPER;
+    if (y >= 440 && y < 600 && x >= 12 && x <= 308) {   /* v8.6: Leiterbahnen statt Raster */
+      for (uint8_t i = 0; i < N_PADS; i++) {
+        int16_t dx = x - PADS[i][0], dy = y - PADS[i][1];
+        if (dx * dx + dy * dy <= 5) return C_PAD;
+      }
+      for (uint8_t i = 0; i < N_TRACES; i++) if (on_trace(TRACES[i], x, y)) return C_COPPER;
     }
     return ((x & 3) == 1 && (y & 3) == 1 && ((x ^ y) & 4)) ? C_PCB_DK : C_PCB;
   }
