@@ -692,6 +692,7 @@ int main(void) {
   phys_init();
   render_build();
   render_init();
+  dma_copy(CPUADDR((void *)MUS_BLOB), ATTIC_MUSIC, MUS_BLOB_SIZE);   /* v8.5: wie der Lader (PB65HI) */
   snd_init();
   game_new();
   dump_table("table_full.ppm");
@@ -765,13 +766,12 @@ int main(void) {
   if (getenv("DMDSHOT")) dump_dmd_typing();
   if (getenv("MUSIC")) {
     dump_music("mus_title.sid", MUS_TITLE, 50 * 40);
-    dump_music("mus_game.sid", MUS_GAME, 50 * 20);
     dump_music("mus_fanfare.sid", MUS_FANFARE, 50 * 3);
     dump_music("mus_multi.sid", MUS_MULTI, 50 * 3);
     dump_music("mus_over.sid", MUS_OVER, 50 * 5);
-    dump_music("mus_play1.sid", MUS_PLAY1, 6 * 64 * 5 + 100);   /* v8.5 */
-    dump_music("mus_play2.sid", MUS_PLAY2, 256 * 6 + 100);
-    dump_music("mus_play3.sid", MUS_PLAY3, 6 * 64 * 5 + 100);
+    dump_music("mus_play1.sid", MUS_STREAM + 0, 6 * 64 * 5 + 100);   /* v8.5: aus ATTIC_MUSIC */
+    dump_music("mus_play2.sid", MUS_STREAM + 1, 256 * 6 + 100);
+    dump_music("mus_play3.sid", MUS_STREAM + 2, 6 * 64 * 5 + 100);
   }
   pose("pose_under_bridge.ppm", 150, 84, 0);
   pose("pose_on_bridge.ppm", 150, 82, 1);

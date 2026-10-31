@@ -17,6 +17,11 @@ static uint8_t m_len[3], m_left[3], m_ins[3], m_note[3], m_gate[3], m_frames[3],
 static uint16_t m_freq[3], m_pw[3];
 static uint8_t sh[21], retrig;             /* Registerkopie, Bit v: Huellkurve neu starten */
 static uint8_t song = 0xFF, bg = 0xFF, tick, tempo, active, muted;
+/* v8.5: aktuelles Lied, egal ob im Programm (Titel, Jingles) oder aus dem Attic-RAM */
+static const uint8_t *s_pat, *s_ofs, *s_ord[3];
+static uint8_t s_loop;
+uint8_t mus_buf[MUS_BUF_SIZE];           /* Spielmusik: das laufende Stueck (global fuer die Pruefung im Simulator) */
+static const uint8_t *pat_ptr(uint8_t i) { return s_pat + (s_ofs[2 * i] | (uint16_t)s_ofs[2 * i + 1] << 8); }
 static const uint8_t ARP[2][3] = { { 0, 3, 7 }, { 0, 4, 7 } };
 
 static uint16_t note_freq(uint8_t n) {
@@ -38,10 +43,10 @@ static void voice_step(uint8_t v) {
     if (b == 0xFF) {                          /* Pattern zu Ende: naechstes aus der Folge */
       const uint8_t *o = ++m_ord[v];
       if (*o == 0xFF) {
-        if (!SONGS[song].loop) { m_ord[v] = 0; sh[r + 4] &= 0xFE; active--; return; }
-        o = m_ord[v] = SONGS[song].order[v];
+        if (!s_loop) { m_ord[v] = 0; sh[r + 4] &= 0xFE; active--; return; }
+        o = m_ord[v] = s_ord[v];
       }
-      p = MUS_PAT + MUS_OFS[*o];
+      p = pat_ptr(*o);
       continue;
     }
     if (b >= 0x80 && b < 0xFD) { m_ins[v] = (uint8_t)(b - 0x80); continue; }
@@ -109,14 +114,35 @@ static void flush(void) {
   for (uint8_t r = 0; r < 21; r++) sid2_poke(r, sh[r]);
 }
 
+/* v8.5: Lied n vorbereiten; Spielmusik (n >= MUS_STREAM) aus ATTIC_MUSIC in den Puffer.
+ * 0 = gibt es nicht (z. B. im Simulator, dort ist das Attic-RAM leer) */
+static uint8_t load(uint8_t n) {
+  if (n < MUS_STREAM) {
+    const song_t *g = &SONGS[n];
+    tempo = g->tempo; s_loop = g->loop; s_pat = MUS_PAT; s_ofs = MUS_OFS;
+    for (uint8_t v = 0; v < 3; v++) s_ord[v] = g->order[v];
+    return 1;
+  }
+  uint8_t k = (uint8_t)(n - MUS_STREAM), *d = mus_buf;
+  dma_copy(ATTIC_MUSIC, CPUADDR(d), 1 + 4 * MUS_N_STREAM);   /* Verzeichnis */
+  if (k >= d[0]) return 0;
+  uint16_t off = d[1 + 4 * k] | (uint16_t)d[2 + 4 * k] << 8, len = d[3 + 4 * k] | (uint16_t)d[4 + 4 * k] << 8;
+  if (!len || len > MUS_BUF_SIZE) return 0;
+  dma_copy(ATTIC_MUSIC + off, CPUADDR(d), len);
+  tempo = d[0]; s_loop = d[1];
+  for (uint8_t v = 0; v < 3; v++) s_ord[v] = d + (d[2 + 2 * v] | (uint16_t)d[3 + 2 * v] << 8);
+  s_ofs = d + 9; s_pat = d;
+  return 1;
+}
+
 static void start(uint8_t n) {
+  if (!load(n)) { song = bg = 0xFF; return; }
   song = n;
-  tempo = SONGS[n].tempo;
   tick = 0;
   active = 3;
   for (uint8_t v = 0; v < 3; v++) {
-    const uint8_t *o = m_ord[v] = SONGS[n].order[v];
-    m_p[v] = MUS_PAT + MUS_OFS[*o];
+    const uint8_t *o = m_ord[v] = s_ord[v];
+    m_p[v] = pat_ptr(*o);
     m_left[v] = 0; m_gate[v] = 0; m_ins[v] = 0; m_len[v] = 1;
     sh[v * 7 + 4] = 0;
     voice_step(v);
@@ -130,9 +156,17 @@ void music_init(void) {
 }
 
 void music_play(uint8_t n) {
-  if (SONGS[n].loop) bg = n;
-  if (n == song && SONGS[n].loop) return;    /* laeuft schon */
+  uint8_t loop = n >= MUS_STREAM || SONGS[n].loop;
+  if (loop) bg = n;
+  if (n == song && loop) return;             /* laeuft schon */
   start(n);
+}
+
+/* v8.5: naechstes Stueck der Spielmusik (bei jeder neuen Kugel) */
+void music_next(void) {
+  static uint8_t k;
+  if (++k >= MUS_N_STREAM) k = 0;
+  music_play((uint8_t)(MUS_STREAM + k));
 }
 
 void music_stop(void) {

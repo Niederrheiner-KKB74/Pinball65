@@ -53,6 +53,8 @@
 #define HS_LOAD     0x0F00u                  /* Ladeadresse der Datei PB65HS */
 #define ATTIC_SAVESTUB (ATTIC_SIG + 0x3900UL) /* Speicher-Programm fuer den Highscore */
 #define ATTIC_RODATA (ATTIC_SIG + 0x4000UL)  /* v7.7: Konstanten des Spiels (bis 8 KB), kommen nach $E000 */
+#define ATTIC_MUSIC  (ATTIC_SIG + 0x6000UL)  /* v8.5: Spielmusik (bis 36 KB), mit PB65HI geladen */
+#define HI_MUSIC_OFS 0x2000u                 /* Abstand der Musik in PB65HI (= ATTIC_MUSIC - ATTIC_RODATA) */
 /* v8.0: Code im Bereich $E000 (mit den Konstanten geladen); nur fuer Funktionen,
  * die erst nach himem_init laufen */
 #if defined(__mos__) && !defined(PB_BUILDER)
@@ -71,7 +73,7 @@
 #define BHDR_LEN    22
 #define ATTIC_BVIC  (ATTIC_SIG + 0x3B00UL)  /* $D000-$D07F, dann Palette $D100-$D3FF */
 #define BVIC_LEN    0x380
-#define ATTIC_BCOL  (ATTIC_SIG + 0x6000UL)  /* Farb-RAM, 4 KB */
+#define ATTIC_BCOL  (ATTIC_SIG + 0xF000UL)  /* Farb-RAM, 4 KB (v8.5: von 0x6000 hierher) */
 #define STRIP_BYTES 5120UL      /* 640 Pixelzeilen x 8 Byte */
 #define COLRAM      0xFF80000UL
 #define ROW_BYTES   2560u       /* 40 Zeichen x 64 Byte */

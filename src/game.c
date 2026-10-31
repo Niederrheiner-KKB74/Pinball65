@@ -282,7 +282,8 @@ void game_new(void) {
   cnt_val = cnt_to = 0;
   prev_state = state;
   cam_peek = 120;
-  music_stop();                          /* v7.0: im Spiel keine Hintergrundmusik, nur Effekte und Jingles */
+  music_stop();
+  music_next();                          /* v8.5: Spielmusik, bei jeder Kugel das naechste Stueck */
   for (uint8_t n = 0; n < N_LAMPS; n++) lamp_shown[n] = 2;   /* alle Farben neu setzen */
   for (uint8_t n = 0; n < N_ARROWS; n++) arrow_shown[n] = 9;
   lamps_apply();
@@ -578,7 +579,7 @@ void game_update(const input_t *in) {
     bonus = 0;
     ramps = 0;
     mult = 1;
-    if (ball_no < BALLS_PER_GAME) ball_no++;
+    if (ball_no < BALLS_PER_GAME) { ball_no++; music_next(); }
     else {
       game_over = 1;
       music_play(MUS_TITLE);                 /* v6.9: Titelmusik im Wartebildschirm ... */

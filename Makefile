@@ -16,16 +16,16 @@ NM      := llvm-nm
 
 all: build/pinball65.d81
 
-build/pb65game.prg: $(GAME_SRC) $(HDR) src/game.ld
+build/pb65game.prg: $(GAME_SRC) $(HDR) src/game.ld src/music_stream.bin
 	@mkdir -p build
 	$(CC) $(CFLAGS) -T src/game.ld -o $@ $(GAME_SRC)
 	llvm-objcopy -O binary -j .rodata build/pb65game.prg.elf build/game_rodata.bin
-	$(PYTHON) -c "import sys; d=open('build/game_rodata.bin','rb').read(); open('build/pb65hi.prg','wb').write(bytes([0x01,0x20])+d)"
+	$(PYTHON) -c "d=open('build/game_rodata.bin','rb').read(); m=open('src/music_stream.bin','rb').read(); assert len(d) <= 0x2000, 'Konstanten > 8 KB'; d=d+bytes(0x2000-len(d))+m; open('build/game_hi.bin','wb').write(d); open('build/pb65hi.prg','wb').write(bytes([0x01,0x20])+d)"
 
 # Der Lader springt nach dem Laden zur Startadresse des Spiels (_start)
 build/pinball65.prg: $(BOOT_SRC) $(HDR) build/pb65game.prg
 	$(CC) $(CFLAGS) -DPB_BUILDER \
-	  -DGAME_HI_SIZE=$$(stat -c %s build/game_rodata.bin) \
+	  -DGAME_HI_SIZE=$$(stat -c %s build/game_hi.bin) \
 	  -DGAME_ENTRY=0x$$($(NM) build/pb65game.prg.elf | awk '$$3 == "_start" { print $$1 }') \
 	  -o $@ $(BOOT_SRC)
 

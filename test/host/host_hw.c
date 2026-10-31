@@ -13,7 +13,7 @@
 struct host_vic VICIV;
 uint8_t chip[0x60000];
 uint8_t colram[0x8000];
-uint8_t attic[0x130000];
+uint8_t attic[0x140000];
 uint8_t host_rowbuf[2560], host_colbuf[1344], host_maskwin[1920], host_clswin[280];
 uint8_t pal[256][3];
 uint8_t shown;

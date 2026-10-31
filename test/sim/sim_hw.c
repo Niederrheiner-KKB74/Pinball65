@@ -4,6 +4,7 @@
  * geprueft wird jeder DMA-Auftrag, der CPU-Speicher (Bank 0) beschreibt.
  */
 #include <stdio.h>
+#include "music_data.h"
 #include <stdlib.h>
 #include <string.h>
 #include "hw.h"
@@ -38,6 +39,7 @@ static void check_cpu(uint32_t a, uint16_t n) {
   if (p >= cb && p + n <= cb + sizeof sim_colbuf) return;
   if (p >= mb && p + n <= mb + sizeof sim_maskwin) return;
   if (p >= (uint16_t)sim_clswin && p + n <= (uint16_t)sim_clswin + sizeof sim_clswin) return;
+  { extern uint8_t mus_buf[]; if (p >= (uint16_t)mus_buf && p + n <= (uint16_t)mus_buf + MUS_BUF_SIZE) return; }   /* v8.5: Musik */
   sim_fail("DMA ausserhalb der CPU-Puffer", a, n);
 }
 

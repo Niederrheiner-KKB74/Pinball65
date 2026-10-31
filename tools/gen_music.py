@@ -44,7 +44,6 @@ P = {}
 # Spielmusik: Bass in Achteln, weiche Akkord-Arpeggios, Schlagzeug
 P["bass1"] = "@bass " + " ".join(f"{n}:2" for n in
     "A2 A2 A3 A2 A2 A3 G2 A2  G2 G2 G3 G2 G2 G3 D3 G2  F2 F2 F3 F2 F2 F3 C3 F2  E2 E2 E3 E2 E2 E3 B2 G#2".split())
-P["arp1"] = "@arpm A3:16 @arpM G3:16 F3:16 E3:16"
 P["drum1"] = "K:2 H:2 S:2 H:2 K:2 K:2 S:2 H:2 " * 3 + "K:2 H:2 S:2 H:2 K:2 S:1 S:1 S:2 S:2"
 # Titel: Melodie statt Arpeggios
 P["mel1"] = ("@lead E5:2 -:1 A4:1 C5:2 E5:1 D5:1 =:4 -:4 "
@@ -130,8 +129,16 @@ P["go_lo"] = "@bass A2:8 G2:8 F2:4 E2:8 -:4"
 # ---------------------------------------------------------------- Lieder
 # name: (Tempo in Bildern pro Schritt, Wiederholen?, [Folge Stimme 1, 2, 3])
 SONGS = [
-    ("MUS_GAME",    6, True,  [["bass1"], ["arp1"], ["drum1"]]),
-    # v8.5: Spielmusik, drei Stuecke im Wechsel
+    ("MUS_TITLE",   6, True,  [["bass1", "bass1"], ["mel1", "mel2"], ["drum1", "drum1"]]),
+    ("MUS_FANFARE", 5, False, [["fan_lo"], ["fan_hi"], ["fan_dr"]]),
+    ("MUS_MULTI",   4, False, [["mb_lo"], ["mb_hi"], ["mb_dr"]]),
+    ("MUS_OVER",    7, False, [["go_lo"], ["go_hi"], ["silence"]]),
+]
+
+# v8.5: Spielmusik. Liegt nicht im Programm, sondern als Datenblock im Attic-RAM
+# (ATTIC_MUSIC, mit PB65HI geladen); gespielt wird immer nur das aktuelle Stueck,
+# das der Spieler in einen Puffer kopiert. Weitere Stuecke einfach hier anhaengen.
+STREAM = [
     ("MUS_PLAY1",   5, True,  [["g1_bass"] * 6,
                                ["g1_arp", "g1_arp", "g1_mela", "g1_melb", "g1_mela", "g1_melb"],
                                ["g1_dr", "g1_dr", "g1_dr2", "g1_dr2", "g1_arp", "g1_dr2"]]),
@@ -141,10 +148,6 @@ SONGS = [
     ("MUS_PLAY3",   5, True,  [["g3_bass"] * 6,
                                ["g3_arp", "g3_mel", "g3_mel2", "g3_arp", "g3_mel", "g3_mel2"],
                                ["g3_drh", "g3_dr", "g3_dr", "g3_dr", "g3_dr", "g3_dr"]]),
-    ("MUS_TITLE",   6, True,  [["bass1", "bass1"], ["mel1", "mel2"], ["drum1", "drum1"]]),
-    ("MUS_FANFARE", 5, False, [["fan_lo"], ["fan_hi"], ["fan_dr"]]),
-    ("MUS_MULTI",   4, False, [["mb_lo"], ["mb_hi"], ["mb_dr"]]),
-    ("MUS_OVER",    7, False, [["go_lo"], ["go_hi"], ["silence"]]),
 ]
 
 # ---------------------------------------------------------------- Uebersetzen
@@ -178,13 +181,53 @@ def compile_pat(text):
 def steps(text):
     return sum(int(t.split(":")[1]) for t in text.split() if not t.startswith("@"))
 
-pat_names = list(P)
+def used_pats(songs):
+    names = []
+    for _, _, _, voices in songs:
+        for v in voices:
+            for p in v:
+                if p not in names: names.append(p)
+    return names
+
+for name, tempo, loop, voices in SONGS + STREAM:
+    lens = [sum(steps(P[p]) for p in v) for v in voices]
+    assert len(set(lens)) == 1 or not loop, (name, lens)
+
+# Resident: Titel und Jingles
+pat_names = used_pats(SONGS)
 data, ofs = [], []
 for n in pat_names:
     ofs.append(len(data)); data += compile_pat(P[n])
-for name, tempo, loop, voices in SONGS:
-    lens = [sum(steps(P[p]) for p in v) for v in voices]
-    assert len(set(lens)) == 1 or not loop, (name, lens)
+
+# Strom-Lieder: je ein Block mit eigener Pattern-Tabelle
+#   [0] Tempo [1] Wiederholen [2..7] Folge je Stimme (Abstand zum Blockanfang, 16 Bit)
+#   [8] Anzahl Patterns [9..] Pattern-Abstaende (16 Bit), dann Folgen (je mit 0xFF), dann Patterns
+def song_block(tempo, loop, voices):
+    names = used_pats([(None, None, None, voices)])
+    pats = [compile_pat(P[n]) for n in names]
+    head = 9 + 2 * len(names)
+    orders = [[names.index(p) for p in v] + [0xFF] for v in voices]
+    o_off, pos = [], head
+    for o in orders: o_off.append(pos); pos += len(o)
+    p_off = []
+    for pt in pats: p_off.append(pos); pos += len(pt)
+    b = [tempo, 1 if loop else 0]
+    for x in o_off: b += [x & 0xFF, x >> 8]
+    b.append(len(names))
+    for x in p_off: b += [x & 0xFF, x >> 8]
+    for o in orders: b += o
+    for pt in pats: b += pt
+    assert len(b) == pos
+    return b
+blocks = [song_block(t, l, v) for _, t, l, v in STREAM]
+blob = [len(blocks)]
+pos = 1 + 4 * len(blocks)
+for bl in blocks:
+    blob += [pos & 0xFF, pos >> 8, len(bl) & 0xFF, len(bl) >> 8]; pos += len(bl)
+for bl in blocks: blob += bl
+BUF = max(len(b) for b in blocks)
+BUF_SIZE = 768
+assert BUF <= BUF_SIZE, ("Stueck zu lang fuer den Puffer", BUF)
 
 # Frequenztabelle: Oktave 6 (C6..B6) fuer PAL (985248 Hz), tiefere Oktaven durch Schieben
 base = [round(440 * 2 ** ((72 + i - 57) / 12) * 16777216 / 985248) for i in range(12)]
@@ -194,10 +237,13 @@ with open(os.path.join(src, "music_data.h"), "w", newline="\n") as f:
     f.write("/* Automatisch erzeugt von tools/gen_music.py - nicht von Hand aendern */\n")
     f.write("#ifndef MUSIC_DATA_H\n#define MUSIC_DATA_H\n#include <stdint.h>\n\n")
     f.write("enum { " + ", ".join(s[0] for s in SONGS) + ", MUS_COUNT };\n")
+    f.write("/* Spielmusik aus dem Attic-RAM: Nummern ab MUS_STREAM */\n")
+    f.write("#define MUS_STREAM MUS_COUNT\n#define MUS_N_STREAM %d\n#define MUS_BUF_SIZE %d\n" % (len(STREAM), BUF_SIZE))
     f.write("typedef struct { uint8_t tempo, loop; const uint8_t *order[3]; } song_t;\n")
     f.write("typedef struct { uint8_t wave, ad, sr; uint16_t pw; uint8_t sweep, fx, arg; } instr_t;\n")
     f.write("extern const song_t SONGS[MUS_COUNT];\nextern const instr_t INSTR[];\n")
-    f.write("extern const uint8_t MUS_PAT[];\nextern const uint16_t MUS_OFS[];\nextern const uint16_t NOTE6[12];\n")
+    f.write("extern const uint8_t MUS_PAT[];\nextern const uint8_t MUS_OFS[];   /* je Pattern 16 Bit, tiefes Byte zuerst */\nextern const uint16_t NOTE6[12];\n")
+    f.write("#ifdef PB_BUILDER\nextern const uint8_t MUS_BLOB[];   /* nur Tests: Inhalt von ATTIC_MUSIC */\n#define MUS_BLOB_SIZE %d\n#endif\n" % len(blob))
     f.write("\n#endif\n")
 with open(os.path.join(src, "music_data.c"), "w", newline="\n") as f:
     f.write("/* Automatisch erzeugt von tools/gen_music.py - nicht von Hand aendern */\n")
@@ -211,7 +257,7 @@ with open(os.path.join(src, "music_data.c"), "w", newline="\n") as f:
     for i in range(0, len(data), 16):
         f.write("  " + ", ".join("0x%02X" % b for b in data[i:i + 16]) + ",\n")
     f.write("};\n")
-    f.write("const uint16_t MUS_OFS[] = { " + ", ".join(map(str, ofs)) + " };\n")
+    f.write("const uint8_t MUS_OFS[] = { " + ", ".join("%d, %d" % (o & 0xFF, o >> 8) for o in ofs) + " };\n")
     for name, tempo, loop, voices in SONGS:
         for k, v in enumerate(voices):
             f.write("static const uint8_t %s_%d[] = { %s, 0xFF };\n" % (name, k, ", ".join(str(pat_names.index(p)) for p in v)))
@@ -219,4 +265,10 @@ with open(os.path.join(src, "music_data.c"), "w", newline="\n") as f:
     for name, tempo, loop, voices in SONGS:
         f.write("  { %d, %d, { %s } },\n" % (tempo, 1 if loop else 0, ", ".join("%s_%d" % (name, k) for k in range(3))))
     f.write("};\n")
-print("Patterns: %d Byte, %d Lieder" % (len(data), len(SONGS)))
+    f.write("\n#ifdef PB_BUILDER\nconst uint8_t MUS_BLOB[] = {\n")
+    for i in range(0, len(blob), 16):
+        f.write("  " + ", ".join("0x%02X" % b for b in blob[i:i + 16]) + ",\n")
+    f.write("};\n#endif\n")
+open(os.path.join(src, "music_stream.bin"), "wb").write(bytes(blob))
+print("Patterns im Programm: %d Byte, %d Lieder; Spielmusik: %d Stuecke, %d Byte, laengstes %d Byte"
+      % (len(data), len(SONGS), len(STREAM), len(blob), BUF))
