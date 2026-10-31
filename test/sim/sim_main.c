@@ -10,13 +10,16 @@
 #include "game.h"
 #include "sound.h"
 
+void sim_puts(const char *s);
+void sim_num(const char *pre, long v);
+
 extern unsigned long sim_jobs;
 
 int main(void) {
   tables_init();
-  printf("start\n");
+  sim_puts("start\n");
   table_build_mask();
-  printf("maske ok\n");
+  sim_puts("maske ok\n");
   phys_init();
   render_build();
   render_init();
@@ -41,8 +44,8 @@ int main(void) {
     dmd_render();
     front = back;
     if (frame % 50 == 0)
-      printf("F%u x=%d y=%d cam=%d st=%u jobs=%lu\n", frame, (int)(ball.x >> 16), (int)(ball.y >> 16), cam, state, sim_jobs);
+      sim_num("F", frame); sim_num(" x=", (int)(ball.x >> 16)); sim_num(" y=", (int)(ball.y >> 16)); sim_num(" cam=", cam); sim_num(" st=", state); sim_num(" jobs=", (long)sim_jobs); sim_puts("\n");
   }
-  printf("fertig\n");
+  sim_puts("fertig\n");
   return 0;
 }

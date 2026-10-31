@@ -14,8 +14,18 @@ struct sim_vic VICIV;
 uint8_t sim_rowbuf[2560], sim_colbuf[1344], sim_maskwin[1920], sim_clswin[280];
 unsigned long sim_jobs;
 
+/* v8.2: kleine Ausgabe statt printf (spart rund 3 KB, der Test passte sonst nicht mehr) */
+void sim_puts(const char *s) { while (*s) putchar(*s++); }
+void sim_num(const char *pre, long v) {
+  char b[12]; int n = 0; unsigned long u;
+  sim_puts(pre);
+  if (v < 0) { putchar('-'); u = (unsigned long)-v; } else u = (unsigned long)v;
+  do { b[n++] = (char)('0' + u % 10); u /= 10; } while (u);
+  while (n) putchar(b[--n]);
+}
+
 void sim_fail(const char *what, uint32_t a, uint32_t b) {
-  printf("FEHLER: %s a=%lx b=%lx\n", what, (unsigned long)a, (unsigned long)b);
+  sim_puts("FEHLER: "); sim_puts(what); sim_num(" a=", (long)a); sim_num(" b=", (long)b); sim_puts("\n");
   exit(1);
 }
 
