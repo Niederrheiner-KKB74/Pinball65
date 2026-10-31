@@ -360,6 +360,44 @@ static void band_key(uint8_t *b, int16_t x, int16_t y, const char *l1, const cha
   band_text(b, x + 13 - n1 * 2, y + 4, l1, 1, C_KEY_TEXT);
   band_text(b, x + 13 - n2 * 2, y + 11, l2, 1, C_KEY_TEXT);
 }
+/* v8.6: Widerstand senkrecht: Draht, beiges Gehaeuse, drei Farbringe und Toleranzring */
+static void band_resistor(uint8_t *b, int16_t x, int16_t y, uint8_t c1, uint8_t c2, uint8_t c3) {
+  if (band_y0 > y + 18 || band_y1 < y) return;
+  band_box(b, x + 2, y, x + 2, y + 17, C_PIN, C_PIN);               /* Anschlussdraht */
+  band_box(b, x + 1, y, x + 3, y + 1, C_PAD, C_PAD);                /* Loetaugen */
+  band_box(b, x + 1, y + 16, x + 3, y + 17, C_PAD, C_PAD);
+  band_box(b, x, y + 4, x + 4, y + 13, C_DRV, C_DRV_DK);            /* Gehaeuse */
+  band_box(b, x + 1, y + 4, x + 1, y + 13, C_KEY_TEXT, C_KEY_TEXT); /* Glanz */
+  band_box(b, x, y + 6, x + 4, y + 6, c1, c1);
+  band_box(b, x, y + 8, x + 4, y + 8, c2, c2);
+  band_box(b, x, y + 10, x + 4, y + 10, c3, c3);
+  band_box(b, x, y + 12, x + 4, y + 12, C_GOLD, C_GOLD);
+}
+/* v8.6: Elko: blauer Becher mit hellem Streifen und Deckel */
+static void band_cap(uint8_t *b, int16_t x, int16_t y) {
+  if (band_y0 > y + 14 || band_y1 < y) return;
+  band_box(b, x, y, x + 7, y + 11, C_RB0 + 4, C_RB_EDGE);
+  band_box(b, x + 1, y + 1, x + 6, y + 2, C_CHIP_TEXT, C_CHIP_TEXT); /* Deckel */
+  band_box(b, x + 5, y + 3, x + 5, y + 10, C_SCR_EDGE, C_SCR_EDGE);  /* Minus-Streifen */
+  band_box(b, x + 2, y + 12, x + 2, y + 13, C_PIN, C_PIN);
+  band_box(b, x + 5, y + 12, x + 5, y + 13, C_PIN, C_PIN);
+}
+/* v8.6: Ecken links (x 12-34, y 302-376, oberhalb des Regenbogens) und rechts
+ * (x 266-288, y 338-426): kleine Platine mit Leiterbahnen, Widerstaenden, Elko */
+static void band_parts(uint8_t *b, uint8_t right) {
+  int16_t x0 = right ? 267 : 13, y0 = right ? 340 : 304, y1 = right ? 424 : 374;
+  if (band_y0 > y1 || band_y1 < y0) return;
+  if (!right) band_box(b, x0, y0, x0 + 20, y1, C_PCB, C_PCB_DK);   /* links: eigene Platine auf Violett */
+  band_box(b, x0 + 17, y0 + 4, x0 + 17, y1 - 4, C_COPPER, C_COPPER);   /* Leiterbahnen */
+  band_box(b, x0 + 9, y0 + 4, x0 + 17, y0 + 4, C_COPPER, C_COPPER);
+  band_box(b, x0 + 9, y1 - 4, x0 + 17, y1 - 4, C_COPPER, C_COPPER);
+  band_resistor(b, x0 + 3, y0 + 3, C_RB0 + 0, C_RB0 + 0, C_RB0 + 1);   /* rot rot orange */
+  band_resistor(b, x0 + 10, y0 + 22, C_RB0 + 2, C_RB0 + 4, C_RB0 + 0); /* gelb blau rot */
+  if (right) {
+    band_resistor(b, x0 + 3, y0 + 44, C_WOOD0, C_CHIP, C_RB0 + 0);     /* braun schwarz rot */
+    band_cap(b, x0 + 8, y0 + 66);
+  } else band_cap(b, x0 + 3, y0 + 50);
+}
 /* Motive: Einschalttext, Chips neben den Targets, Laufwerk 1541, Tasten */
 static void band_art(uint8_t *b) {
   if (band_y0 < 122 && band_y1 > 108) band_text5(b, 73, 109, "**** PINBALL 65 BASIC V2 ****", C_SCR_TEXT);
@@ -394,6 +432,9 @@ static void band_art(uint8_t *b) {
       }
     band_box(b, KICK_X + 18, KICK_Y - 3, KICK_X + 21, KICK_Y + 0, C_KEY, C_KEY); /* Indexloch */
   }
+  /* v8.6: Bauteile in den abgeschlossenen Ecken am Rand (dort rollt keine Kugel) */
+  band_parts(b, 0);
+  band_parts(b, 1);
   band_key(b, 12, 526, "RUN", "STOP");
   band_key(b, 263, 526, "CLR", "HOME");
 }
@@ -465,11 +506,28 @@ static uint8_t on_rubber(const int16_t *t, int16_t x, int16_t y) {
   return cr >= -170 && cr <= 170;
 }
 
+/* v8.6: Slingshot-Koerper als kleine Platine (u, v: Abstand von der senkrechten
+ * Kante und von oben; rechts gespiegelt): Leiterbahnen, Loetaugen, ein SMD-Bauteil */
+static uint8_t sling_pcb(int16_t u, int16_t v) {
+  if ((u >= 1 && u <= 3 && v >= 13 && v <= 15) || (u >= 17 && u <= 19 && v >= 33 && v <= 35) ||
+      (u >= 3 && u <= 5 && v >= 19 && v <= 21) || (u >= 19 && u <= 21 && v >= 43 && v <= 45)) return C_PAD;
+  if (v >= 49 && v <= 51 && u >= 6 && u <= 13) return (u == 6 || u == 13) ? C_PIN : C_CHIP;
+  if ((v == 14 && u <= 10) || (u == 10 && v >= 14 && v <= 34) || (v == 34 && u >= 10 && u <= 18) ||
+      (u == 4 && v >= 20 && v <= 44) || (v == 44 && u >= 4 && u <= 20) ||
+      (u == 9 && v >= 44 && v <= 50)) return C_COPPER;
+  return ((u + v) & 3) == 0 && (v & 1) ? C_PCB : C_PCB_DK;   /* dunklere Platine als die Spielflaeche */
+}
+
 static uint8_t art_px(int16_t x, int16_t y) {
   if (mask_solid(x, y)) {
     if (y >= 486 && y <= 556) {
       if (x <= 96 && on_rubber(SLING_TRI[0], x, y)) return C_SLING0;
       if (x >= 204 && on_rubber(SLING_TRI[1], x, y)) return C_SLING0 + 1;
+      /* v8.6: Inneres der Slingshots als Platine, Rand bleibt Chrom */
+      if (mask_solid(x - 1, y) && mask_solid(x + 1, y) && mask_solid(x, y - 1) && mask_solid(x, y + 1)) {
+        if (x <= 96 && in_tri(SLING_TRI[0], x, y)) return sling_pcb(x - 64, y - 490);
+        if (x >= 204 && in_tri(SLING_TRI[1], x, y)) return sling_pcb(236 - x, y - 490);
+      }
     }
     uint8_t k = mask_class(x, y);
     if (k >= M_TARGET) {                 /* v7.1: dunkle Fuge an den Enden jedes Targets */
