@@ -350,21 +350,21 @@ static void band_art(uint8_t *b) {
   }
   band_chip(b, 40, 422, 20, "VIC-II", "6569R3", 1);   /* v8.1: echte Teilenummern */
   band_chip(b, 223, 422, 14, "SID", "6581", 0);
-  band_chip(b, 207, 241, 20, "6510", "CPU", 0);        /* v8.3: weiter von der Rampe weg */
+  band_chip(b, 221, 241, 20, "6510", "CPU", 0);
   band_chip(b, 70, 176, 14, "PLA", "906114", 0);
   if (band_y0 <= 298 && band_y1 > 232) {        /* v7.2: 5,25-Zoll-Diskette um das Kick-Out-Hole */
-    /* v8.3: kleiner und ruhiger (44 x 46 statt 60 x 64), Huelle dunkelblau statt schwarz */
-    const int16_t X0 = KICK_X - 22, Y0 = KICK_Y - 25, X1 = KICK_X + 22, Y1 = KICK_Y + 20;
-    band_box(b, X0, Y0, X1, Y1, C_GRAD0 + 15, C_GRAD0);             /* Huelle */
-    band_box(b, X1 - 1, Y0 + 6, X1, Y0 + 11, C_GRAD0 + 15, C_GRAD0 + 15); /* Schreibschutzkerbe */
-    band_box(b, X0 + 9, Y0 + 2, X1 - 9, Y0 + 9, C_KEY_TEXT, C_KEY_TEXT); /* Etikett */
-    band_text(b, KICK_X - 7, Y0 + 3, "1541", 1, C_DRV_TEXT);
-    for (int16_t y = KICK_Y - 13; y <= KICK_Y + 13; y++)              /* Ring der Scheibe */
-      for (int16_t x = KICK_X - 13; x <= KICK_X + 13; x++) {
+    const int16_t X0 = KICK_X - 30, Y0 = KICK_Y - 34, X1 = KICK_X + 30, Y1 = KICK_Y + 30;
+    band_box(b, X0, Y0, X1, Y1, C_CHIP, C_CHIP_EDGE);                 /* schwarze Huelle */
+    band_box(b, X1 - 2, Y0 + 8, X1, Y0 + 15, C_GRAD0 + 4, C_GRAD0 + 4); /* Schreibschutzkerbe */
+    band_box(b, X0 + 8, Y0 + 3, X1 - 8, Y0 + 14, C_KEY_TEXT, C_DRV_DK); /* Etikett */
+    band_text5(b, KICK_X - 11, Y0 + 5, "1541", C_DRV_TEXT);
+    for (int16_t y = KICK_Y - 15; y <= KICK_Y + 15; y++)              /* Mittelloch: Ring der Scheibe */
+      for (int16_t x = KICK_X - 15; x <= KICK_X + 15; x++) {
         int16_t dx = x - KICK_X, dy = y - KICK_Y, d = dx * dx + dy * dy;
-        if (d <= 169 && d >= 132) band_put_bg(b, x, y, C_GRAD0 + 4);
+        if (d <= 225 && d >= 144) band_put_bg(b, x, y, C_KEY);
       }
-    band_box(b, KICK_X - 3, KICK_Y + 14, KICK_X + 3, Y1 - 2, C_GRAD0 + 4, C_GRAD0 + 4);   /* Schlitz fuer den Lesekopf */
+    band_box(b, KICK_X - 4, KICK_Y + 16, KICK_X + 4, Y1 - 3, C_KEY, C_DRV_DK);   /* Schlitz fuer den Lesekopf */
+    band_box(b, KICK_X + 18, KICK_Y - 3, KICK_X + 21, KICK_Y + 0, C_KEY, C_KEY); /* Indexloch */
   }
   band_key(b, 12, 526, "RUN", "STOP");
   band_key(b, 263, 526, "CLR", "HOME");
@@ -531,7 +531,7 @@ static void band_disc(uint8_t *buf, int16_t cx, int16_t cy, int16_t r, uint8_t c
 /* v6.8: Pfeil-Einsatz (Dreieck mit dunklem Rand), Spitze in Richtung ang (256er-Winkel) */
 static const int16_t ARROWS[N_ARROWS][3] = {
   {128, 386, 192}, {179, 330, 192}, {72, 338, 171}, {277, 232, 192},
-  {214, 274, 212}, {94, 432, 160}, {206, 432, 224}, {82, 146, 128},
+  {204, 258, 212}, {94, 432, 160}, {206, 432, 224}, {82, 146, 128},
 };
 static uint8_t in_arrow(int16_t u, int16_t v, int16_t tip, int16_t base, int16_t half) {
   if (v < 0) v = -v;
@@ -702,7 +702,7 @@ static void ramp_stamp(uint8_t *buf, uint8_t shadow) {
   if (band_y1 <= RAMP_Y_MIN || band_y0 > RAMP_Y_MAX + 4) return;
   for (uint8_t pass = shadow ? 0 : 1; pass < 2; pass++) {
   uint8_t seg = 0, k = 0;
-  for (fix16 s = 0; s <= RAMP_LEN; s += 32768L, k = (uint8_t)(k == 63 ? 0 : k + 1)) {
+  for (fix16 s = 0; s <= RAMP_LEN; s += 32768L, k = (uint8_t)(k == 39 ? 0 : k + 1)) {
     while (seg + 1 < RAMP_NSEG && s >= RAMP_SEGS[seg + 1].s0) seg++;
     const ramp_seg_t *g = &RAMP_SEGS[seg];
     fix16 d = s - g->s0;
@@ -714,11 +714,11 @@ static void ramp_stamp(uint8_t *buf, uint8_t shadow) {
       fix16 o = (fix16)o2 << 15;
       int16_t xx = (int16_t)((x - fmul(RS_U(g->uy), o)) >> 16), yy = (int16_t)((y + fmul(RS_U(g->ux), o)) >> 16);
       uint8_t ao = (uint8_t)(o2 < 0 ? -o2 : o2);
-      uint8_t rail = ao == 10 || ao == 9 || ao == 4;      /* v8.3: schlanker, aussen +-5, innen +-2 */
-      uint8_t brace = k < 2 && ao <= 9;
+      uint8_t rail = ao >= 13 || ao == 6 || ao == 5;
+      uint8_t brace = k < 2 && ao <= 13;
       if (!rail && !brace) continue;
       if (pass == 0) { ramp_px(buf, xx + 2, yy + 3, C_SHADOW, 1); continue; }
-      if (rail) ramp_px(buf, xx, yy, (ao == 10 || ao == 4) ? C_RAMP_RAIL : C_RAMP_RAIL_DK, 0);
+      if (rail) ramp_px(buf, xx, yy, (ao == 14 || ao == 6) ? C_RAMP_RAIL : C_RAMP_RAIL_DK, 0);
       else ramp_px(buf, xx, yy, C_RAMP_RAIL_DK, 1);
     }
   }
