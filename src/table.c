@@ -687,27 +687,40 @@ static void band_overlays(uint8_t *b) {
  * (ATTIC_OVL), damit der Ball unter der Bruecke verschwindet. */
 #define RAMP_Y_MIN 70
 #define RAMP_Y_MAX 360
-static void ramp_stamp(uint8_t *buf) {
-  if (band_y1 <= RAMP_Y_MIN || band_y0 > RAMP_Y_MAX) return;
-  uint8_t seg = 0;
-  for (fix16 s = 0; s <= RAMP_LEN; s += 32768L) {
+/* v8.2: Drahtrampe wie beim echten Flipper: vier Metallschienen (zwei obere aussen
+ * bei +-7 Pixel, zwei untere, auf denen die Kugel laeuft, bei +-3), alle 20 Pixel
+ * eine Querstrebe, dazwischen durchsichtig. Im Hintergrundbild (shadow = 1) werfen
+ * die Schienen zusaetzlich einen Schatten auf die Spielflaeche. */
+static void ramp_px(uint8_t *buf, int16_t xx, int16_t yy, uint8_t col, uint8_t weak) {
+  if (yy < band_y0 || yy >= band_y1 || xx < 0 || xx >= TW) return;
+  uint8_t *p = &buf[((uint16_t)(xx >> 3) << 6) + ((yy - band_y0) << 3) + (xx & 7)];
+  if (weak && (*p == C_RAMP_RAIL || *p == C_RAMP_RAIL_DK)) return;   /* Schienen bleiben vorn */
+  *p = col;
+}
+static void ramp_stamp(uint8_t *buf, uint8_t shadow) {
+  if (band_y1 <= RAMP_Y_MIN || band_y0 > RAMP_Y_MAX + 4) return;
+  for (uint8_t pass = shadow ? 0 : 1; pass < 2; pass++) {
+  uint8_t seg = 0, k = 0;
+  for (fix16 s = 0; s <= RAMP_LEN; s += 32768L, k = (uint8_t)(k == 39 ? 0 : k + 1)) {
     while (seg + 1 < RAMP_NSEG && s >= RAMP_SEGS[seg + 1].s0) seg++;
     const ramp_seg_t *g = &RAMP_SEGS[seg];
     fix16 d = s - g->s0;
     fix16 y = RS_P(g->y0) + fmul(RS_U(g->uy), d);
     int16_t yi = (int16_t)(y >> 16);
-    if (yi < band_y0 - 8 || yi > band_y1 + 8) continue;
+    if (yi < band_y0 - 12 || yi > band_y1 + 8) continue;
     fix16 x = RS_P(g->x0) + fmul(RS_U(g->ux), d);
     for (int8_t o2 = -14; o2 <= 14; o2++) {
       fix16 o = (fix16)o2 << 15;
       int16_t xx = (int16_t)((x - fmul(RS_U(g->uy), o)) >> 16), yy = (int16_t)((y + fmul(RS_U(g->ux), o)) >> 16);
-      if (yy < band_y0 || yy >= band_y1 || xx < 0 || xx >= TW) continue;
-      uint8_t *p = &buf[((uint16_t)(xx >> 3) << 6) + ((yy - band_y0) << 3) + (xx & 7)];
       uint8_t ao = (uint8_t)(o2 < 0 ? -o2 : o2);
-      if (ao >= 12) *p = C_RAMP_RAIL;
-      else if (ao >= 11) { if (*p != C_RAMP_RAIL) *p = C_RAMP_RAIL_DK; }
-      else if (((xx ^ yy) & 1) && *p != C_RAMP_RAIL && *p != C_RAMP_RAIL_DK) *p = C_RAMP_FLOOR;
+      uint8_t rail = ao >= 13 || ao == 6 || ao == 5;
+      uint8_t brace = k < 2 && ao <= 13;
+      if (!rail && !brace) continue;
+      if (pass == 0) { ramp_px(buf, xx + 2, yy + 3, C_SHADOW, 1); continue; }
+      if (rail) ramp_px(buf, xx, yy, (ao == 14 || ao == 6) ? C_RAMP_RAIL : C_RAMP_RAIL_DK, 0);
+      else ramp_px(buf, xx, yy, C_RAMP_RAIL_DK, 1);
     }
+  }
   }
 }
 
@@ -718,7 +731,7 @@ void table_build_overlay(void) {
   for (band_y0 = RAMP_Y_MIN & ~7; band_y0 <= RAMP_Y_MAX; band_y0 += 8) {
     band_y1 = band_y0 + 8;
     for (uint16_t i = 0; i < ROW_BYTES; i++) b[i] = 0;
-    ramp_stamp(b);
+    ramp_stamp(b, 0);
     uint32_t dst = ATTIC_OVL + (uint32_t)(uint16_t)band_y0 * 8;
     for (uint8_t c = 0; c < 40; c++, dst += STRIP_BYTES)
       dma_copy(CPUADDR(b + (uint16_t)c * 64), dst, 64);
@@ -737,7 +750,7 @@ void table_build_art(void) {
         b[((uint16_t)(x >> 3) << 6) + (py << 3) + (x & 7)] = art_px(x, y);
     }
     band_overlays(b);
-    ramp_stamp(b);
+    ramp_stamp(b, 1);
     /* Jede Zeichenspalte in ihren Streifen im Attic-RAM */
     uint32_t dst = ATTIC_BG + (uint32_t)(uint16_t)band_y0 * 8;
     for (uint8_t c = 0; c < 40; c++, dst += STRIP_BYTES)
